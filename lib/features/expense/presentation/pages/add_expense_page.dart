@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 
 class AddExpensePage extends StatefulWidget {
@@ -21,6 +23,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _noteController;
   String? _selectedCategoryId;
   late DateTime _selectedDate;
+  CategoryType _selectedType = CategoryType.expense;
 
   @override
   void initState() {
@@ -33,6 +36,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
     _selectedCategoryId = widget.expenseToEdit?.categoryId;
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
+    _selectedType = widget.expenseToEdit?.type ?? CategoryType.expense;
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -63,6 +67,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       categoryId: _selectedCategoryId!,
       date: _selectedDate,
       note: _noteController.text,
+      type: _selectedType,
     );
 
     final provider = context.read<ExpenseProvider>();
@@ -78,6 +83,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   @override
   Widget build(BuildContext context) {
     final categories = context.watch<ExpenseProvider>().categories;
+    final filteredCategories = categories.where((Category c) => c.type == _selectedType).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -90,11 +96,27 @@ class _AddExpensePageState extends State<AddExpensePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Type Selector
+              SegmentedButton<CategoryType>(
+                segments: const [
+                  ButtonSegment(value: CategoryType.expense, label: Text('Expense'), icon: Icon(Icons.remove_circle_outline)),
+                  ButtonSegment(value: CategoryType.income, label: Text('Income'), icon: Icon(Icons.add_circle_outline)),
+                ],
+                selected: {_selectedType},
+                onSelectionChanged: (newSelection) {
+                  setState(() {
+                    _selectedType = newSelection.first;
+                    _selectedCategoryId = null; // Reset category when type changes
+                  });
+                },
+              ),
+              const SizedBox(height: 24),
               TextFormField(
                 controller: _amountController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Amount',
-                  prefixIcon: Icon(Icons.attach_money),
+                  prefixIcon: const Icon(Icons.monetization_on_outlined),
+                  prefixText: '${context.watch<SettingsProvider>().currentSymbol} ',
                 ),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: (value) {
@@ -110,10 +132,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   labelText: 'Category',
                   prefixIcon: Icon(Icons.category),
                 ),
-                items: categories.map((c) {
-                  return DropdownMenuItem(
+                items: filteredCategories.map<DropdownMenuItem<String>>((Category c) {
+                  final isSub = c.parentId != null;
+                  return DropdownMenuItem<String>(
                     value: c.id,
-                    child: Text(c.name),
+                    child: Row(
+                      children: [
+                        if (isSub) const SizedBox(width: 20),
+                        Icon(IconUtils.getIcon(c.icon), size: 18, color: _selectedType == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor),
+                        const SizedBox(width: 12),
+                        Text(c.name, style: TextStyle(fontSize: isSub ? 14 : 16)),
+                      ],
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -129,8 +159,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 trailing: const Icon(Icons.edit),
                 onTap: () => _selectDate(context),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? Colors.transparent),
                 ),
               ),
               const SizedBox(height: 20),
@@ -145,9 +175,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _saveExpense,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
                 child: Text(widget.expenseToEdit != null ? 'Update Expense' : 'Save Expense'),
               ),
             ],

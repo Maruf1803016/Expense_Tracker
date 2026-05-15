@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/currency_formatter.dart';
 import '../providers/expense_provider.dart';
 
 class IncomeExpenseBarChart extends StatelessWidget {
@@ -10,16 +11,16 @@ class IncomeExpenseBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
-    final groups = provider.incomeExpenseBarGroups;
+    final groups = provider.categoryBarGroups;
 
-    if (provider.summary.totalIncome == 0 && provider.summary.totalExpense == 0) {
+    if (groups.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Column(
       children: [
         SizedBox(
-          height: 200,
+          height: 250,
           child: BarChart(
             BarChartData(
               barGroups: groups,
@@ -30,19 +31,51 @@ class IncomeExpenseBarChart extends StatelessWidget {
                   sideTitles: SideTitles(
                     showTitles: true,
                     getTitlesWidget: (value, meta) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 8.0),
-                        child: Text('Summary', style: TextStyle(fontSize: 10)),
+                      final name = provider.getCategoryNameAt(value.toInt());
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Transform.rotate(
+                          angle: -0.5,
+                          child: Text(
+                            name,
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    },
+                    reservedSize: 40,
+                  ),
+                ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 40,
+                    getTitlesWidget: (value, meta) {
+                      return Text(
+                        CurrencyFormatter.formatCompact(value),
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
                       );
                     },
                   ),
                 ),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               borderData: FlBorderData(show: false),
-              barTouchData: BarTouchData(enabled: true),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (group) => AppTheme.secondaryBackground,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final category = provider.getCategoryNameAt(groupIndex);
+                    return BarTooltipItem(
+                      '$category\n${CurrencyFormatter.format(rod.toY)}',
+                      const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    );
+                  },
+                ),
+              ),
             ),
             swapAnimationDuration: const Duration(milliseconds: 800),
             swapAnimationCurve: Curves.fastOutSlowIn,

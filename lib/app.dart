@@ -8,8 +8,10 @@ import 'package:expense_tracker/features/analytics/presentation/providers/financ
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/shared/presentation/pages/home_page.dart';
 import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.dart';
+import 'package:expense_tracker/core/utils/messenger_utils.dart';
 
 /// Root widget of the application.
 class App extends StatelessWidget {
@@ -17,10 +19,13 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SettingsProvider>(); // Rebuild app on settings change
+    
     return MaterialApp(
       title: 'Expense Tracker',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       home: const AuthWrapper(),
     );
   }
@@ -71,6 +76,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // Initialize data for the new user context
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<ExpenseProvider>().init();
+        context.read<SettingsProvider>().loadSettings();
       });
     }
 

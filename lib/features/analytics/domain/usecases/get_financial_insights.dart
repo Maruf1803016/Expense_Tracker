@@ -17,14 +17,21 @@ class GetFinancialInsightsUseCase {
   });
 
   Stream<FinancialInsights> call(int month, int year) {
-    final prevDate = DateTime(year, month - 1);
+    final currentMonthDate = DateTime(year, month);
+    
+    // Generate streams for last 6 months to calculate trend
+    final streams = List.generate(6, (i) {
+      final date = DateTime(year, month - i);
+      return getSummary(date.month, date.year);
+    });
 
-    return Rx.combineLatest3(
-      getSummary(month, year),
-      getSummary(prevDate.month, prevDate.year),
+    return Rx.combineLatest2(
+      Rx.combineLatest(streams, (summaries) => summaries),
       getBudgetStatus(month, year),
-      (current, prev, budgets) {
-        // Apply Insights Policy weights to orchestrated data
+      (summaries, budgets) {
+        final current = summaries[0];
+        final prev = summaries[1];
+        
         final totalBudgeted = budgets.length;
         final successful = budgets.where((b) => !b.isExceeded).length;
         
@@ -40,6 +47,9 @@ class GetFinancialInsightsUseCase {
 
         final healthScore = (adherencePoints + savingsPoints + stabilityPoints).round();
 
+        // Reverse summaries to get chronological order for the trend chart
+        final expenseTrend = summaries.map((s) => s.totalExpense).toList().reversed.toList();
+
         return FinancialInsights(
           healthScore: healthScore.clamp(0, 100),
           savingsRatio: savingsRatio,
@@ -50,6 +60,7 @@ class GetFinancialInsightsUseCase {
           trendComparison: analysisService.trendCalculator.calculatePercentageChange(current.totalExpense, prev.totalExpense),
           topSpendingCategory: budgets.isNotEmpty ? budgets.reduce((a, b) => a.spent > b.spent ? a : b).categoryName : 'None',
           topSpendingCategoryPercentage: (current.totalExpense > 0 && budgets.isNotEmpty) ? (budgets.reduce((a, b) => a.spent > b.spent ? a : b).spent / current.totalExpense) : 0.0,
+          expenseTrend: expenseTrend,
         );
       },
     );

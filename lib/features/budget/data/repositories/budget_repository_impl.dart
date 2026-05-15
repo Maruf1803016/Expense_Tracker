@@ -26,4 +26,20 @@ class BudgetRepositoryImpl implements BudgetRepository {
       throw const ServerFailure('An unexpected error occurred while setting budget.');
     }
   }
+
+  @override
+  Stream<double> getGlobalMonthlyBudgetStream() {
+    return remoteDataSource.getGlobalMonthlyBudget();
+  }
+
+  @override
+  Future<void> setGlobalMonthlyBudget(double amount) async {
+    try {
+      await remoteDataSource.setGlobalMonthlyBudget(amount);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while setting global budget.');
+    }
+  }
 }

@@ -6,6 +6,7 @@ import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/shared/presentation/widgets/loading_skeleton.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
+import 'package:expense_tracker/features/analytics/presentation/widgets/trend_line_chart.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/alerts/domain/entities/smart_alert.dart';
 
@@ -52,7 +53,7 @@ class _InsightsPageState extends State<InsightsPage> {
     if (insights == null) {
       return const EmptyState(
         title: 'No Analysis Available',
-        message: 'Add more expenses to generate personalized financial insights.',
+        message: 'Add expenses to see insights.',
         icon: Icons.psychology_outlined,
       );
     }
@@ -64,10 +65,21 @@ class _InsightsPageState extends State<InsightsPage> {
         children: [
           _buildHealthScoreCard(insights.healthScore),
           const SizedBox(height: 24),
+          _buildSectionHeader('Spending Trend'),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: TrendLineChart(trendData: insights.expenseTrend),
+            ),
+          ),
+          const SizedBox(height: 24),
           _buildTrendSection(insights.trendComparison),
           const SizedBox(height: 24),
+          _buildSectionHeader('Budget & Efficiency'),
+          const SizedBox(height: 12),
           _buildBudgetPerformance(insights.successfulBudgets, insights.totalBudgetedCategories),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           _buildTopCategory(insights.topSpendingCategory, insights.topSpendingCategoryPercentage),
           const SizedBox(height: 32),
           if (alerts.isNotEmpty) ...[
@@ -80,6 +92,13 @@ class _InsightsPageState extends State<InsightsPage> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
     );
   }
 

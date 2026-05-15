@@ -12,6 +12,9 @@ abstract class CategoryRepository {
   /// Deletes a category by its ID.
   Future<void> deleteCategory(String id);
 
+  /// Updates an existing category.
+  Future<void> updateCategory(Category category);
+
   /// Checks if the collection is empty.
   Future<bool> isCollectionEmpty();
 

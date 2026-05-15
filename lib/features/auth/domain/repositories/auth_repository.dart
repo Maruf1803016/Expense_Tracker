@@ -16,4 +16,10 @@ abstract class AuthRepository {
 
   /// Gets the current user ID, if any.
   String? getCurrentUserId();
+
+  /// Updates the user's profile info (display name, photo url).
+  Future<void> updateProfile({String? displayName, String? photoUrl});
+
+  /// Changes the user's password.
+  Future<void> changePassword(String currentPassword, String newPassword);
 }

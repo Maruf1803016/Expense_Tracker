@@ -13,7 +13,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Stream<User?> get userStateStream {
     return remoteDataSource.userStream.map((fbUser) {
       if (fbUser == null) return null;
-      return User(id: fbUser.uid, email: fbUser.email ?? '');
+      return User(
+        id: fbUser.uid,
+        email: fbUser.email ?? '',
+        displayName: fbUser.displayName,
+        photoUrl: fbUser.photoURL,
+      );
     });
   }
 
@@ -26,7 +31,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<User> signUp(String email, String password) async {
     try {
       final fbUser = await remoteDataSource.signUp(email, password);
-      return User(id: fbUser.uid, email: fbUser.email ?? '');
+      return User(
+        id: fbUser.uid,
+        email: fbUser.email ?? '',
+        displayName: fbUser.displayName,
+        photoUrl: fbUser.photoURL,
+      );
     } on ServerException catch (e) {
       throw ServerFailure(e.message);
     }
@@ -36,7 +46,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<User> signIn(String email, String password) async {
     try {
       final fbUser = await remoteDataSource.signIn(email, password);
-      return User(id: fbUser.uid, email: fbUser.email ?? '');
+      return User(
+        id: fbUser.uid,
+        email: fbUser.email ?? '',
+        displayName: fbUser.displayName,
+        photoUrl: fbUser.photoURL,
+      );
     } on ServerException catch (e) {
       throw ServerFailure(e.message);
     }
@@ -46,6 +61,24 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> signOut() async {
     try {
       await remoteDataSource.signOut();
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> updateProfile({String? displayName, String? photoUrl}) async {
+    try {
+      await remoteDataSource.updateProfile(displayName: displayName, photoUrl: photoUrl);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    }
+  }
+
+  @override
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      await remoteDataSource.changePassword(currentPassword, newPassword);
     } on ServerException catch (e) {
       throw ServerFailure(e.message);
     }

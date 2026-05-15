@@ -9,6 +9,7 @@ abstract class CategoryRemoteDataSource {
   Future<void> deleteCategory(String id);
   Future<bool> isCollectionEmpty();
   Future<void> seedCategories(List<CategoryModel> categories);
+  Future<void> updateCategory(CategoryModel category);
 }
 
 class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
@@ -68,12 +69,22 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
     try {
       final batch = firestore.batch();
       for (var category in categories) {
-        final docRef = _categoryCollection.doc();
+        final docRef = category.id.isNotEmpty 
+            ? _categoryCollection.doc(category.id)
+            : _categoryCollection.doc();
         batch.set(docRef, category.toMap());
       }
       await batch.commit();
     } catch (e) {
       throw ServerException('Failed to seed categories: $e');
+    }
+  }
+  @override
+  Future<void> updateCategory(CategoryModel category) async {
+    try {
+      await _categoryCollection.doc(category.id).update(category.toMap());
+    } catch (e) {
+      throw ServerException('Failed to update category: $e');
     }
   }
 }

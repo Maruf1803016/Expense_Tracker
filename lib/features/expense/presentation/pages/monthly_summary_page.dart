@@ -11,6 +11,7 @@ import 'package:expense_tracker/features/export/presentation/providers/export_pr
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/income_expense_bar_chart.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
@@ -107,6 +108,96 @@ class MonthlySummaryPage extends StatelessWidget {
     );
   }
 
+  Widget _buildTotalBudgetOverview(BuildContext context, ExpenseProvider provider) {
+    // Priority: Global monthly budget, then sum of category budgets
+    final double totalBudget = provider.monthlyBudget > 0 
+        ? provider.monthlyBudget 
+        : provider.budgetStatuses.fold(0.0, (sum, item) => sum + item.limit);
+    
+    final double totalSpent = provider.summary.totalExpense;
+    final double progress = totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0) : 0.0;
+    final bool isOver = totalBudget > 0 && totalSpent > totalBudget;
+
+    return Card(
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            colors: isOver 
+                ? [AppTheme.expenseColor.withOpacity(0.1), AppTheme.expenseColor.withOpacity(0.05)]
+                : [AppTheme.incomeColor.withOpacity(0.1), AppTheme.incomeColor.withOpacity(0.05)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Total Monthly Budget', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      CurrencyFormatter.format(totalBudget),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${(progress * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 12,
+                backgroundColor: Colors.white.withOpacity(0.1),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Spent: ${CurrencyFormatter.format(totalSpent)}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  isOver 
+                      ? 'Over by ${CurrencyFormatter.format(totalSpent - totalBudget)}'
+                      : 'Remaining: ${CurrencyFormatter.format(totalBudget - totalSpent)}',
+                  style: TextStyle(
+                    fontSize: 13, 
+                    fontWeight: FontWeight.bold,
+                    color: isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
@@ -151,11 +242,15 @@ class MonthlySummaryPage extends StatelessWidget {
             ),
           ] else if (summary.totalIncome == 0 && summary.totalExpense == 0) ...[
             const EmptyState(
-              title: 'No Data for this Month',
+              title: 'No data for this month',
               message: 'Try switching months or add your first transaction to see the breakdown.',
               icon: Icons.analytics_outlined,
             ),
           ] else ...[
+            // Total Budget Overview
+            _buildTotalBudgetOverview(context, provider),
+            const SizedBox(height: 32),
+
             // Charts Section
             _buildSectionHeader(context, 'Spending Insights'),
             const SizedBox(height: 16),
@@ -243,7 +338,7 @@ class MonthlySummaryPage extends StatelessWidget {
                 final category = provider.getCategoryById(entry.key);
                 return _buildBreakdownItem(
                   context,
-                  category?.name ?? 'Unknown',
+                  category.name,
                   entry.value,
                   summary.totalIncome + summary.totalExpense,
                 );
@@ -429,9 +524,9 @@ class MonthlySummaryPage extends StatelessWidget {
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Monthly Limit',
-            prefixText: '\$ ',
+            prefixText: '${context.read<SettingsProvider>().currentSymbol} ',
           ),
           autofocus: true,
         ),

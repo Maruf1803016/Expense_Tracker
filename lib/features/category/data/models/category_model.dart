@@ -5,6 +5,8 @@ class CategoryModel extends Category {
     required super.id,
     required super.name,
     required super.type,
+    super.icon,
+    super.parentId,
   });
 
   factory CategoryModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -12,6 +14,8 @@ class CategoryModel extends Category {
       id: documentId,
       name: map['name'] ?? '',
       type: map['type'] == 'income' ? CategoryType.income : CategoryType.expense,
+      icon: map['icon'],
+      parentId: map['parentId'],
     );
   }
 
@@ -19,6 +23,8 @@ class CategoryModel extends Category {
     return {
       'name': name,
       'type': type == CategoryType.income ? 'income' : 'expense',
+      'icon': icon,
+      'parentId': parentId,
     };
   }
 
@@ -27,6 +33,8 @@ class CategoryModel extends Category {
       id: category.id,
       name: category.name,
       type: category.type,
+      icon: category.icon,
+      parentId: category.parentId,
     );
   }
 }

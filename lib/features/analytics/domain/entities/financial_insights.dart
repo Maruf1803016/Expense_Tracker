@@ -29,6 +29,9 @@ class FinancialInsights extends Equatable {
   /// Percentage of total spending attributed to the top spending category
   final double topSpendingCategoryPercentage;
 
+  /// Monthly expense totals for the last 6 months (including current)
+  final List<double> expenseTrend;
+
   const FinancialInsights({
     required this.healthScore,
     required this.savingsRatio,
@@ -39,6 +42,7 @@ class FinancialInsights extends Equatable {
     required this.trendComparison,
     required this.topSpendingCategory,
     required this.topSpendingCategoryPercentage,
+    required this.expenseTrend,
   });
 
   @override
@@ -52,5 +56,6 @@ class FinancialInsights extends Equatable {
         trendComparison,
         topSpendingCategory,
         topSpendingCategoryPercentage,
+        expenseTrend,
       ];
 }
