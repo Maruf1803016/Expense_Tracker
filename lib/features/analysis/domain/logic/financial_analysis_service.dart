@@ -29,9 +29,9 @@ class FinancialAnalysisService {
     int month,
     int year,
   ) {
-    // Determine a simple cache key based on params and data length to detect changes
-    // In a production app, we might use a proper hash or timestamp
-    final cacheKey = '${month}_${year}_${expenses.length}_${categories.length}';
+    // Determine a cache key based on params and data signature to detect any change
+    final dataSignature = expenses.fold<double>(0.0, (sum, e) => sum + e.amount + e.date.millisecondsSinceEpoch);
+    final cacheKey = '${month}_${year}_${expenses.length}_$dataSignature';
     
     if (_snapshotCache.containsKey(cacheKey)) {
       return _snapshotCache[cacheKey]!;

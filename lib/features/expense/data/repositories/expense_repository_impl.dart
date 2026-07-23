@@ -16,6 +16,11 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   @override
+  Stream<List<Expense>> getRecycleBinExpensesStream() {
+    return remoteDataSource.getRecycleBinExpenses();
+  }
+
+  @override
   Future<void> addExpense(Expense expense) async {
     try {
       final model = ExpenseModel.fromEntity(expense);
@@ -46,7 +51,40 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     } on ServerException catch (e) {
       throw ServerFailure(e.message);
     } catch (e) {
-      throw const ServerFailure('An unexpected error occurred while deleting expense.');
+      throw const ServerFailure('An unexpected error occurred while soft deleting expense.');
+    }
+  }
+
+  @override
+  Future<void> restoreExpense(String id) async {
+    try {
+      await remoteDataSource.restoreExpense(id);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while restoring expense.');
+    }
+  }
+
+  @override
+  Future<void> deleteForever(String id) async {
+    try {
+      await remoteDataSource.deleteForever(id);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while permanently deleting expense.');
+    }
+  }
+
+  @override
+  Future<void> emptyRecycleBin() async {
+    try {
+      await remoteDataSource.emptyRecycleBin();
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while emptying recycle bin.');
     }
   }
 }

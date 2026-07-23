@@ -46,7 +46,7 @@ class SpendingPieChart extends StatelessWidget {
       children: breakdown.keys.map((categoryId) {
         final category = provider.getCategoryById(categoryId);
         // Only show legend for expense categories
-        if (category?.type != CategoryType.expense) return const SizedBox.shrink();
+        if (category.type != CategoryType.expense) return const SizedBox.shrink();
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -64,7 +64,7 @@ class SpendingPieChart extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              category?.name ?? 'Unknown',
+              category.name,
               style: const TextStyle(fontSize: 12),
             ),
           ],

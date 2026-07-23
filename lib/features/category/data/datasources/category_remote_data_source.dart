@@ -9,6 +9,7 @@ abstract class CategoryRemoteDataSource {
   Future<void> deleteCategory(String id);
   Future<bool> isCollectionEmpty();
   Future<void> seedCategories(List<CategoryModel> categories);
+  Future<void> updateCategory(CategoryModel category);
 }
 
 class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
@@ -56,24 +57,40 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<bool> isCollectionEmpty() async {
     try {
-      final snapshot = await _categoryCollection.limit(1).get();
-      return snapshot.docs.isEmpty;
+      final doc = await _categoryCollection.doc('food_dining').get();
+      return !doc.exists;
     } catch (e) {
-      throw ServerException('Failed to check collection: $e');
+      return true;
     }
   }
 
   @override
   Future<void> seedCategories(List<CategoryModel> categories) async {
     try {
+      final snapshot = await _categoryCollection.get();
+      final deleteBatch = firestore.batch();
+      for (var doc in snapshot.docs) {
+        deleteBatch.delete(doc.reference);
+      }
+      await deleteBatch.commit();
+
       final batch = firestore.batch();
       for (var category in categories) {
-        final docRef = _categoryCollection.doc();
-        batch.set(docRef, category.toMap());
+        if (category.id.isEmpty) continue;
+        final docRef = _categoryCollection.doc(category.id);
+        batch.set(docRef, category.toMap(), SetOptions(merge: true));
       }
       await batch.commit();
     } catch (e) {
       throw ServerException('Failed to seed categories: $e');
+    }
+  }
+  @override
+  Future<void> updateCategory(CategoryModel category) async {
+    try {
+      await _categoryCollection.doc(category.id).update(category.toMap());
+    } catch (e) {
+      throw ServerException('Failed to update category: $e');
     }
   }
 }

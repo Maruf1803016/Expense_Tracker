@@ -10,6 +10,8 @@ class CategoryBudgetStatus extends Equatable {
   final double remaining;
   final double percentageUsed;
   final bool isExceeded;
+  final int month;
+  final int year;
 
   const CategoryBudgetStatus({
     required this.categoryId,
@@ -19,7 +21,34 @@ class CategoryBudgetStatus extends Equatable {
     required this.remaining,
     required this.percentageUsed,
     required this.isExceeded,
+    required this.month,
+    required this.year,
   });
+
+  factory CategoryBudgetStatus.fromAmounts({
+    required String categoryId,
+    required String categoryName,
+    required double limit,
+    required double spent,
+    required int month,
+    required int year,
+  }) {
+    final remaining = limit - spent;
+    final percentageUsed = limit > 0 ? (spent / limit) * 100 : 0.0;
+    final isExceeded = spent > limit && limit > 0;
+
+    return CategoryBudgetStatus(
+      categoryId: categoryId,
+      categoryName: categoryName,
+      limit: limit,
+      spent: spent,
+      remaining: remaining,
+      percentageUsed: percentageUsed,
+      isExceeded: isExceeded,
+      month: month,
+      year: year,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -30,5 +59,7 @@ class CategoryBudgetStatus extends Equatable {
         remaining,
         percentageUsed,
         isExceeded,
+        month,
+        year,
       ];
 }

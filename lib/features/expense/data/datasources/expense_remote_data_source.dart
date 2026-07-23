@@ -5,9 +5,13 @@ import 'package:expense_tracker/features/expense/data/models/expense_model.dart'
 
 abstract class ExpenseRemoteDataSource {
   Stream<List<ExpenseModel>> getExpenses();
+  Stream<List<ExpenseModel>> getRecycleBinExpenses();
   Future<void> addExpense(ExpenseModel expense);
   Future<void> updateExpense(ExpenseModel expense);
-  Future<void> deleteExpense(String id);
+  Future<void> deleteExpense(String id); // Soft delete
+  Future<void> restoreExpense(String id);
+  Future<void> deleteForever(String id);
+  Future<void> emptyRecycleBin();
 }
 
 class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
@@ -28,12 +32,30 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Stream<List<ExpenseModel>> getExpenses() {
     return _expenseCollection
-        .orderBy('date', descending: true)
+        .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final docs = snapshot.docs.map((doc) {
         return ExpenseModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
+      // Sort manually in memory to avoid index requirements
+      docs.sort((a, b) => b.date.compareTo(a.date));
+      return docs;
+    });
+  }
+
+  @override
+  Stream<List<ExpenseModel>> getRecycleBinExpenses() {
+    return _expenseCollection
+        .where('isDeleted', isEqualTo: true)
+        .snapshots()
+        .map((snapshot) {
+      final docs = snapshot.docs.map((doc) {
+        return ExpenseModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      }).toList();
+      // Sort manually in memory
+      docs.sort((a, b) => (b.deletedAt ?? b.date).compareTo(a.deletedAt ?? a.date));
+      return docs;
     });
   }
 
@@ -58,9 +80,47 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<void> deleteExpense(String id) async {
     try {
+      await _expenseCollection.doc(id).update({
+        'isDeleted': true,
+        'deletedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw ServerException('Failed to soft delete expense: $e');
+    }
+  }
+
+  @override
+  Future<void> restoreExpense(String id) async {
+    try {
+      await _expenseCollection.doc(id).update({
+        'isDeleted': false,
+        'deletedAt': null,
+      });
+    } catch (e) {
+      throw ServerException('Failed to restore expense: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteForever(String id) async {
+    try {
       await _expenseCollection.doc(id).delete();
     } catch (e) {
-      throw ServerException('Failed to delete expense: $e');
+      throw ServerException('Failed to permanently delete expense: $e');
+    }
+  }
+
+  @override
+  Future<void> emptyRecycleBin() async {
+    try {
+      final snapshot = await _expenseCollection.where('isDeleted', isEqualTo: true).get();
+      final batch = firestore.batch();
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      throw ServerException('Failed to empty recycle bin: $e');
     }
   }
 }

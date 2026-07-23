@@ -9,6 +9,8 @@ import 'package:expense_tracker/features/category/presentation/pages/category_ma
 import 'package:expense_tracker/features/analytics/presentation/pages/insights_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_search_page.dart';
+import 'package:expense_tracker/features/expense/presentation/widgets/expense_search_delegate.dart';
+import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,6 +27,7 @@ class _HomePageState extends State<HomePage> {
     MonthlySummaryPage(),
     InsightsPage(),
     CategoryManagementPage(),
+    SettingsPage(),
   ];
 
   void _onTabTapped(int index) {
@@ -50,49 +53,31 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Expenses', 'Summary', 'Insights', 'Categories'];
+    final titles = ['Expenses', 'Summary', 'Insights', 'Categories', 'Settings'];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_currentIndex]),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ExpenseSearchPage()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Sign Out?'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _logout();
-                      },
-                      child: const Text('Sign Out', style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          if (_currentIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.search_rounded),
+              onPressed: () {
+                showSearch(
+                  context: context,
+                  delegate: ExpenseSearchDelegate(),
+                );
+              },
+            ),
         ],
       ),
       body: _pages[_currentIndex],
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddExpense,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _currentIndex == 0 
+          ? FloatingActionButton(
+              onPressed: _openAddExpense,
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: _onTabTapped,
@@ -116,6 +101,11 @@ class _HomePageState extends State<HomePage> {
             icon: Icon(Icons.category_outlined),
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

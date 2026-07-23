@@ -18,13 +18,11 @@ class _ExpenseSearchPageState extends State<ExpenseSearchPage> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    // Initial search to populate list
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final eProv = context.read<ExpenseProvider>();
-      context.read<ExpenseSearchProvider>().updateQuery('', eProv.expenses, eProv.categories);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh search results when data changes (e.g. seeding complete)
+    final eProv = context.watch<ExpenseProvider>();
+    context.read<ExpenseSearchProvider>().updateQuery(_searchController.text, eProv.expenses, eProv.categories);
   }
 
   void _showFilters() {

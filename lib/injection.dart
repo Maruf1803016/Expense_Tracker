@@ -7,6 +7,8 @@ import 'package:expense_tracker/features/auth/data/datasources/auth_remote_data_
 import 'package:expense_tracker/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:expense_tracker/features/auth/domain/repositories/auth_repository.dart';
 import 'package:expense_tracker/features/auth/domain/usecases/auth_usecases.dart';
+import 'package:expense_tracker/features/auth/domain/usecases/update_profile.dart';
+import 'package:expense_tracker/features/auth/domain/usecases/change_password.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 
 // --- Category ---
@@ -17,6 +19,8 @@ import 'package:expense_tracker/features/category/domain/usecases/add_category.d
 import 'package:expense_tracker/features/category/domain/usecases/delete_category.dart';
 import 'package:expense_tracker/features/category/domain/usecases/get_categories.dart';
 import 'package:expense_tracker/features/category/domain/usecases/seed_categories.dart';
+import 'package:expense_tracker/features/category/domain/usecases/update_category.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 
 // --- Expense ---
 import 'package:expense_tracker/features/expense/data/datasources/expense_remote_data_source.dart';
@@ -29,6 +33,10 @@ import 'package:expense_tracker/features/expense/domain/usecases/get_monthly_sum
 import 'package:expense_tracker/features/expense/domain/usecases/update_expense.dart';
 import 'package:expense_tracker/features/expense/domain/Logic/expense_query_engine.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/search_expenses.dart';
+import 'package:expense_tracker/features/expense/domain/usecases/get_recycle_bin_expenses.dart';
+import 'package:expense_tracker/features/expense/domain/usecases/restore_expense.dart';
+import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
+import 'package:expense_tracker/features/expense/domain/usecases/empty_recycle_bin.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 
@@ -38,6 +46,8 @@ import 'package:expense_tracker/features/budget/data/repositories/budget_reposit
 import 'package:expense_tracker/features/budget/domain/repositories/budget_repository.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/get_budget_status.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/set_budget.dart';
+import 'package:expense_tracker/features/budget/domain/usecases/get_global_budget.dart';
+import 'package:expense_tracker/features/budget/domain/usecases/set_global_budget.dart';
 
 // --- Analytics & Intelligence Core ---
 import 'package:expense_tracker/features/analysis/domain/logic/expense_aggregator.dart';
@@ -57,6 +67,12 @@ import 'package:expense_tracker/features/export/data/services/export_service.dar
 import 'package:expense_tracker/features/export/domain/usecases/get_monthly_export_data.dart';
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 
+// --- Settings ---
+import 'package:expense_tracker/features/settings/data/datasources/settings_remote_data_source.dart';
+import 'package:expense_tracker/features/settings/data/repositories/settings_repository_impl.dart';
+import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -65,10 +81,11 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => firebase_auth.FirebaseAuth.instance);
 
   // Data Sources / Services
-  sl.registerLazySingleton<AuthRemoteDataSource>(() => AuthRemoteDataSourceImpl(firebaseAuth: sl()));
+  sl.registerLazySingleton<AuthRemoteDataSource>(() => AuthRemoteDataSourceImpl(firebaseAuth: sl(), firestore: sl()));
   sl.registerLazySingleton<CategoryRemoteDataSource>(() => CategoryRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
   sl.registerLazySingleton<ExpenseRemoteDataSource>(() => ExpenseRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
   sl.registerLazySingleton<BudgetRemoteDataSource>(() => BudgetRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<SettingsRemoteDataSource>(() => SettingsRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
   sl.registerLazySingleton<ExportService>(() => ExportServiceImpl());
 
   // Logic Core (The Pure Math)
@@ -89,6 +106,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<CategoryRepository>(() => CategoryRepositoryImpl(remoteDataSource: sl()));
   sl.registerLazySingleton<ExpenseRepository>(() => ExpenseRepositoryImpl(remoteDataSource: sl()));
   sl.registerLazySingleton<BudgetRepository>(() => BudgetRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton<SettingsRepository>(() => SettingsRepositoryImpl(remoteDataSource: sl()));
 
   // Use Cases
   sl.registerLazySingleton(() => SignInUseCase(repository: sl()));
@@ -96,20 +114,29 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => SignOutUseCase(repository: sl()));
   sl.registerLazySingleton(() => AuthStateStreamUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetCurrentUserIdUseCase(repository: sl()));
+  sl.registerLazySingleton(() => UpdateProfileUseCase(repository: sl()));
+  sl.registerLazySingleton(() => ChangePasswordUseCase(repository: sl()));
 
   sl.registerLazySingleton(() => GetCategoriesStreamUseCase(repository: sl()));
   sl.registerLazySingleton(() => SeedCategoriesUseCase(repository: sl()));
   sl.registerLazySingleton(() => AddCategoryUseCase(repository: sl()));
   sl.registerLazySingleton(() => DeleteCategoryUseCase(categoryRepository: sl(), expenseRepository: sl()));
+  sl.registerLazySingleton(() => UpdateCategoryUseCase(repository: sl()));
 
   sl.registerLazySingleton(() => GetExpensesStreamUseCase(repository: sl()));
   sl.registerLazySingleton(() => AddExpenseUseCase(repository: sl()));
   sl.registerLazySingleton(() => UpdateExpenseUseCase(repository: sl()));
   sl.registerLazySingleton(() => DeleteExpenseUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetRecycleBinExpensesStreamUseCase(repository: sl()));
+  sl.registerLazySingleton(() => RestoreExpenseUseCase(repository: sl()));
+  sl.registerLazySingleton(() => DeleteForeverUseCase(repository: sl()));
+  sl.registerLazySingleton(() => EmptyRecycleBinUseCase(repository: sl()));
   sl.registerLazySingleton(() => SearchExpensesUseCase(queryEngine: sl()));
   sl.registerLazySingleton(() => GetMonthlySummaryUseCase(expenseRepository: sl(), categoryRepository: sl(), analysisService: sl()));
 
   sl.registerLazySingleton(() => SetBudgetUseCase(repository: sl()));
+  sl.registerLazySingleton(() => GetGlobalBudgetUseCase(repository: sl()));
+  sl.registerLazySingleton(() => SetGlobalBudgetUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetBudgetStatusStreamUseCase(categoryRepository: sl(), expenseRepository: sl(), budgetRepository: sl(), analysisService: sl()));
 
   sl.registerLazySingleton(() => GetMonthlyExportDataUseCase(getSummary: sl(), getBudgets: sl(), getExpenses: sl()));
@@ -117,8 +144,22 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetSmartAlertsStreamUseCase(getSummary: sl(), getBudgetStatus: sl(), getExpenses: sl(), analysisService: sl()));
 
   // Providers
-  sl.registerFactory(() => AuthProvider(signIn: sl(), signUp: sl(), signOut: sl(), authStateStream: sl()));
-  sl.registerFactory(() => ExpenseProvider(
+  sl.registerLazySingleton(() => AuthProvider(
+    signIn: sl(),
+    signUp: sl(),
+    signOut: sl(),
+    authStateStream: sl(),
+    updateProfile: sl(),
+    changePassword: sl(),
+  ));
+  sl.registerLazySingleton(() => CategoryProvider(
+    getCategoriesStream: sl(),
+    seedCategories: sl(),
+    addCategory: sl(),
+    deleteCategory: sl(),
+    updateCategory: sl(),
+  ));
+  sl.registerLazySingleton(() => ExpenseProvider(
     getCategoriesStream: sl(),
     seedCategories: sl(),
     getExpensesStream: sl(),
@@ -128,11 +169,19 @@ Future<void> initDependencies() async {
     getMonthlySummary: sl(),
     addCategory: sl(),
     deleteCategory: sl(),
+    updateCategory: sl(),
     setBudget: sl(),
     getBudgetStatus: sl(),
+    getGlobalBudget: sl(),
+    setGlobalBudget: sl(),
+    getRecycleBinExpensesStream: sl(),
+    restoreExpense: sl(),
+    deleteForever: sl(),
+    emptyRecycleBin: sl(),
   ));
-  sl.registerFactory(() => ExportProvider(getExportData: sl(), exportService: sl()));
-  sl.registerFactory(() => FinancialInsightsProvider(getFinancialInsights: sl()));
-  sl.registerFactory(() => SmartAlertsProvider(getSmartAlerts: sl()));
-  sl.registerFactory(() => ExpenseSearchProvider(searchExpenses: sl()));
+  sl.registerLazySingleton(() => ExportProvider(getExportData: sl(), exportService: sl()));
+  sl.registerLazySingleton(() => FinancialInsightsProvider(getFinancialInsights: sl()));
+  sl.registerLazySingleton(() => SmartAlertsProvider(getSmartAlerts: sl()));
+  sl.registerLazySingleton(() => ExpenseSearchProvider(searchExpenses: sl()));
+  sl.registerLazySingleton(() => SettingsProvider(repository: sl()));
 }

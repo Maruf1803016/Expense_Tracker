@@ -3,14 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
-import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.dart';
-import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
-import 'package:expense_tracker/shared/presentation/widgets/loading_skeleton.dart';
 import 'package:expense_tracker/features/budget/domain/entities/category_budget_status.dart';
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/income_expense_bar_chart.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
@@ -107,6 +106,120 @@ class MonthlySummaryPage extends StatelessWidget {
     );
   }
 
+  Widget _buildTotalBudgetOverview(BuildContext context, ExpenseProvider provider) {
+    // Priority: Global monthly budget from SettingsProvider, then sum of category budgets
+    final settingsProvider = context.watch<SettingsProvider>();
+    final double totalBudget = settingsProvider.budget > 0 
+        ? settingsProvider.budget 
+        : provider.rolledUpBudgetStatuses.fold(0.0, (sum, item) => sum + item.limit);
+    
+    final double totalSpent = provider.summary.totalExpense;
+    final double progress = totalBudget > 0 ? (totalSpent / totalBudget).clamp(0.0, 1.0) : 0.0;
+    final double efficiency = totalBudget > 0 ? ((1 - (totalSpent / totalBudget)) * 100).clamp(0.0, 100.0) : 0.0;
+    final bool isOver = totalBudget > 0 && totalSpent > totalBudget;
+
+    return Card(
+      elevation: 0,
+      color: AppTheme.secondaryBackground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.white.withOpacity(0.05))),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Total Monthly Budget', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text(
+                      CurrencyFormatter.format(totalBudget),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: (isOver ? AppTheme.expenseColor : AppTheme.incomeColor).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isOver ? 'Over Budget' : 'On Track',
+                    style: TextStyle(
+                      color: isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  height: 140,
+                  width: 140,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 14,
+                    backgroundColor: Colors.white.withOpacity(0.05),
+                    color: isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${efficiency.toStringAsFixed(0)}%',
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Efficiency',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                _buildBudgetDetailItem('Spent', totalSpent, isOver ? AppTheme.expenseColor : Colors.white),
+                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
+                _buildBudgetDetailItem(
+                  isOver ? 'Over By' : 'Remaining',
+                  (totalBudget - totalSpent).abs(),
+                  isOver ? AppTheme.expenseColor : AppTheme.incomeColor,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBudgetDetailItem(String label, double amount, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(
+            CurrencyFormatter.format(amount),
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
@@ -115,7 +228,40 @@ class MonthlySummaryPage extends StatelessWidget {
     final selectedMonth = provider.selectedMonth;
 
     if (exportProvider.isExporting) {
-      return const LoadingIndicator(message: 'Generating your report...');
+      return const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen));
+    }
+
+    if (provider.isLoading && provider.expenses.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen));
+    }
+
+    if (summary.totalIncome == 0 && summary.totalExpense == 0) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.emeraldGreen.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.bar_chart_rounded, size: 64, color: AppTheme.emeraldGreen),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'No Summary Available',
+              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Start adding expenses to see your monthly breakdown and budget progress.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54),
+            ),
+          ],
+        ),
+      );
     }
 
     return SingleChildScrollView(
@@ -123,7 +269,6 @@ class MonthlySummaryPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Month Selector & Export Button
           Row(
             children: [
               Expanded(child: _buildMonthSelector(context, provider, selectedMonth)),
@@ -136,119 +281,176 @@ class MonthlySummaryPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
+          _buildTotalBudgetOverview(context, provider),
+          const SizedBox(height: 32),
 
-          if (provider.isLoading) ...[
-            const LoadingSkeleton(height: 200),
-            const SizedBox(height: 24),
-            const LoadingSkeleton(height: 100),
-            const SizedBox(height: 16),
-            const Row(
-              children: [
-                Expanded(child: LoadingSkeleton(height: 100)),
-                SizedBox(width: 16),
-                Expanded(child: LoadingSkeleton(height: 100)),
-              ],
+          _buildSectionHeader(context, 'Spending Insights'),
+          const SizedBox(height: 16),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  SpendingPieChart(),
+                  SizedBox(height: 32),
+                  Divider(),
+                  SizedBox(height: 16),
+                  IncomeExpenseBarChart(),
+                ],
+              ),
             ),
-          ] else if (summary.totalIncome == 0 && summary.totalExpense == 0) ...[
-            const EmptyState(
-              title: 'No Data for this Month',
-              message: 'Try switching months or add your first transaction to see the breakdown.',
-              icon: Icons.analytics_outlined,
+          ),
+          const SizedBox(height: 32),
+
+          _buildSectionHeader(context, 'Financial Totals'),
+          const SizedBox(height: 16),
+          _buildSummaryCard(
+            context,
+            title: 'Net Balance',
+            amount: summary.netBalance,
+            color: summary.netBalance >= 0 
+                ? AppTheme.incomeColor 
+                : AppTheme.expenseColor,
+            isMain: true,
+          ),
+          const SizedBox(height: 24),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryCard(
+                  context,
+                  title: 'Total Income',
+                  amount: summary.totalIncome,
+                  color: AppTheme.incomeColor,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildSummaryCard(
+                  context,
+                  title: 'Total Expense',
+                  amount: summary.totalExpense,
+                  color: AppTheme.expenseColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 40),
+
+          _buildSectionHeader(context, 'Monthly Budgets'),
+          const SizedBox(height: 16),
+          if (provider.rolledUpBudgetStatuses.isEmpty)
+            const Center(child: Text('Add categories to start budgeting'))
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: provider.rolledUpBudgetStatuses.length,
+              itemBuilder: (context, index) => _buildBudgetTile(context, provider, provider.rolledUpBudgetStatuses[index]),
             ),
-          ] else ...[
-            // Charts Section
-            _buildSectionHeader(context, 'Spending Insights'),
-            const SizedBox(height: 16),
-            const Card(
+
+          const SizedBox(height: 40),
+
+          _buildSectionHeader(context, 'Category Breakdown'),
+          const SizedBox(height: 16),
+
+          if (provider.rolledUpCategoryBreakdown.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32.0),
+              child: Center(
+                child: Text('No data for this month', style: TextStyle(color: Colors.grey)),
+              ),
+            )
+          else
+            Card(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
-                  children: [
-                    SpendingPieChart(),
-                    SizedBox(height: 32),
-                    Divider(),
-                    SizedBox(height: 16),
-                    IncomeExpenseBarChart(),
-                  ],
+                  children: provider.rolledUpCategoryBreakdown.entries.toList().asMap().entries.map((e) {
+                    final index = e.key;
+                    final entry = e.value;
+                    final category = provider.getCategoryById(entry.key);
+                    final total = summary.totalIncome + summary.totalExpense;
+                    final percentage = total > 0 ? (entry.value / total) : 0.0;
+                    
+                    return Column(
+                      children: [
+                        if (index > 0) const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length].withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                category.icon,
+                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        category.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      Text(
+                                        CurrencyFormatter.format(entry.value),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: LinearProgressIndicator(
+                                      value: percentage,
+                                      minHeight: 8,
+                                      backgroundColor: Colors.white.withOpacity(0.05),
+                                      color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    '${(percentage * 100).toStringAsFixed(1)}% of total spending',
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }).toList(),
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-
-            // Net Balance Card
-            _buildSectionHeader(context, 'Financial Totals'),
-            const SizedBox(height: 16),
-            _buildSummaryCard(
-              context,
-              title: 'Net Balance',
-              amount: summary.netBalance,
-              color: summary.netBalance >= 0 
-                  ? AppTheme.incomeColor 
-                  : AppTheme.expenseColor,
-              isMain: true,
-            ),
-            const SizedBox(height: 24),
-
-            // Income & Expense Row
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(
-                    context,
-                    title: 'Total Income',
-                    amount: summary.totalIncome,
-                    color: AppTheme.incomeColor,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSummaryCard(
-                    context,
-                    title: 'Total Expense',
-                    amount: summary.totalExpense,
-                    color: AppTheme.expenseColor,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 40),
-
-            // Budgets Section
-            _buildSectionHeader(context, 'Monthly Budgets'),
-            const SizedBox(height: 16),
-            if (provider.budgetStatuses.isEmpty)
-              const Center(child: Text('Add categories to start budgeting'))
-            else
-              ...provider.budgetStatuses.map((status) => _buildBudgetTile(context, provider, status)),
-
-            const SizedBox(height: 40),
-
-            // Breakdown Title
-            _buildSectionHeader(context, 'Category Breakdown'),
-            const SizedBox(height: 16),
-
-            // Breakdown List
-            if (summary.categoryBreakdown.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32.0),
-                child: Center(
-                  child: Text(
-                    'No data for this month',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              )
-            else
-              ...summary.categoryBreakdown.entries.map((entry) {
-                final category = provider.getCategoryById(entry.key);
-                return _buildBreakdownItem(
-                  context,
-                  category?.name ?? 'Unknown',
-                  entry.value,
-                  summary.totalIncome + summary.totalExpense,
-                );
-              }).toList(),
-          ],
         ],
       ),
     );
@@ -329,31 +531,6 @@ class MonthlySummaryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBreakdownItem(BuildContext context, String name, double amount, double total) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-              Text(
-                CurrencyFormatter.format(amount),
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: total > 0 ? amount / total : 0,
-            backgroundColor: Colors.grey[200],
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBudgetTile(BuildContext context, ExpenseProvider provider, CategoryBudgetStatus status) {
     final Color stateColor = status.isExceeded
@@ -361,91 +538,50 @@ class MonthlySummaryPage extends StatelessWidget {
         : (status.percentageUsed > 0.8 ? Colors.orange : Colors.green);
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(status.categoryName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  onPressed: () => _showSetBudgetDialog(context, provider, status),
-                ),
-              ],
+            Text(
+              status.categoryName, 
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Spent: ${CurrencyFormatter.format(status.spent)}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                Text(
-                  status.limit > 0 
-                      ? 'Limit: ${CurrencyFormatter.format(status.limit)}' 
-                      : 'No limit set',
-                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-              ],
+            Text(
+              '${CurrencyFormatter.format(status.spent)} ${status.limit > 0 ? "/ " + CurrencyFormatter.format(status.limit) : ""}',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: status.limit > 0 ? status.percentageUsed.clamp(0.0, 1.0) : 0.0,
-                minHeight: 10,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(stateColor),
-              ),
-            ),
+            const SizedBox(height: 8),
             if (status.limit > 0) ...[
               const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: status.percentageUsed.clamp(0.0, 1.0),
+                  minHeight: 6,
+                  backgroundColor: Colors.white.withOpacity(0.05),
+                  valueColor: AlwaysStoppedAnimation<Color>(stateColor),
+                ),
+              ),
+              const SizedBox(height: 4),
               Text(
                 status.isExceeded 
-                    ? 'Overspent by ${CurrencyFormatter.format(status.spent - status.limit)}'
-                    : '${CurrencyFormatter.format(status.remaining)} remaining',
+                    ? 'Over!'
+                    : '${(status.percentageUsed * 100).toStringAsFixed(0)}%',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                   color: stateColor,
                 ),
               ),
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  void _showSetBudgetDialog(BuildContext context, ExpenseProvider provider, CategoryBudgetStatus status) {
-    final controller = TextEditingController(text: status.limit > 0 ? status.limit.toStringAsFixed(0) : '');
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Set Budget for ${status.categoryName}'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Monthly Limit',
-            prefixText: '\$ ',
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final limit = double.tryParse(controller.text) ?? 0.0;
-              await provider.setBudget(status.categoryId, limit);
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }

@@ -49,7 +49,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.secondaryBackground,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -96,8 +96,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         }
                       });
                     },
-                    selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-                    checkmarkColor: AppTheme.primaryColor,
+                    selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
+                    checkmarkColor: AppTheme.emeraldGreen,
                   ),
                 );
               },

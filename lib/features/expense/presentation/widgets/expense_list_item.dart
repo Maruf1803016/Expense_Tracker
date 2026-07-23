@@ -4,22 +4,23 @@ import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class ExpenseListItem extends StatelessWidget {
   final Expense expense;
-  final Category? category;
+  final Category category;
   final VoidCallback? onTap;
 
   const ExpenseListItem({
     super.key,
     required this.expense,
-    this.category,
+    required this.category,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = category?.type == CategoryType.income;
+    final isIncome = category.type == CategoryType.income;
     final displayColor = isIncome ? AppTheme.incomeColor : AppTheme.expenseColor;
 
     return Card(
@@ -39,7 +40,7 @@ class ExpenseListItem extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            isIncome ? Icons.add_circle_outline : Icons.remove_circle_outline,
+            category.icon,
             color: displayColor,
             size: 24,
           ),
@@ -48,7 +49,7 @@ class ExpenseListItem extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                category?.name ?? 'Uncategorized',
+                category.name,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,

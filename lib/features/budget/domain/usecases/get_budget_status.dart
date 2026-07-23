@@ -1,4 +1,5 @@
 import 'package:rxdart/rxdart.dart';
+import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/category/domain/repositories/category_repository.dart';
 import 'package:expense_tracker/features/expense/domain/repositories/expense_repository.dart';
 import 'package:expense_tracker/features/budget/domain/entities/category_budget_status.dart';
@@ -26,7 +27,7 @@ class GetBudgetStatusStreamUseCase {
       (categories, expenses, budgets) {
         final filteredExpenses = analysisService.aggregator.filterByMonth(expenses, month, year);
         
-        return categories.where((c) => c.type == 'expense' || true).map((category) {
+        return categories.where((c) => c.type == CategoryType.expense).map((category) {
           final spent = filteredExpenses
               .where((e) => e.categoryId == category.id)
               .fold(0.0, (sum, e) => sum + e.amount);
@@ -48,6 +49,8 @@ class GetBudgetStatusStreamUseCase {
             remaining: remaining,
             percentageUsed: percentage,
             isExceeded: isExceeded,
+            month: month,
+            year: year,
           );
         }).toList();
       },

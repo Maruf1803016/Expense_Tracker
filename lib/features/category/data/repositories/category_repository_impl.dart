@@ -50,6 +50,18 @@ class CategoryRepositoryImpl implements CategoryRepository {
   }
 
   @override
+  Future<void> updateCategory(Category category) async {
+    try {
+      final model = CategoryModel.fromEntity(category);
+      await remoteDataSource.updateCategory(model);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while updating category.');
+    }
+  }
+
+  @override
   Future<void> seedInitialCategories(List<Category> categories) async {
     try {
       final models = categories.map((e) => CategoryModel.fromEntity(e)).toList();

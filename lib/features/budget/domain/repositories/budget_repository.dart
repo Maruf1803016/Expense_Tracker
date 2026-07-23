@@ -7,4 +7,10 @@ abstract class BudgetRepository {
 
   /// Sets or updates a budget.
   Future<void> setBudget(Budget budget);
+
+  /// Returns a stream of the global monthly budget.
+  Stream<double> getGlobalMonthlyBudgetStream();
+
+  /// Sets the global monthly budget.
+  Future<void> setGlobalMonthlyBudget(double amount);
 }
