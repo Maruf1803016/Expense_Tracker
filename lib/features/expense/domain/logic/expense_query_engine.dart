@@ -1,5 +1,6 @@
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:flutter/material.dart';
 
 enum ExpenseSortType { newest, oldest, highestAmount, lowestAmount }
 
@@ -25,7 +26,13 @@ class ExpenseQueryEngine {
         final lowerQuery = query.toLowerCase();
         final noteMatch = e.note.toLowerCase().contains(lowerQuery);
         final category = allCategories.firstWhere((c) => c.id == e.categoryId, 
-            orElse: () => const Category(id: '', name: '', type: CategoryType.expense));
+            orElse: () => const Category(
+              id: '',
+              name: '',
+              type: CategoryType.expense,
+              icon: Icons.category,
+              subCategories: [],
+            ));
         final categoryMatch = category.name.toLowerCase().contains(lowerQuery);
         final subCategoryMatch = (e.subCategory ?? '').toLowerCase().contains(lowerQuery);
         

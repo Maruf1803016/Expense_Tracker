@@ -82,7 +82,7 @@ class ExpenseDetailPage extends StatelessWidget {
             _buildDetailField(
               label: 'Category',
               value: category.name,
-              icon: IconUtils.getIcon(category.icon),
+              icon: category.icon,
               color: isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
             ),
             const SizedBox(height: 24),
@@ -92,8 +92,10 @@ class ExpenseDetailPage extends StatelessWidget {
               _buildDetailField(
                 label: 'Sub-category',
                 value: expense.subCategory!,
-                icon: Icons.label_outline,
-                color: AppTheme.emeraldGreen,
+                icon: expense.subCategoryIcon != null
+                    ? IconUtils.getIcon(expense.subCategoryIcon!)
+                    : Icons.label_outline,
+                color: const Color(0xFF00C896),
               ),
               const SizedBox(height: 24),
             ],

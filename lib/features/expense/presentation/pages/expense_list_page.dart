@@ -177,7 +177,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
-                    IconUtils.getIcon(category.icon),
+                    category.icon,
                     color: isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
                   ),
                 ),
@@ -373,7 +373,7 @@ class _ExpenseItemState extends State<_ExpenseItem> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              IconUtils.getIcon(widget.category.icon),
+              widget.category.icon,
               color: widget.isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
               size: 20,
             ),

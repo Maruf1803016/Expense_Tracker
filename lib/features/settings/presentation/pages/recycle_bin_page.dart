@@ -52,7 +52,7 @@ class RecycleBinPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
-                        IconUtils.getIcon(category.icon),
+                        category.icon,
                         color: isIncome ? AppTheme.incomeColor : AppTheme.expenseColor,
                       ),
                     ),

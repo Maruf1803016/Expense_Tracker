@@ -64,7 +64,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                     radius: 40,
                     backgroundColor: color.withOpacity(0.1),
                     child: Icon(
-                      IconUtils.getIcon(widget.category.icon ?? 'category'),
+                      widget.category.icon,
                       size: 40,
                       color: color,
                     ),
@@ -147,7 +147,9 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(
-                                    IconUtils.getIcon(expense.subCategoryIcon ?? widget.category.icon ?? 'category'), 
+                                    expense.subCategoryIcon != null
+                                        ? IconUtils.getIcon(expense.subCategoryIcon)
+                                        : widget.category.icon, 
                                     color: color, 
                                     size: 18
                                   ),

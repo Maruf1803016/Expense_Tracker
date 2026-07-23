@@ -102,7 +102,7 @@ class ExpenseSearchDelegate extends SearchDelegate<Expense?> {
                 color: displayColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(IconUtils.getIcon(category.icon), color: displayColor, size: 20),
+              child: Icon(category.icon, color: displayColor, size: 20),
             ),
             title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(

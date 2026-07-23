@@ -23,7 +23,7 @@ class CategoryManagementPage extends StatelessWidget {
       return const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen));
     }
 
-    final topLevelCategories = categories.where((category) => category.parentId == null).toList();
+    final topLevelCategories = categories;
 
     return DefaultTabController(
       length: 2,
@@ -99,7 +99,7 @@ class CategoryManagementPage extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  IconUtils.getIcon(category.icon ?? 'category'),
+                  category.icon,
                   color: color,
                   size: 32,
                 ),

@@ -392,7 +392,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
-                                IconUtils.getIcon(category.icon),
+                                category.icon,
                                 color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
                                 size: 20,
                               ),

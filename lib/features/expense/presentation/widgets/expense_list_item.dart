@@ -40,7 +40,7 @@ class ExpenseListItem extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            IconUtils.getIcon(category.icon),
+            category.icon,
             color: displayColor,
             size: 24,
           ),

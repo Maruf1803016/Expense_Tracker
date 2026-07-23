@@ -106,7 +106,7 @@ class ExpenseProvider with ChangeNotifier {
     
     for (var status in _budgetStatuses) {
       final category = getCategoryById(status.categoryId);
-      final parentId = category.parentId ?? category.id;
+      final parentId = category.id;
       final parentCategory = getCategoryById(parentId);
       
       if (rolledUp.containsKey(parentId)) {
@@ -175,7 +175,7 @@ class ExpenseProvider with ChangeNotifier {
       if (category.type != CategoryType.expense) continue;
       
       // Strict Parent Grouping: Use parentId if it exists, otherwise use category id
-      final parentId = category.parentId ?? category.id;
+      final parentId = category.id;
       rolledUpBreakdown[parentId] = (rolledUpBreakdown[parentId] ?? 0.0) + entry.value;
     }
 
@@ -247,7 +247,7 @@ class ExpenseProvider with ChangeNotifier {
     final Map<String, double> rolledUp = {};
     for (var entry in _summary.categoryBreakdown.entries) {
       final category = getCategoryById(entry.key);
-      final parentId = category.parentId ?? category.id;
+      final parentId = category.id;
       rolledUp[parentId] = (rolledUp[parentId] ?? 0.0) + entry.value;
     }
     
@@ -494,7 +494,8 @@ class ExpenseProvider with ChangeNotifier {
         id: id,
         name: 'Uncategorized',
         type: CategoryType.expense,
-        icon: 'category',
+        icon: Icons.category,
+        subCategories: const [],
       ),
     );
   }
