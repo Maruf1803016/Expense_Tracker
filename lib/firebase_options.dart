@@ -18,10 +18,10 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAOyokA9-Zr-3ImGKJORfb1k8-N7J07lL8',
-    appId: '1:783558160918:android:b380ff4ac15fdc9f467b37',
-    messagingSenderId: '783558160918',
-    projectId: 'expense-tracker-1891b',
-    storageBucket: 'expense-tracker-1891b.firebasestorage.app',
+    apiKey: 'BNxTB0EoOk0bepc_fG5Q5nSxovdbYp8bTXoLZ8KuvndTVe1E0vm72Fd2MJt-STTEDAv5zXJJRP1GwGHD2dBAHp8',
+    appId: '1:657477735157:android:6593dfe69c626f152d2bbc',
+    messagingSenderId: '657477735157',
+    projectId: 'expense-tracker-79ef7',
+    storageBucket: 'expense-tracker-79ef7.firebasestorage.app',
   );
 }
