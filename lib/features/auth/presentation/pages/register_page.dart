@@ -4,7 +4,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final VoidCallback? onToggle;
+  const RegisterPage({super.key, this.onToggle});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -154,7 +155,13 @@ class _RegisterPageState extends State<RegisterPage> {
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            if (widget.onToggle != null) {
+                              widget.onToggle!();
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
                           child: const Text('Sign In'),
                         ),
                       ],

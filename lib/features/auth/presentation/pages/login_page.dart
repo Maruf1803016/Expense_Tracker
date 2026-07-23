@@ -6,7 +6,8 @@ import '../providers/auth_provider.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final VoidCallback? onToggle;
+  const LoginPage({super.key, this.onToggle});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -177,10 +178,14 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const RegisterPage()),
-                            );
+                            if (widget.onToggle != null) {
+                              widget.onToggle!();
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const RegisterPage()),
+                              );
+                            }
                           },
                           child: const Text('Create Account'),
                         ),
