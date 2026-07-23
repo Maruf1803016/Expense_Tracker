@@ -9,6 +9,7 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/expense_detail_page.dart';
 
 class CategoryDetailPage extends StatefulWidget {
   final Category category;

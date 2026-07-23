@@ -9,6 +9,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/expense/presentation/widgets/income_expense_bar_chart.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
@@ -387,12 +388,12 @@ class MonthlySummaryPage extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: provider.pieColors[index % provider.pieColors.length].withOpacity(0.15),
+                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length].withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 IconUtils.getIcon(category.icon),
-                                color: provider.pieColors[index % provider.pieColors.length],
+                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
                                 size: 20,
                               ),
                             ),
@@ -428,7 +429,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                       value: percentage,
                                       minHeight: 8,
                                       backgroundColor: Colors.white.withOpacity(0.05),
-                                      color: provider.pieColors[index % provider.pieColors.length],
+                                      color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
                                     ),
                                   ),
                                   const SizedBox(height: 6),
