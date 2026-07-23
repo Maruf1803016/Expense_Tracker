@@ -52,9 +52,10 @@ class CategoryProvider with ChangeNotifier {
         },
       );
       
-      // Auto-seed if empty after a short delay
+      // Auto-seed if empty or missing the new schema after a short delay
       Future.delayed(const Duration(seconds: 1), () async {
-        if (_categories.isEmpty && !_isLoading) {
+        final hasNewSchema = _categories.any((c) => c.id == 'food_dining');
+        if ((_categories.isEmpty || !hasNewSchema) && !_isLoading) {
           await seedCategories(const NoParams());
         }
       });
