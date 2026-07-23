@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import 'register_page.dart';
@@ -31,6 +32,40 @@ class _LoginPageState extends State<LoginPage> {
       await authProvider.signIn(_emailController.text, _passwordController.text);
     } catch (_) {
       // Errors are handled globally via MessengerUtils in AuthProvider
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid email address first'),
+          backgroundColor: AppTheme.expenseColor,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await firebase_auth.FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Password reset email sent successfully'),
+            backgroundColor: AppTheme.emeraldGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send reset email: ${e.toString()}'),
+            backgroundColor: AppTheme.expenseColor,
+          ),
+        );
+      }
     }
   }
 
@@ -103,7 +138,15 @@ class _LoginPageState extends State<LoginPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _forgotPassword,
+                        child: const Text('Forgot Password?'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
                     // Login Button
                     ElevatedButton(
