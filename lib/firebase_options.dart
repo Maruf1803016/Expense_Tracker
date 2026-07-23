@@ -18,7 +18,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'BNxTB0EoOk0bepc_fG5Q5nSxovdbYp8bTXoLZ8KuvndTVe1E0vm72Fd2MJt-STTEDAv5zXJJRP1GwGHD2dBAHp8',
+    apiKey: 'AIzaSyA2wTBS3zEolZtYQgsFct2PgYpIAjPe88g',
     appId: '1:657477735157:android:6593dfe69c626f152d2bbc',
     messagingSenderId: '657477735157',
     projectId: 'expense-tracker-79ef7',
