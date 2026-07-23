@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
@@ -19,183 +20,166 @@ class CategoryDetailPage extends StatefulWidget {
 }
 
 class _CategoryDetailPageState extends State<CategoryDetailPage> {
-  late TextEditingController _nameController;
-  bool _isEditing = false;
-
-  late String _selectedIcon;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.category.name);
-    _selectedIcon = widget.category.icon ?? 'category';
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  void _saveCategory() async {
-    final newName = _nameController.text.trim();
-    if (newName.isEmpty) {
-      setState(() => _isEditing = false);
-      return;
-    }
-
-    final updatedCategory = Category(
-      id: widget.category.id,
-      name: newName,
-      type: widget.category.type,
-      icon: _selectedIcon,
-      parentId: widget.category.parentId,
-    );
-
-    await context.read<ExpenseProvider>().updateCategory(updatedCategory);
-    setState(() => _isEditing = false);
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
-    final categoryExpenses = provider.expenses.where((e) => e.categoryId == widget.category.id).toList();
     
-    // Sort expenses by date descending
-    categoryExpenses.sort((a, b) => b.date.compareTo(a.date));
+    // 1. Identify all expenses belonging to this category
+    final allExpenses = provider.expenses.where((e) {
+      return e.categoryId == widget.category.id;
+    }).toList();
 
-    final totalAmount = categoryExpenses.fold(0.0, (sum, e) => sum + e.amount);
+    allExpenses.sort((a, b) => b.date.compareTo(a.date));
+
+    // 2. Group expenses by sub-category
+    final Map<String, List<Expense>> groupedExpenses = {};
+    for (var e in allExpenses) {
+      final subKey = e.subCategory ?? 'General';
+      if (!groupedExpenses.containsKey(subKey)) {
+        groupedExpenses[subKey] = [];
+      }
+      groupedExpenses[subKey]!.add(e);
+    }
+
+    final totalAmount = allExpenses.fold(0.0, (sum, e) => sum + e.amount);
     final color = widget.category.type == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor;
 
     return Scaffold(
       appBar: AppBar(
-        title: _isEditing
-            ? TextField(
-                controller: _nameController,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(border: InputBorder.none),
-                onSubmitted: (_) => _saveCategory(),
-              )
-            : Text(widget.category.name),
-        actions: [
-          IconButton(
-            icon: Icon(_isEditing ? Icons.check : Icons.edit),
-            onPressed: () {
-              if (_isEditing) {
-                _saveCategory();
-              } else {
-                setState(() => _isEditing = true);
-              }
-            },
-          ),
-        ],
+        title: Text(widget.category.name),
       ),
-      body: Column(
-        children: [
-          // Category Header Card
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.secondaryBackground,
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
-            ),
-            child: Column(
-              children: [
-                if (_isEditing)
-                  SizedBox(
-                    height: 100,
-                    child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 6,
-                        mainAxisSpacing: 8,
-                        crossAxisSpacing: 8,
-                      ),
-                      itemCount: IconUtils.availableIconNames.length,
-                      itemBuilder: (context, index) {
-                        final iconName = IconUtils.availableIconNames[index];
-                        final isSelected = _selectedIcon == iconName;
-                        return InkWell(
-                          onTap: () => setState(() => _selectedIcon = iconName),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppTheme.emeraldGreen.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              IconUtils.getIcon(iconName),
-                              color: isSelected ? AppTheme.emeraldGreen : Colors.white70,
-                              size: 20,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                else
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.secondaryBackground,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+              ),
+              child: Column(
+                children: [
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: color.withOpacity(0.1),
                     child: Icon(
-                      IconUtils.getIcon(_selectedIcon),
+                      IconUtils.getIcon(widget.category.icon ?? 'category'),
                       size: 40,
                       color: color,
                     ),
                   ),
-                const SizedBox(height: 16),
-                Text(
-                  CurrencyFormatter.format(totalAmount),
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Total ${widget.category.type.name.toUpperCase()}',
-                  style: TextStyle(color: color, fontWeight: FontWeight.w500, letterSpacing: 1.2),
-                ),
-              ],
-            ),
-          ),
-          
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 24, 24, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'TRANSACTION HISTORY',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5),
+                  const SizedBox(height: 16),
+                  Text(
+                    CurrencyFormatter.format(totalAmount),
+                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Total ${widget.category.type.name.toUpperCase()}',
+                    style: TextStyle(color: color, fontWeight: FontWeight.w500, letterSpacing: 1.2),
+                  ),
+                ],
               ),
             ),
-          ),
 
-          Expanded(
-            child: categoryExpenses.isEmpty
-                ? const EmptyState(
-                    title: 'No Transactions',
-                    message: 'Transactions in this category will appear here.',
-                    icon: Icons.history,
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: categoryExpenses.length,
-                    itemBuilder: (context, index) {
-                      final expense = categoryExpenses[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          title: Text(expense.note.isEmpty ? 'No Note' : expense.note),
-                          subtitle: Text(DateFormatter.format(expense.date)),
-                          trailing: Text(
-                            CurrencyFormatter.format(expense.amount),
-                            style: TextStyle(
-                              color: color,
-                              fontWeight: FontWeight.bold,
-                            ),
+            if (allExpenses.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(48.0),
+                child: EmptyState(
+                  title: 'No Transactions',
+                  message: 'Transactions in this category will appear here.',
+                  icon: Icons.history,
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: groupedExpenses.entries.map((entry) {
+                    final isGeneral = entry.key == 'General';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 24, 12, 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isGeneral ? Icons.category : Icons.label_outline,
+                                size: 16,
+                                color: isGeneral ? Colors.white38 : const Color(0xFF00C896),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                entry.key.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: isGeneral ? 12 : 13,
+                                  fontWeight: isGeneral ? FontWeight.bold : FontWeight.w500,
+                                  fontStyle: isGeneral ? FontStyle.normal : FontStyle.italic,
+                                  color: isGeneral ? Colors.white38 : const Color(0xFF00C896),
+                                  letterSpacing: 1.2,
+                                ),
+                               ),
+                            ],
                           ),
                         ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        ...entry.value.map((expense) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: isGeneral ? null : const BoxDecoration(
+                              border: Border(
+                                left: BorderSide(color: Color(0xFF00C896), width: 3),
+                              ),
+                            ),
+                            child: Card(
+                              margin: EdgeInsets.zero,
+                              color: isGeneral ? null : const Color(0xFF1A2C42),
+                              child: ListTile(
+                                contentPadding: EdgeInsets.only(
+                                  left: isGeneral ? 16 : 40,
+                                  right: 16,
+                                ),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: color.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    IconUtils.getIcon(expense.subCategoryIcon ?? widget.category.icon ?? 'category'), 
+                                    color: color, 
+                                    size: 18
+                                  ),
+                                ),
+                                title: Text(
+                                  expense.title.isEmpty ? widget.category.name : expense.title,
+                                  style: const TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                subtitle: Text(DateFormatter.format(expense.date), style: const TextStyle(fontSize: 12, color: Colors.white38)),
+                                trailing: Text(
+                                  CurrencyFormatter.format(expense.amount),
+                                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ExpenseDetailPage(expense: expense),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }

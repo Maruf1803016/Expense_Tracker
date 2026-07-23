@@ -49,6 +49,8 @@ class GetBudgetStatusStreamUseCase {
             remaining: remaining,
             percentageUsed: percentage,
             isExceeded: isExceeded,
+            month: month,
+            year: year,
           );
         }).toList();
       },

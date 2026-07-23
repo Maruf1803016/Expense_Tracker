@@ -15,4 +15,14 @@ class SettingsRepositoryImpl implements SettingsRepository {
   Future<void> updateCurrency(String currencyCode) {
     return remoteDataSource.updateCurrency(currencyCode);
   }
+
+  @override
+  Future<double> getBudget() {
+    return remoteDataSource.getBudget();
+  }
+
+  @override
+  Future<void> updateBudget(double budget) {
+    return remoteDataSource.updateBudget(budget);
+  }
 }

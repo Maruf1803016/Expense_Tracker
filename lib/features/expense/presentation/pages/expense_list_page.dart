@@ -5,8 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
-import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.dart';
-import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_detail_page.dart';
@@ -14,18 +12,39 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 
-class ExpenseListPage extends StatelessWidget {
+class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
+
+  @override
+  State<ExpenseListPage> createState() => _ExpenseListPageState();
+}
+
+class _ExpenseListPageState extends State<ExpenseListPage> {
+  @override
+  void dispose() {
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
-    return _buildBody(context, provider);
+    final expenses = provider.expenses;
+
+    return Column(
+      children: [
+        _buildBalanceSummary(context, provider),
+        Expanded(
+          child: _buildBody(context, provider, expenses),
+        ),
+      ],
+    );
   }
 
-  Widget _buildBody(BuildContext context, ExpenseProvider provider) {
+  Widget _buildBody(BuildContext context, ExpenseProvider provider, List<Expense> filteredExpenses) {
     if (provider.isLoading && provider.expenses.isEmpty) {
-      return LoadingIndicator(message: 'Loading expenses...');
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.emeraldGreen),
+      );
     }
 
     if (provider.errorMessage != null && provider.expenses.isEmpty) {
@@ -50,45 +69,73 @@ class ExpenseListPage extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        _buildBalanceSummary(context, provider),
-        Expanded(
-          child: provider.expenses.isEmpty
-              ? const EmptyState(
-                  title: 'No expenses yet',
-                  message: 'Tap the + button to add your first transaction and start tracking!',
-                  icon: Icons.receipt_long_outlined,
-                )
-              : RefreshIndicator(
-                  onRefresh: () => provider.init(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    itemCount: provider.expenses.length,
-                    itemBuilder: (context, index) {
-                      final expense = provider.expenses[index];
-                      final category = provider.getCategoryById(expense.categoryId);
-                      final isExpense = category.type == CategoryType.expense;
+    if (provider.expenses.isEmpty) {
+      return _buildEmptyState(context);
+    }
 
-                      return _ExpenseItem(
-                        expense: expense,
-                        category: category,
-                        isExpense: isExpense,
-                        onLongPress: () => _showDeleteBottomSheet(context, provider, expense),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ExpenseDetailPage(expense: expense),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
+    if (filteredExpenses.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.search_off_rounded, size: 64, color: Colors.white24),
+            SizedBox(height: 16),
+            Text(
+              'No results found',
+              style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
-      ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => provider.init(),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 100),
+        itemCount: filteredExpenses.length,
+        itemBuilder: (context, index) {
+          final expense = filteredExpenses[index];
+          final category = provider.getCategoryById(expense.categoryId);
+          final isExpense = category.type == CategoryType.expense;
+
+          return _ExpenseItem(
+            expense: expense,
+            category: category,
+            isExpense: isExpense,
+            onLongPress: () => _showDeleteBottomSheet(context, provider, expense),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ExpenseDetailPage(expense: expense),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.receipt_long, size: 64, color: Colors.white24),
+          SizedBox(height: 16),
+          Text(
+            'No expenses yet',
+            style: TextStyle(color: Colors.white54, fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Tap + to add your first transaction',
+            style: TextStyle(color: Colors.white38),
+          ),
+        ],
+      ),
     );
   }
 

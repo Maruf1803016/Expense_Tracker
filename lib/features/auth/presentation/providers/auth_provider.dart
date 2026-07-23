@@ -27,6 +27,18 @@ class AuthProvider with ChangeNotifier {
         _authStateStream = authStateStream,
         _updateProfile = updateProfile,
         _changePassword = changePassword;
+
+  Future<void> verifyPassword(String password) async {
+    _setLoading(true);
+    try {
+      await _changePassword.repository.verifyPassword(password);
+    } catch (e) {
+      _setError(e.toString());
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
 // ... (omitted lines)
   Future<void> updateProfile({String? displayName, String? photoUrl}) async {
     _setLoading(true);
@@ -68,11 +80,17 @@ class AuthProvider with ChangeNotifier {
   void init() {
     _authStateSubscription?.cancel();
     _authStateSubscription = _authStateStream().listen((user) {
-      // 🕵️ System Hardening: If user becomes null, it means we logged out.
-      // The AuthWrapper handles the navigation, but we ensure state is local.
       _user = user;
       _isLoading = false;
       notifyListeners();
+    });
+
+    // Safety timeout for initial auth check
+    Future.delayed(const Duration(seconds: 5), () {
+      if (_isLoading) {
+        _isLoading = false;
+        notifyListeners();
+      }
     });
   }
 

@@ -9,6 +9,7 @@ import 'package:expense_tracker/features/category/presentation/pages/category_ma
 import 'package:expense_tracker/features/analytics/presentation/pages/insights_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_search_page.dart';
+import 'package:expense_tracker/features/expense/presentation/widgets/expense_search_delegate.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -58,12 +59,13 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(titles[_currentIndex]),
         actions: [
-          if (_currentIndex == 0) // Only show search on Expenses tab
+          if (_currentIndex == 0)
             IconButton(
               icon: const Icon(Icons.search_rounded),
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ExpenseSearchPage()),
+                showSearch(
+                  context: context,
+                  delegate: ExpenseSearchDelegate(),
                 );
               },
             ),

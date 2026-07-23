@@ -7,6 +7,7 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 class ExpenseModel extends Expense {
   const ExpenseModel({
     required super.id,
+    required super.title,
     required super.amount,
     required super.categoryId,
     required super.date,
@@ -14,11 +15,14 @@ class ExpenseModel extends Expense {
     super.type,
     super.isDeleted,
     super.deletedAt,
+    super.subCategory,
+    super.subCategoryIcon,
   });
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map, String documentId) {
     return ExpenseModel(
       id: documentId,
+      title: map['title'] ?? '',
       amount: (map['amount'] as num).toDouble(),
       categoryId: map['categoryId'] ?? '',
       date: (map['date'] as Timestamp).toDate(),
@@ -26,11 +30,14 @@ class ExpenseModel extends Expense {
       type: map['type'] == 'income' ? CategoryType.income : CategoryType.expense,
       isDeleted: map['isDeleted'] ?? false,
       deletedAt: map['deletedAt'] != null ? (map['deletedAt'] as Timestamp).toDate() : null,
+      subCategory: map['subCategory'],
+      subCategoryIcon: map['subCategoryIcon'],
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      'title': title,
       'amount': amount,
       'categoryId': categoryId,
       'date': Timestamp.fromDate(date),
@@ -38,12 +45,15 @@ class ExpenseModel extends Expense {
       'type': type.name,
       'isDeleted': isDeleted,
       'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
+      'subCategory': subCategory,
+      'subCategoryIcon': subCategoryIcon,
     };
   }
 
   factory ExpenseModel.fromEntity(Expense expense) {
     return ExpenseModel(
       id: expense.id,
+      title: expense.title,
       amount: expense.amount,
       categoryId: expense.categoryId,
       date: expense.date,
@@ -51,6 +61,8 @@ class ExpenseModel extends Expense {
       type: expense.type,
       isDeleted: expense.isDeleted,
       deletedAt: expense.deletedAt,
+      subCategory: expense.subCategory,
+      subCategoryIcon: expense.subCategoryIcon,
     );
   }
 }

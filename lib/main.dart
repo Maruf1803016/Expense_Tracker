@@ -5,6 +5,7 @@ import 'package:expense_tracker/injection.dart';
 import 'package:expense_tracker/app.dart';
 import 'package:expense_tracker/firebase_options.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
@@ -26,7 +27,10 @@ void main() async {
           create: (_) => sl<AuthProvider>()..init(),
         ),
         ChangeNotifierProvider(
-          create: (_) => sl<ExpenseProvider>(), // Initialized in HomePage or specifically
+          create: (_) => sl<CategoryProvider>(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => sl<ExpenseProvider>(),
         ),
         ChangeNotifierProvider(
           create: (_) => sl<ExportProvider>(),

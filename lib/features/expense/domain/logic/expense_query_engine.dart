@@ -20,14 +20,16 @@ class ExpenseQueryEngine {
   }) {
     // 1. Filtering
     var filtered = expenses.where((e) {
-      // Keyword Match (Note or Category Name)
+      // Keyword Match (Note or Category Name or Sub-category)
       if (query != null && query.isNotEmpty) {
-        final noteMatch = e.note.toLowerCase().contains(query.toLowerCase());
+        final lowerQuery = query.toLowerCase();
+        final noteMatch = e.note.toLowerCase().contains(lowerQuery);
         final category = allCategories.firstWhere((c) => c.id == e.categoryId, 
             orElse: () => const Category(id: '', name: '', type: CategoryType.expense));
-        final categoryMatch = category.name.toLowerCase().contains(query.toLowerCase());
+        final categoryMatch = category.name.toLowerCase().contains(lowerQuery);
+        final subCategoryMatch = (e.subCategory ?? '').toLowerCase().contains(lowerQuery);
         
-        if (!noteMatch && !categoryMatch) return false;
+        if (!noteMatch && !categoryMatch && !subCategoryMatch) return false;
       }
 
       // Category Filter

@@ -33,12 +33,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   Stream<List<ExpenseModel>> getExpenses() {
     return _expenseCollection
         .where('isDeleted', isEqualTo: false)
-        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final docs = snapshot.docs.map((doc) {
         return ExpenseModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
+      // Sort manually in memory to avoid index requirements
+      docs.sort((a, b) => b.date.compareTo(a.date));
+      return docs;
     });
   }
 
@@ -46,12 +48,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   Stream<List<ExpenseModel>> getRecycleBinExpenses() {
     return _expenseCollection
         .where('isDeleted', isEqualTo: true)
-        .orderBy('deletedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final docs = snapshot.docs.map((doc) {
         return ExpenseModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
+      // Sort manually in memory
+      docs.sort((a, b) => (b.deletedAt ?? b.date).compareTo(a.deletedAt ?? a.date));
+      return docs;
     });
   }
 

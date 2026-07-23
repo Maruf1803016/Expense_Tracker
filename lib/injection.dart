@@ -20,6 +20,7 @@ import 'package:expense_tracker/features/category/domain/usecases/delete_categor
 import 'package:expense_tracker/features/category/domain/usecases/get_categories.dart';
 import 'package:expense_tracker/features/category/domain/usecases/seed_categories.dart';
 import 'package:expense_tracker/features/category/domain/usecases/update_category.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 
 // --- Expense ---
 import 'package:expense_tracker/features/expense/data/datasources/expense_remote_data_source.dart';
@@ -143,7 +144,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetSmartAlertsStreamUseCase(getSummary: sl(), getBudgetStatus: sl(), getExpenses: sl(), analysisService: sl()));
 
   // Providers
-  sl.registerFactory(() => AuthProvider(
+  sl.registerLazySingleton(() => AuthProvider(
     signIn: sl(),
     signUp: sl(),
     signOut: sl(),
@@ -151,7 +152,14 @@ Future<void> initDependencies() async {
     updateProfile: sl(),
     changePassword: sl(),
   ));
-  sl.registerFactory(() => ExpenseProvider(
+  sl.registerLazySingleton(() => CategoryProvider(
+    getCategoriesStream: sl(),
+    seedCategories: sl(),
+    addCategory: sl(),
+    deleteCategory: sl(),
+    updateCategory: sl(),
+  ));
+  sl.registerLazySingleton(() => ExpenseProvider(
     getCategoriesStream: sl(),
     seedCategories: sl(),
     getExpensesStream: sl(),
@@ -171,9 +179,9 @@ Future<void> initDependencies() async {
     deleteForever: sl(),
     emptyRecycleBin: sl(),
   ));
-  sl.registerFactory(() => ExportProvider(getExportData: sl(), exportService: sl()));
-  sl.registerFactory(() => FinancialInsightsProvider(getFinancialInsights: sl()));
-  sl.registerFactory(() => SmartAlertsProvider(getSmartAlerts: sl()));
-  sl.registerFactory(() => ExpenseSearchProvider(searchExpenses: sl()));
-  sl.registerFactory(() => SettingsProvider(repository: sl()));
+  sl.registerLazySingleton(() => ExportProvider(getExportData: sl(), exportService: sl()));
+  sl.registerLazySingleton(() => FinancialInsightsProvider(getFinancialInsights: sl()));
+  sl.registerLazySingleton(() => SmartAlertsProvider(getSmartAlerts: sl()));
+  sl.registerLazySingleton(() => ExpenseSearchProvider(searchExpenses: sl()));
+  sl.registerLazySingleton(() => SettingsProvider(repository: sl()));
 }

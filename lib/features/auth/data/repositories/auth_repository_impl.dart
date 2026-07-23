@@ -83,4 +83,13 @@ class AuthRepositoryImpl implements AuthRepository {
       throw ServerFailure(e.message);
     }
   }
+
+  @override
+  Future<void> verifyPassword(String password) async {
+    try {
+      await remoteDataSource.verifyPassword(password);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    }
+  }
 }

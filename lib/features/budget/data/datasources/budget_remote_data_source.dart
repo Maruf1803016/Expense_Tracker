@@ -65,7 +65,7 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
   @override
   Future<void> setGlobalMonthlyBudget(double amount) async {
     try {
-      await _userDoc.update({'monthlyBudget': amount});
+      await _userDoc.set({'monthlyBudget': amount}, SetOptions(merge: true));
     } catch (e) {
       throw ServerException('Failed to set global budget: $e');
     }

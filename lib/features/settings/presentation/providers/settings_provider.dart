@@ -10,6 +10,9 @@ class SettingsProvider with ChangeNotifier {
   String _selectedCurrency = 'USD';
   String get selectedCurrency => _selectedCurrency;
 
+  double _budget = 0.0;
+  double get budget => _budget;
+
   static const Map<String, String> currencySymbols = {
     'USD': '\$',
     'EUR': '€',
@@ -21,15 +24,26 @@ class SettingsProvider with ChangeNotifier {
 
   String get currentSymbol => currencySymbols[_selectedCurrency] ?? '\$';
 
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
   Future<void> loadSettings() async {
+    _isLoading = true;
+    notifyListeners();
+    
     try {
-      _selectedCurrency = await repository.getCurrency();
+      final currency = await repository.getCurrency();
+      final budget = await repository.getBudget();
+      
+      _selectedCurrency = currency;
+      _budget = budget;
       CurrencyFormatter.setSymbol(currentSymbol);
+      _isLoading = false;
       notifyListeners();
     } catch (e) {
-      // Default to USD if error
-      _selectedCurrency = 'USD';
-      CurrencyFormatter.setSymbol('\$');
+      debugPrint('❌ SettingsProvider: Error loading settings: $e');
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -43,7 +57,18 @@ class SettingsProvider with ChangeNotifier {
     try {
       await repository.updateCurrency(currencyCode);
     } catch (e) {
-      // Log error or handle
+      // Log error
+    }
+  }
+
+  Future<void> setBudget(double amount) async {
+    _budget = amount;
+    notifyListeners();
+    
+    try {
+      await repository.updateBudget(amount);
+    } catch (e) {
+      // Log error
     }
   }
 }

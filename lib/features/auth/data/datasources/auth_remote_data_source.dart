@@ -23,6 +23,9 @@ abstract class AuthRemoteDataSource {
 
   /// Change password.
   Future<void> changePassword(String currentPassword, String newPassword);
+
+  /// Verify current password.
+  Future<void> verifyPassword(String password);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -35,7 +38,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   });
 
   @override
-  Stream<firebase_auth.User?> get userStream => firebaseAuth.authStateChanges();
+  Stream<firebase_auth.User?> get userStream => firebaseAuth.userChanges();
 
   @override
   String? get currentUserId => firebaseAuth.currentUser?.uid;
@@ -117,17 +120,34 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
+  Future<void> verifyPassword(String password) async {
+    try {
+      final user = firebaseAuth.currentUser;
+      if (user == null) throw ServerException('User not authenticated');
+
+      final credential = firebase_auth.EmailAuthProvider.credential(
+        email: user.email!,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw ServerException('Incorrect password');
+      }
+      throw ServerException(e.message ?? 'Failed to verify password');
+    } catch (e) {
+      throw ServerException('Unexpected error verifying password: $e');
+    }
+  }
+
+  @override
   Future<void> changePassword(String currentPassword, String newPassword) async {
     try {
       final user = firebaseAuth.currentUser;
       if (user == null) throw ServerException('User not authenticated');
 
-      // Re-authenticate user first (required by Firebase for sensitive actions)
-      final credential = firebase_auth.EmailAuthProvider.credential(
-        email: user.email!,
-        password: currentPassword,
-      );
-      await user.reauthenticateWithCredential(credential);
+      // Re-authenticate user first
+      await verifyPassword(currentPassword);
       await user.updatePassword(newPassword);
     } on firebase_auth.FirebaseAuthException catch (e) {
       throw ServerException(e.message ?? 'Failed to change password');

@@ -69,10 +69,9 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
     try {
       final batch = firestore.batch();
       for (var category in categories) {
-        final docRef = category.id.isNotEmpty 
-            ? _categoryCollection.doc(category.id)
-            : _categoryCollection.doc();
-        batch.set(docRef, category.toMap());
+        if (category.id.isEmpty) continue;
+        final docRef = _categoryCollection.doc(category.id);
+        batch.set(docRef, category.toMap(), SetOptions(merge: true));
       }
       await batch.commit();
     } catch (e) {
