@@ -86,6 +86,30 @@ class SettingsPage extends StatelessWidget {
                 ),
                 onTap: () => _showBudgetDialog(context, settingsProvider),
               ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  expenseProvider.summary.netBalance >= 0 
+                      ? Icons.savings_outlined 
+                      : Icons.trending_down_outlined,
+                  color: expenseProvider.summary.netBalance >= 0 
+                      ? AppTheme.incomeColor 
+                      : AppTheme.expenseColor,
+                ),
+                title: Text(expenseProvider.summary.netBalance >= 0 ? 'Monthly Savings' : 'Monthly Loss'),
+                trailing: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    CurrencyFormatter.format(expenseProvider.summary.netBalance),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: expenseProvider.summary.netBalance >= 0 
+                          ? AppTheme.incomeColor 
+                          : AppTheme.expenseColor,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
