@@ -492,7 +492,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     itemCount: _plannedEntries.length,
                     itemBuilder: (context, idx) {
                       final entry = _plannedEntries[idx];
-                      final category = categoryProvider.getCategoryById(entry.categoryId);
+                      final category = categories.firstWhere((c) => c.id == entry.categoryId, orElse: () => categories.first);
                       final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
