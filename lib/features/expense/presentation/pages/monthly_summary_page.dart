@@ -10,6 +10,7 @@ import 'package:expense_tracker/features/expense/presentation/widgets/income_exp
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
+import 'package:expense_tracker/features/expense/domain/entities/monthly_summary.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
