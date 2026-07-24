@@ -94,14 +94,37 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
   }
 
+  void _clearFormState() {
+    _titleController.clear();
+    _amountController.clear();
+    _noteController.clear();
+    _selectedCategoryId = null;
+    _selectedSubCategoryName = null;
+    _selectedSubCategoryIcon = null;
+    _planSelectedCategoryIds = [];
+    _planStartDate = DateTime.now();
+    _planEndDate = DateTime.now().add(const Duration(days: 30));
+  }
+
   Future<void> _saveExpense() async {
+    if (_mode == TransactionMode.plan) {
+      if (!_formKey.currentState!.validate()) return;
+    } else {
+      if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
+        if (_selectedCategoryId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a category')),
+          );
+        }
+        return;
+      }
+    }
+
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     try {
       if (_mode == TransactionMode.plan) {
-        if (!_formKey.currentState!.validate()) return;
-        
         final plan = Plan(
           id: const Uuid().v4(),
           title: _titleController.text.trim(),
@@ -122,55 +145,42 @@ class _AddExpensePageState extends State<AddExpensePage> {
             duration: Duration(seconds: 2),
           ),
         );
-        navigator.pop();
-        return;
-      }
+      } else {
+        final expense = Expense(
+          id: widget.expenseToEdit?.id ?? const Uuid().v4(),
+          title: _titleController.text.trim(),
+          amount: double.parse(_amountController.text),
+          categoryId: _selectedCategoryId!,
+          date: _selectedDate,
+          note: _noteController.text,
+          type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
+          subCategory: _selectedSubCategoryName,
+          subCategoryIcon: _selectedSubCategoryIcon,
+          planId: _selectedPlanId,
+        );
 
-      if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
-        if (_selectedCategoryId == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a category')),
+        final provider = context.read<ExpenseProvider>();
+        
+        if (widget.expenseToEdit != null) {
+          await provider.updateExpense(expense);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
+              backgroundColor: AppTheme.emeraldGreen,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        } else {
+          await provider.addExpense(expense);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
+              backgroundColor: AppTheme.emeraldGreen,
+              duration: const Duration(seconds: 2),
+            ),
           );
         }
-        return;
       }
-
-      final expense = Expense(
-        id: widget.expenseToEdit?.id ?? const Uuid().v4(),
-        title: _titleController.text.trim(),
-        amount: double.parse(_amountController.text),
-        categoryId: _selectedCategoryId!,
-        date: _selectedDate,
-        note: _noteController.text,
-        type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
-        subCategory: _selectedSubCategoryName,
-        subCategoryIcon: _selectedSubCategoryIcon,
-        planId: _selectedPlanId,
-      );
-
-      final provider = context.read<ExpenseProvider>();
-      
-      if (widget.expenseToEdit != null) {
-        await provider.updateExpense(expense);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
-            backgroundColor: AppTheme.emeraldGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      } else {
-        await provider.addExpense(expense);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
-            backgroundColor: AppTheme.emeraldGreen,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-
-      navigator.pop();
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
@@ -179,6 +189,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           duration: const Duration(seconds: 3),
         ),
       );
+    } finally {
+      _clearFormState();
+      navigator.pop();
     }
   }
 
@@ -211,9 +224,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 onSelectionChanged: (newSelection) {
                   setState(() {
                     _mode = newSelection.first;
-                    _selectedCategoryId = null; 
-                    _selectedSubCategoryName = null;
-                    _selectedSubCategoryIcon = null;
+                    _clearFormState();
                   });
                 },
               ),
@@ -611,6 +622,55 @@ class _AddExpensePageState extends State<AddExpensePage> {
     Icons.add_circle,
   ];
 
+  bool _isDefaultSubCategory(Category category, String subName) {
+    final defaultCat = Category.defaultCategories.firstWhere(
+      (c) => c.id == category.id,
+      orElse: () => const Category(id: '', name: '', type: CategoryType.expense, icon: Icons.category, subCategories: []),
+    );
+    return defaultCat.subCategories.any((s) => s.name.toLowerCase() == subName.toLowerCase());
+  }
+
+  Future<void> _deleteSubCategory(BuildContext context, Category category, SubCategory sub) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Sub-category'),
+        content: Text('Are you sure you want to delete "${sub.name}"? This won\'t affect past transactions.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.expenseColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final updatedSubs = List<SubCategory>.from(category.subCategories)
+        ..removeWhere((s) => s.name == sub.name);
+      final updatedCategory = Category(
+        id: category.id,
+        name: category.name,
+        type: category.type,
+        icon: category.icon,
+        subCategories: updatedSubs,
+      );
+      
+      await context.read<CategoryProvider>().update(updatedCategory);
+      if (_selectedSubCategoryName == sub.name) {
+        setState(() {
+          _selectedSubCategoryName = null;
+          _selectedSubCategoryIcon = null;
+        });
+      }
+    }
+  }
+
   Widget _buildSubCategorySection(BuildContext context, List<Category> categories) {
     if (_selectedCategoryId == null) {
       return const Text(
@@ -638,8 +698,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     final List<Widget> chips = [];
     for (var sub in category.subCategories) {
       final isSelected = _selectedSubCategoryName == sub.name;
+      final isDefault = _isDefaultSubCategory(category, sub.name);
       chips.add(
-        ChoiceChip(
+        InputChip(
           avatar: Icon(sub.icon, size: 16, color: isSelected ? Colors.white : Colors.white54),
           label: Text(sub.name, style: TextStyle(color: isSelected ? Colors.white : Colors.white54)),
           selected: isSelected,
@@ -654,6 +715,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
               }
             });
           },
+          onDeleted: isDefault
+              ? null
+              : () => _deleteSubCategory(context, category, sub),
+          deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.white70),
           selectedColor: AppTheme.emeraldGreen,
           backgroundColor: Colors.white.withOpacity(0.05),
           showCheckmark: false,

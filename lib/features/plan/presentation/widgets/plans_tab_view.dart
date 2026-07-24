@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
@@ -228,18 +226,81 @@ class _PlansTabViewState extends State<PlansTabView> {
                                 ],
                               ),
                             ],
+                            if (plan.categoryIds.isNotEmpty) ...[
+                              const SizedBox(height: 20),
+                              const Divider(color: Colors.white10),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Category Breakdown',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...plan.categoryIds.asMap().entries.map((itemEntry) {
+                                final idx = itemEntry.key;
+                                final catId = itemEntry.value;
+                                final category = expenseProvider.getCategoryById(catId);
+                                final catExpenses = planExpenses.where((e) => e.categoryId == catId);
+                                final catSpent = catExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+                                final double catPercent = plan.totalBudget > 0 ? (catSpent / plan.totalBudget) : 0.0;
+                                final catColor = ExpenseProvider.pieColors[idx % ExpenseProvider.pieColors.length];
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 12.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(category.icon, size: 16, color: catColor),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                category.name,
+                                                style: const TextStyle(fontSize: 13, color: Colors.white),
+                                              ),
+                                            ],
+                                          ),
+                                          Text(
+                                            '${CurrencyFormatter.format(catSpent)} / ${CurrencyFormatter.format(plan.totalBudget)}',
+                                            style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: catPercent.clamp(0.0, 1.0),
+                                          minHeight: 6,
+                                          backgroundColor: Colors.white.withOpacity(0.05),
+                                          color: catColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${(catPercent * 100).toStringAsFixed(1)}% of total budget',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.4),
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
                           ],
                         ),
                       ),
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddPlanBottomSheet(context),
-        backgroundColor: AppTheme.emeraldGreen,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
     );
   }
 
@@ -270,316 +331,8 @@ class _PlansTabViewState extends State<PlansTabView> {
               style: TextStyle(color: Colors.white54),
             ),
           ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emeraldGreen,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            onPressed: () => _showAddPlanBottomSheet(context),
-            icon: const Icon(Icons.add),
-            label: const Text('Create First Plan', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
         ],
       ),
-    );
-  }
-
-  void _showAddPlanBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _CreatePlanSheet(),
-    );
-  }
-}
-
-class _CreatePlanSheet extends StatefulWidget {
-  const _CreatePlanSheet();
-
-  @override
-  State<_CreatePlanSheet> createState() => _CreatePlanSheetState();
-}
-
-class _CreatePlanSheetState extends State<_CreatePlanSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _budgetController = TextEditingController();
-  final _noteController = TextEditingController();
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now().add(const Duration(days: 30));
-  List<String> _selectedCategoryIds = [];
-  bool _isSaving = false;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _budgetController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _selectStartDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _startDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked;
-        if (_endDate.isBefore(_startDate)) {
-          _endDate = _startDate.add(const Duration(days: 30));
-        }
-      });
-    }
-  }
-
-  Future<void> _selectEndDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _endDate,
-      firstDate: _startDate,
-      lastDate: DateTime(2101),
-    );
-    if (picked != null) {
-      setState(() {
-        _endDate = picked;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final categoryProvider = context.watch<CategoryProvider>();
-    final categories = categoryProvider.categories;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Create Custom Plan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 20),
-              
-              // Title
-              _buildLabel('Plan Title'),
-              _buildInputContainer(
-                child: TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Summer Vacation / Wedding',
-                    prefixIcon: Icon(Icons.title),
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Title is required' : null,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Budget
-              _buildLabel('Total Budget'),
-              _buildInputContainer(
-                child: TextFormField(
-                  controller: _budgetController,
-                  decoration: const InputDecoration(
-                    hintText: '0.00',
-                    prefixIcon: Icon(Icons.monetization_on_outlined),
-                    border: InputBorder.none,
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Budget is required';
-                    if (double.tryParse(v) == null) return 'Invalid number';
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Dates
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('Start Date'),
-                        _buildInputContainer(
-                          child: InkWell(
-                            onTap: () => _selectStartDate(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${_startDate.day}/${_startDate.month}/${_startDate.year}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('End Date'),
-                        _buildInputContainer(
-                          child: InkWell(
-                            onTap: () => _selectEndDate(context),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '${_endDate.day}/${_endDate.month}/${_endDate.year}',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Optional Category
-              _buildLabel('Limit to Categories (Optional)'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categories.map((category) {
-                  final isSelected = _selectedCategoryIds.contains(category.id);
-                  return FilterChip(
-                    label: Text(category.name),
-                    selected: isSelected,
-                    selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
-                    checkmarkColor: AppTheme.emeraldGreen,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedCategoryIds.add(category.id);
-                        } else {
-                          _selectedCategoryIds.remove(category.id);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-
-              // Note
-              _buildLabel('Note / Description'),
-              _buildInputContainer(
-                child: TextFormField(
-                  controller: _noteController,
-                  decoration: const InputDecoration(
-                    hintText: 'Add description...',
-                    prefixIcon: Icon(Icons.notes),
-                    border: InputBorder.none,
-                  ),
-                  maxLines: 2,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emeraldGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: (_titleController.text.trim().isEmpty ||
-                        _budgetController.text.trim().isEmpty ||
-                        _isSaving)
-                    ? null
-                    : () async {
-                        if (!_formKey.currentState!.validate()) return;
-                        setState(() => _isSaving = true);
-                        
-                        final plan = Plan(
-                          id: const Uuid().v4(),
-                          title: _titleController.text.trim(),
-                          totalBudget: double.parse(_budgetController.text.trim()),
-                          startDate: _startDate,
-                          endDate: _endDate,
-                          categoryIds: _selectedCategoryIds,
-                          note: _noteController.text.trim(),
-                          createdAt: DateTime.now(),
-                        );
-                        
-                        final navigator = Navigator.of(context);
-                        await context.read<PlanProvider>().add(plan);
-                        navigator.pop();
-                      },
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Save Plan', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-
-  Widget _buildInputContainer({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: child,
     );
   }
 }
