@@ -40,13 +40,20 @@ class CategoryProvider with ChangeNotifier {
       // Subscribe to categories stream
       getCategoriesStream().listen(
         (list) {
-          _categories = list;
+          if (list.isEmpty) {
+            _categories = Category.defaultCategories;
+          } else {
+            _categories = list;
+          }
           _isLoading = false;
           debugPrint('[CategoryProvider] loaded ${_categories.length} categories');
           notifyListeners();
         },
         onError: (e) {
           debugPrint('[CategoryProvider] Error loading categories: $e');
+          if (_categories.isEmpty) {
+            _categories = Category.defaultCategories;
+          }
           _isLoading = false;
           notifyListeners();
         },
