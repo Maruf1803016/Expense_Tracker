@@ -48,7 +48,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   // Plan mode specific fields
   DateTime _planStartDate = DateTime.now();
   DateTime _planEndDate = DateTime.now().add(const Duration(days: 30));
-  String? _planSelectedCategoryId;
+  List<String> _planSelectedCategoryIds = [];
 
   @override
   void initState() {
@@ -75,7 +75,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedSubCategoryIcon = widget.expenseToEdit?.subCategoryIcon;
     _selectedPlanId = widget.preselectedPlanId ?? widget.expenseToEdit?.planId;
     
-    _planSelectedCategoryId = widget.preselectedCategoryId;
+    if (widget.preselectedCategoryId != null) {
+      _planSelectedCategoryIds = [widget.preselectedCategoryId!];
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -93,83 +95,91 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveExpense() async {
-    if (_mode == TransactionMode.plan) {
-      if (!_formKey.currentState!.validate()) return;
-      
-      final plan = Plan(
-        id: const Uuid().v4(),
-        title: _titleController.text.trim(),
-        totalBudget: double.parse(_amountController.text.trim()),
-        startDate: _planStartDate,
-        endDate: _planEndDate,
-        categoryId: _planSelectedCategoryId,
-        note: _noteController.text.trim(),
-        createdAt: DateTime.now(),
-      );
-      
-      final planProvider = context.read<PlanProvider>();
-      final messenger = ScaffoldMessenger.of(context);
-      final navigator = Navigator.of(context);
-      
-      await planProvider.add(plan);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Custom Plan saved'),
-          backgroundColor: AppTheme.emeraldGreen,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      navigator.pop();
-      return;
-    }
-
-    if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
-      if (_selectedCategoryId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-        );
-      }
-      return;
-    }
-
-    final expense = Expense(
-      id: widget.expenseToEdit?.id ?? const Uuid().v4(),
-      title: _titleController.text.trim(),
-      amount: double.parse(_amountController.text),
-      categoryId: _selectedCategoryId!,
-      date: _selectedDate,
-      note: _noteController.text,
-      type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
-      subCategory: _selectedSubCategoryName,
-      subCategoryIcon: _selectedSubCategoryIcon,
-      planId: _selectedPlanId,
-    );
-
-    final provider = context.read<ExpenseProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    
-    if (widget.expenseToEdit != null) {
-      await provider.updateExpense(expense);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
-          backgroundColor: AppTheme.emeraldGreen,
-          duration: const Duration(seconds: 2),
-        ),
+
+    try {
+      if (_mode == TransactionMode.plan) {
+        if (!_formKey.currentState!.validate()) return;
+        
+        final plan = Plan(
+          id: const Uuid().v4(),
+          title: _titleController.text.trim(),
+          totalBudget: double.parse(_amountController.text.trim()),
+          startDate: _planStartDate,
+          endDate: _planEndDate,
+          categoryIds: _planSelectedCategoryIds,
+          note: _noteController.text.trim(),
+          createdAt: DateTime.now(),
+        );
+        
+        final planProvider = context.read<PlanProvider>();
+        await planProvider.add(plan);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Custom Plan saved'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        navigator.pop();
+        return;
+      }
+
+      if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
+        if (_selectedCategoryId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a category')),
+          );
+        }
+        return;
+      }
+
+      final expense = Expense(
+        id: widget.expenseToEdit?.id ?? const Uuid().v4(),
+        title: _titleController.text.trim(),
+        amount: double.parse(_amountController.text),
+        categoryId: _selectedCategoryId!,
+        date: _selectedDate,
+        note: _noteController.text,
+        type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
+        subCategory: _selectedSubCategoryName,
+        subCategoryIcon: _selectedSubCategoryIcon,
+        planId: _selectedPlanId,
       );
-    } else {
-      await provider.addExpense(expense);
+
+      final provider = context.read<ExpenseProvider>();
+      
+      if (widget.expenseToEdit != null) {
+        await provider.updateExpense(expense);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        await provider.addExpense(expense);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      navigator.pop();
+    } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
-          backgroundColor: AppTheme.emeraldGreen,
-          duration: const Duration(seconds: 2),
+          content: Text('Error saving: $e'),
+          backgroundColor: AppTheme.expenseColor,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
-
-    navigator.pop();
   }
 
   @override
@@ -334,32 +344,29 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                _buildSectionLabel('Limit to Category (Optional)'),
-                _buildInputCard(
-                  child: DropdownButtonFormField<String?>(
-                    value: _planSelectedCategoryId,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.category_outlined),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    items: () {
-                      final List<DropdownMenuItem<String?>> items = [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('All Categories'),
-                        ),
-                      ];
-                      items.addAll(categories.map((c) => DropdownMenuItem<String?>(
-                        value: c.id,
-                        child: Text(c.name),
-                      )));
-                      return items;
-                    }(),
-                    onChanged: (val) => setState(() => _planSelectedCategoryId = val),
-                  ),
+                _buildSectionLabel('Limit to Categories (Optional)'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((category) {
+                    final isSelected = _planSelectedCategoryIds.contains(category.id);
+                    return FilterChip(
+                      label: Text(category.name),
+                      selected: isSelected,
+                      selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
+                      checkmarkColor: AppTheme.emeraldGreen,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _planSelectedCategoryIds.add(category.id);
+                          } else {
+                            _planSelectedCategoryIds.remove(category.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 20),
 

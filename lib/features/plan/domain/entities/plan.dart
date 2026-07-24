@@ -6,7 +6,7 @@ class Plan extends Equatable {
   final double totalBudget;
   final DateTime startDate;
   final DateTime endDate;
-  final String? categoryId;
+  final List<String> categoryIds;
   final String note;
   final DateTime createdAt;
   final bool isArchived;
@@ -17,7 +17,7 @@ class Plan extends Equatable {
     required this.totalBudget,
     required this.startDate,
     required this.endDate,
-    this.categoryId,
+    this.categoryIds = const [],
     required this.note,
     required this.createdAt,
     this.isArchived = false,
@@ -30,7 +30,7 @@ class Plan extends Equatable {
         totalBudget,
         startDate,
         endDate,
-        categoryId,
+        categoryIds,
         note,
         createdAt,
         isArchived,

@@ -332,14 +332,18 @@ class ExpenseProvider with ChangeNotifier {
       _categoriesSubscription = _getCategoriesStream().listen(
         (data) {
           _isInitialized = true;
-          if (const ListEquality().equals(_categories, data)) return;
-          _categories = List<Category>.from(data);
+          final resolvedData = data.isEmpty ? Category.defaultCategories : data;
+          if (const ListEquality().equals(_categories, resolvedData)) return;
+          _categories = List<Category>.from(resolvedData);
           _isLoading = false; 
           notifyListeners();
         },
         onError: (e) {
           _isLoading = false;
           _isInitialized = true;
+          if (_categories.isEmpty) {
+            _categories = List<Category>.from(Category.defaultCategories);
+          }
           notifyListeners();
         }
       );

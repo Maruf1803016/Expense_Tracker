@@ -8,20 +8,27 @@ class PlanModel extends Plan {
     required super.totalBudget,
     required super.startDate,
     required super.endDate,
-    super.categoryId,
+    super.categoryIds,
     required super.note,
     required super.createdAt,
     super.isArchived,
   });
 
   factory PlanModel.fromMap(Map<String, dynamic> map, String documentId) {
+    List<String> resolvedCategoryIds = [];
+    if (map['categoryIds'] != null) {
+      resolvedCategoryIds = List<String>.from(map['categoryIds']);
+    } else if (map['categoryId'] != null) {
+      resolvedCategoryIds = [map['categoryId'] as String];
+    }
+
     return PlanModel(
       id: documentId,
       title: map['title'] ?? '',
       totalBudget: (map['totalBudget'] as num?)?.toDouble() ?? 0.0,
       startDate: (map['startDate'] as Timestamp).toDate(),
       endDate: (map['endDate'] as Timestamp).toDate(),
-      categoryId: map['categoryId'],
+      categoryIds: resolvedCategoryIds,
       note: map['note'] ?? '',
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
@@ -36,7 +43,7 @@ class PlanModel extends Plan {
       'totalBudget': totalBudget,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
-      'categoryId': categoryId,
+      'categoryIds': categoryIds,
       'note': note,
       'createdAt': Timestamp.fromDate(createdAt),
       'isArchived': isArchived,
@@ -50,7 +57,7 @@ class PlanModel extends Plan {
       totalBudget: plan.totalBudget,
       startDate: plan.startDate,
       endDate: plan.endDate,
-      categoryId: plan.categoryId,
+      categoryIds: plan.categoryIds,
       note: plan.note,
       createdAt: plan.createdAt,
       isArchived: plan.isArchived,

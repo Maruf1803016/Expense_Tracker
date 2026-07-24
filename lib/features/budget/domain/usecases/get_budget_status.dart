@@ -25,9 +25,10 @@ class GetBudgetStatusStreamUseCase {
       expenseRepository.getExpensesStream(),
       budgetRepository.getBudgetsStream(month, year),
       (categories, expenses, budgets) {
+        final resolvedCategories = categories.isEmpty ? Category.defaultCategories : categories;
         final filteredExpenses = analysisService.aggregator.filterByMonth(expenses, month, year);
         
-        return categories.where((c) => c.type == CategoryType.expense).map((category) {
+        return resolvedCategories.where((c) => c.type == CategoryType.expense).map((category) {
           final spent = filteredExpenses
               .where((e) => e.categoryId == category.id)
               .fold(0.0, (sum, e) => sum + e.amount);

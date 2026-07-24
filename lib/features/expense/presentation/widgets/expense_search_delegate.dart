@@ -65,7 +65,8 @@ class ExpenseSearchDelegate extends SearchDelegate<Expense?> {
     final lowerQuery = query.toLowerCase();
     final results = expenses.where((e) {
       final category = provider.getCategoryById(e.categoryId);
-      return e.note.toLowerCase().contains(lowerQuery) ||
+      return e.title.toLowerCase().contains(lowerQuery) ||
+          e.note.toLowerCase().contains(lowerQuery) ||
           category.name.toLowerCase().contains(lowerQuery) ||
           (e.subCategory?.toLowerCase().contains(lowerQuery) ?? false);
     }).toList();
