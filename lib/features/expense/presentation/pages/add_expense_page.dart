@@ -9,11 +9,25 @@ import 'package:expense_tracker/features/settings/presentation/providers/setting
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+
+enum TransactionMode {
+  expense,
+  income,
+  plan,
+}
 
 class AddExpensePage extends StatefulWidget {
   final Expense? expenseToEdit;
+  final String? preselectedPlanId;
+  final String? preselectedCategoryId;
 
-  const AddExpensePage({super.key, this.expenseToEdit});
+  const AddExpensePage({
+    super.key,
+    this.expenseToEdit,
+    this.preselectedPlanId,
+    this.preselectedCategoryId,
+  });
 
   @override
   State<AddExpensePage> createState() => _AddExpensePageState();
@@ -26,10 +40,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _noteController;
   String? _selectedCategoryId;
   late DateTime _selectedDate;
-  CategoryType _selectedType = CategoryType.expense;
+  TransactionMode _mode = TransactionMode.expense;
   String? _selectedSubCategoryName;
   String? _selectedSubCategoryIcon;
   String? _selectedPlanId;
+
+  // Plan mode specific fields
+  DateTime _planStartDate = DateTime.now();
+  DateTime _planEndDate = DateTime.now().add(const Duration(days: 30));
+  List<String> _planSelectedCategoryIds = [];
 
   @override
   void initState() {
@@ -41,12 +60,24 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
     );
-    _selectedCategoryId = widget.expenseToEdit?.categoryId;
+    _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
-    _selectedType = widget.expenseToEdit?.type ?? CategoryType.expense;
+    
+    if (widget.expenseToEdit != null) {
+      _mode = widget.expenseToEdit!.type == CategoryType.income
+          ? TransactionMode.income
+          : TransactionMode.expense;
+    } else {
+      _mode = TransactionMode.expense;
+    }
+    
     _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
     _selectedSubCategoryIcon = widget.expenseToEdit?.subCategoryIcon;
-    _selectedPlanId = widget.expenseToEdit?.planId;
+    _selectedPlanId = widget.preselectedPlanId ?? widget.expenseToEdit?.planId;
+    
+    if (widget.preselectedCategoryId != null) {
+      _planSelectedCategoryIds = [widget.preselectedCategoryId!];
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -64,59 +95,99 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveExpense() async {
-    if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
-      if (_selectedCategoryId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-        );
-      }
-      return;
-    }
-
-    final expense = Expense(
-      id: widget.expenseToEdit?.id ?? const Uuid().v4(),
-      title: _titleController.text.trim(),
-      amount: double.parse(_amountController.text),
-      categoryId: _selectedCategoryId!,
-      date: _selectedDate,
-      note: _noteController.text,
-      type: _selectedType,
-      subCategory: _selectedSubCategoryName,
-      subCategoryIcon: _selectedSubCategoryIcon,
-      planId: _selectedPlanId,
-    );
-
-    final provider = context.read<ExpenseProvider>();
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    
-    if (widget.expenseToEdit != null) {
-      await provider.updateExpense(expense);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('${_selectedType == CategoryType.expense ? 'Expense' : 'Income'} updated'),
-          backgroundColor: AppTheme.emeraldGreen,
-          duration: const Duration(seconds: 2),
-        ),
+
+    try {
+      if (_mode == TransactionMode.plan) {
+        if (!_formKey.currentState!.validate()) return;
+        
+        final plan = Plan(
+          id: const Uuid().v4(),
+          title: _titleController.text.trim(),
+          totalBudget: double.parse(_amountController.text.trim()),
+          startDate: _planStartDate,
+          endDate: _planEndDate,
+          categoryIds: _planSelectedCategoryIds,
+          note: _noteController.text.trim(),
+          createdAt: DateTime.now(),
+        );
+        
+        final planProvider = context.read<PlanProvider>();
+        await planProvider.add(plan);
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Custom Plan saved'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        navigator.pop();
+        return;
+      }
+
+      if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
+        if (_selectedCategoryId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a category')),
+          );
+        }
+        return;
+      }
+
+      final expense = Expense(
+        id: widget.expenseToEdit?.id ?? const Uuid().v4(),
+        title: _titleController.text.trim(),
+        amount: double.parse(_amountController.text),
+        categoryId: _selectedCategoryId!,
+        date: _selectedDate,
+        note: _noteController.text,
+        type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
+        subCategory: _selectedSubCategoryName,
+        subCategoryIcon: _selectedSubCategoryIcon,
+        planId: _selectedPlanId,
       );
-    } else {
-      await provider.addExpense(expense);
+
+      final provider = context.read<ExpenseProvider>();
+      
+      if (widget.expenseToEdit != null) {
+        await provider.updateExpense(expense);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        await provider.addExpense(expense);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
+            backgroundColor: AppTheme.emeraldGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
+      navigator.pop();
+    } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('${_selectedType == CategoryType.expense ? 'Expense' : 'Income'} saved'),
-          backgroundColor: AppTheme.emeraldGreen,
-          duration: const Duration(seconds: 2),
+          content: Text('Error saving: $e'),
+          backgroundColor: AppTheme.expenseColor,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
-
-    navigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final categoryProvider = context.watch<CategoryProvider>();
     final categories = categoryProvider.categories;
+    final isIncomeMode = _mode == TransactionMode.income;
+    final currentCategoryType = isIncomeMode ? CategoryType.income : CategoryType.expense;
 
     return Scaffold(
       appBar: AppBar(
@@ -129,16 +200,17 @@ class _AddExpensePageState extends State<AddExpensePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Toggle: Expense / Income
-              SegmentedButton<CategoryType>(
+              // Toggle: Expense / Income / Plan
+              SegmentedButton<TransactionMode>(
                 segments: const [
-                  ButtonSegment(value: CategoryType.expense, label: Text('Expense'), icon: Icon(Icons.remove_circle_outline)),
-                  ButtonSegment(value: CategoryType.income, label: Text('Income'), icon: Icon(Icons.add_circle_outline)),
+                  ButtonSegment(value: TransactionMode.expense, label: Text('Expense'), icon: Icon(Icons.remove_circle_outline)),
+                  ButtonSegment(value: TransactionMode.income, label: Text('Income'), icon: Icon(Icons.add_circle_outline)),
+                  ButtonSegment(value: TransactionMode.plan, label: Text('Plan'), icon: Icon(Icons.assignment_outlined)),
                 ],
-                selected: {_selectedType},
+                selected: {_mode},
                 onSelectionChanged: (newSelection) {
                   setState(() {
-                    _selectedType = newSelection.first;
+                    _mode = newSelection.first;
                     _selectedCategoryId = null; 
                     _selectedSubCategoryName = null;
                     _selectedSubCategoryIcon = null;
@@ -147,203 +219,332 @@ class _AddExpensePageState extends State<AddExpensePage> {
               ),
               const SizedBox(height: 24),
 
-              // Title
-              _buildSectionLabel('Title'),
-              _buildInputCard(
-                child: TextFormField(
-                  controller: _titleController,
-                  decoration: const InputDecoration(
-                    hintText: 'Enter title',
-                    prefixIcon: Icon(Icons.title_rounded),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                  validator: (value) => value == null || value.isEmpty ? 'Title is required' : null,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Amount
-              _buildSectionLabel('Amount'),
-              _buildInputCard(
-                child: TextFormField(
-                  controller: _amountController,
-                  decoration: InputDecoration(
-                    hintText: '0.00',
-                    prefixIcon: const Icon(Icons.monetization_on_outlined),
-                    prefixText: '${context.watch<SettingsProvider>().currentSymbol} ',
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Required';
-                    if (double.tryParse(value) == null) return 'Invalid number';
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Category
-              _buildSectionLabel('Category'),
-              _buildInputCard(
-                child: DropdownButtonFormField<String>(
-                  value: _selectedCategoryId,
-                  decoration: const InputDecoration(
-                    hintText: 'Select Category',
-                    prefixIcon: Icon(Icons.category_outlined),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                  items: () {
-                    final Map<String, Category> unique = {};
-                    for (var c in categories.where((c) => c.type == _selectedType)) {
-                      unique[c.id] = c;
-                    }
-                    final sorted = unique.values.toList()..sort((a, b) => a.name.compareTo(b.name));
-                    return sorted.map((category) => DropdownMenuItem(
-                      value: category.id,
-                      child: Row(
-                        children: [
-                          Icon(
-                            category.icon,
-                            size: 20,
-                            color: _selectedType == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor,
-                          ),
-                          const SizedBox(width: 12),
-                          Text(category.name),
-                        ],
-                      ),
-                    )).toList();
-                  }(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCategoryId = value;
-                      _selectedSubCategoryName = null;
-                      _selectedSubCategoryIcon = null;
-                    });
-                  },
-                  validator: (value) => value == null ? 'Required' : null,
-                ),
-              ),
-              const SizedBox(height: 20),
-              
-              // Sub-category (Expense Only)
-              if (_selectedType == CategoryType.expense) ...[
-                _buildSectionLabel('Sub-category'),
+              if (_mode == TransactionMode.plan) ...[
+                // Plan Mode Form
+                _buildSectionLabel('Plan Title'),
                 _buildInputCard(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: _buildSubCategorySection(context, categories),
+                  child: TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Summer Vacation / Wedding',
+                      prefixIcon: Icon(Icons.title),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    validator: (v) => v == null || v.trim().isEmpty ? 'Title is required' : null,
                   ),
                 ),
                 const SizedBox(height: 20),
-              ],
-              
-              // Date
-              _buildSectionLabel('Date'),
-              _buildInputCard(
-                child: InkWell(
-                  onTap: () => _selectDate(context),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                          style: const TextStyle(fontSize: 16),
+
+                _buildSectionLabel('Total Budget'),
+                _buildInputCard(
+                  child: TextFormField(
+                    controller: _amountController,
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      prefixIcon: const Icon(Icons.monetization_on_outlined),
+                      prefixText: '${context.watch<SettingsProvider>().currentSymbol} ',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      if (double.tryParse(v) == null) return 'Invalid number';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel('Start Date'),
+                          _buildInputCard(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _planStartDate,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2101),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    _planStartDate = picked;
+                                    if (_planEndDate.isBefore(_planStartDate)) {
+                                      _planEndDate = _planStartDate.add(const Duration(days: 30));
+                                    }
+                                  });
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${_planStartDate.day}/${_planStartDate.month}/${_planStartDate.year}',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel('End Date'),
+                          _buildInputCard(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: _planEndDate,
+                                  firstDate: _planStartDate,
+                                  lastDate: DateTime(2101),
+                                );
+                                if (picked != null) {
+                                  setState(() {
+                                    _planEndDate = picked;
+                                  });
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${_planEndDate.day}/${_planEndDate.month}/${_planEndDate.year}',
+                                      style: const TextStyle(color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _buildSectionLabel('Limit to Categories (Optional)'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categories.map((category) {
+                    final isSelected = _planSelectedCategoryIds.contains(category.id);
+                    return FilterChip(
+                      label: Text(category.name),
+                      selected: isSelected,
+                      selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
+                      checkmarkColor: AppTheme.emeraldGreen,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _planSelectedCategoryIds.add(category.id);
+                          } else {
+                            _planSelectedCategoryIds.remove(category.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+
+                _buildSectionLabel('Note / Description'),
+                _buildInputCard(
+                  child: TextFormField(
+                    controller: _noteController,
+                    decoration: const InputDecoration(
+                      hintText: 'Add description...',
+                      prefixIcon: Icon(Icons.notes),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    maxLines: 2,
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emeraldGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: _saveExpense,
+                  child: const Text(
+                    'Save Plan',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ] else ...[
+                // Regular Expense/Income Form
+                _buildSectionLabel('Title'),
+                _buildInputCard(
+                  child: TextFormField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(
+                      hintText: 'Enter title',
+                      prefixIcon: Icon(Icons.title_rounded),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    validator: (value) => value == null || value.isEmpty ? 'Title is required' : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                _buildSectionLabel('Amount'),
+                _buildInputCard(
+                  child: TextFormField(
+                    controller: _amountController,
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      prefixIcon: const Icon(Icons.monetization_on_outlined),
+                      prefixText: '${context.watch<SettingsProvider>().currentSymbol} ',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Required';
+                      if (double.tryParse(value) == null) return 'Invalid number';
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                _buildSectionLabel('Category'),
+                _buildInputCard(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategoryId,
+                    decoration: const InputDecoration(
+                      hintText: 'Select Category',
+                      prefixIcon: Icon(Icons.category_outlined),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    items: () {
+                      final Map<String, Category> unique = {};
+                      for (var c in categories.where((c) => c.type == currentCategoryType)) {
+                        unique[c.id] = c;
+                      }
+                      final sorted = unique.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+                      return sorted.map((category) => DropdownMenuItem(
+                        value: category.id,
+                        child: Row(
+                          children: [
+                            Icon(
+                              category.icon,
+                              size: 20,
+                              color: isIncomeMode ? AppTheme.incomeColor : AppTheme.expenseColor,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(category.name),
+                          ],
                         ),
-                        const Spacer(),
-                        const Icon(Icons.edit_outlined, size: 20, color: Colors.white24),
-                      ],
+                      )).toList();
+                    }(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategoryId = value;
+                        _selectedSubCategoryName = null;
+                        _selectedSubCategoryIcon = null;
+                      });
+                    },
+                    validator: (value) => value == null ? 'Required' : null,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                if (_mode == TransactionMode.expense) ...[
+                  _buildSectionLabel('Sub-category'),
+                  _buildInputCard(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: _buildSubCategorySection(context, categories),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                _buildSectionLabel('Date'),
+                _buildInputCard(
+                  child: InkWell(
+                    onTap: () => _selectDate(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          const Spacer(),
+                          const Icon(Icons.edit_outlined, size: 20, color: Colors.white24),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Note
-              _buildSectionLabel('Note'),
-              _buildInputCard(
-                child: TextFormField(
-                  controller: _noteController,
-                  decoration: const InputDecoration(
-                    hintText: 'Additional notes...',
-                    prefixIcon: Icon(Icons.notes_rounded),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
+                _buildSectionLabel('Note'),
+                _buildInputCard(
+                  child: TextFormField(
+                    controller: _noteController,
+                    decoration: const InputDecoration(
+                      hintText: 'Additional notes...',
+                      prefixIcon: Icon(Icons.notes_rounded),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                    maxLines: 2,
                   ),
-                  maxLines: 2,
                 ),
-              ),
-              // Plan (Dropdown Selector)
-              _buildSectionLabel('Link to Plan'),
-              _buildInputCard(
-                child: DropdownButtonFormField<String?>(
-                  value: _selectedPlanId,
-                  decoration: const InputDecoration(
-                    hintText: 'Select Plan (Optional)',
-                    prefixIcon: Icon(Icons.assignment_outlined),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
+                const SizedBox(height: 40),
+
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emeraldGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  items: () {
-                    final plans = context.watch<PlanProvider>().plans.where((p) => !p.isArchived).toList();
-                    final List<DropdownMenuItem<String?>> items = [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Row(
-                          children: [
-                            Icon(Icons.block, size: 20, color: Colors.white54),
-                            SizedBox(width: 12),
-                            Text('No Plan'),
-                          ],
-                        ),
-                      ),
-                    ];
-                    items.addAll(plans.map((plan) => DropdownMenuItem<String?>(
-                      value: plan.id,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.assignment_outlined, size: 20, color: AppTheme.emeraldGreen),
-                          const SizedBox(width: 12),
-                          Text(plan.title),
-                        ],
-                      ),
-                    )));
-                    return items;
-                  }(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedPlanId = value;
-                    });
-                  },
+                  onPressed: _saveExpense,
+                  child: Text(
+                    _mode == TransactionMode.expense ? 'Save Expense' : 'Save Income',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-
-              const SizedBox(height: 20),
-
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emeraldGreen,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onPressed: _saveExpense,
-                child: Text(
-                  _selectedType == CategoryType.expense ? 'Save Expense' : 'Save Income',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
+              ],
             ],
           ),
         ),

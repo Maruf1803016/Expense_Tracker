@@ -11,6 +11,8 @@ import 'package:expense_tracker/features/expense/presentation/pages/add_expense_
 import 'package:expense_tracker/features/expense/presentation/pages/expense_search_page.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/expense_search_delegate.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -45,9 +47,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _logout() async {
     final auth = context.read<AuthProvider>();
     final expense = context.read<ExpenseProvider>();
-    // final insights = context.read<FinancialInsightsProvider>(); // clear if method exists
+    final category = context.read<CategoryProvider>();
+    final plan = context.read<PlanProvider>();
     
     expense.clear();
+    category.clear();
+    plan.clear();
     await auth.signOut();
   }
 

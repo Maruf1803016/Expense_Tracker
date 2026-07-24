@@ -8,6 +8,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 
 class PlansTabView extends StatefulWidget {
   const PlansTabView({super.key});
@@ -78,22 +79,41 @@ class _PlansTabViewState extends State<PlansTabView> {
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.archive_outlined, size: 20, color: Colors.white.withOpacity(0.4)),
-                                  onPressed: () async {
-                                    final updated = Plan(
-                                      id: plan.id,
-                                      title: plan.title,
-                                      totalBudget: plan.totalBudget,
-                                      startDate: plan.startDate,
-                                      endDate: plan.endDate,
-                                      categoryId: plan.categoryId,
-                                      note: plan.note,
-                                      createdAt: plan.createdAt,
-                                      isArchived: true,
-                                    );
-                                    await planProvider.update(updated);
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.add_card_outlined, size: 20, color: AppTheme.emeraldGreen),
+                                      tooltip: 'Add Expense to Plan',
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => AddExpensePage(
+                                              preselectedPlanId: plan.id,
+                                              preselectedCategoryId: plan.categoryIds.isNotEmpty ? plan.categoryIds.first : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.archive_outlined, size: 20, color: Colors.white.withOpacity(0.4)),
+                                      onPressed: () async {
+                                        final updated = Plan(
+                                          id: plan.id,
+                                          title: plan.title,
+                                          totalBudget: plan.totalBudget,
+                                          startDate: plan.startDate,
+                                          endDate: plan.endDate,
+                                          categoryIds: plan.categoryIds,
+                                          note: plan.note,
+                                          createdAt: plan.createdAt,
+                                          isArchived: true,
+                                        );
+                                        await planProvider.update(updated);
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -291,7 +311,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
   final _noteController = TextEditingController();
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
-  String? _selectedCategoryId;
+  List<String> _selectedCategoryIds = [];
   bool _isSaving = false;
 
   @override
@@ -456,29 +476,29 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
               const SizedBox(height: 16),
 
               // Optional Category
-              _buildLabel('Limit to Category (Optional)'),
-              _buildInputContainer(
-                child: DropdownButtonFormField<String?>(
-                  value: _selectedCategoryId,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.category_outlined),
-                    border: InputBorder.none,
-                  ),
-                  items: () {
-                    final List<DropdownMenuItem<String?>> items = [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('All Categories'),
-                      ),
-                    ];
-                    items.addAll(categories.map((c) => DropdownMenuItem<String?>(
-                      value: c.id,
-                      child: Text(c.name),
-                    )));
-                    return items;
-                  }(),
-                  onChanged: (val) => setState(() => _selectedCategoryId = val),
-                ),
+              _buildLabel('Limit to Categories (Optional)'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: categories.map((category) {
+                  final isSelected = _selectedCategoryIds.contains(category.id);
+                  return FilterChip(
+                    label: Text(category.name),
+                    selected: isSelected,
+                    selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
+                    checkmarkColor: AppTheme.emeraldGreen,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedCategoryIds.add(category.id);
+                        } else {
+                          _selectedCategoryIds.remove(category.id);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 16),
 
@@ -518,7 +538,7 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                           totalBudget: double.parse(_budgetController.text.trim()),
                           startDate: _startDate,
                           endDate: _endDate,
-                          categoryId: _selectedCategoryId,
+                          categoryIds: _selectedCategoryIds,
                           note: _noteController.text.trim(),
                           createdAt: DateTime.now(),
                         );

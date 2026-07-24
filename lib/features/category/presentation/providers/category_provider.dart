@@ -83,4 +83,11 @@ class CategoryProvider with ChangeNotifier {
   Future<void> update(Category category) async {
     await updateCategory(category);
   }
+
+  void clear() {
+    _categories = [];
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }
