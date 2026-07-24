@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
+import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 
 class PlanProvider with ChangeNotifier {
   final PlanRepository repository;
@@ -40,6 +41,15 @@ class PlanProvider with ChangeNotifier {
       await repository.addPlan(plan);
     } catch (e) {
       debugPrint('[PlanProvider] Error adding plan: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> addPlanWithExpenses(Plan plan, List<Expense> expenses) async {
+    try {
+      await repository.addPlanWithExpenses(plan, expenses);
+    } catch (e) {
+      debugPrint('[PlanProvider] Error adding plan with expenses: $e');
       rethrow;
     }
   }

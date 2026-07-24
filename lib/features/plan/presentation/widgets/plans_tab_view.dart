@@ -4,7 +4,6 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 
@@ -92,23 +91,6 @@ class _PlansTabViewState extends State<PlansTabView> {
                                             ),
                                           ),
                                         );
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.archive_outlined, size: 20, color: Colors.white.withOpacity(0.4)),
-                                      onPressed: () async {
-                                        final updated = Plan(
-                                          id: plan.id,
-                                          title: plan.title,
-                                          totalBudget: plan.totalBudget,
-                                          startDate: plan.startDate,
-                                          endDate: plan.endDate,
-                                          categoryIds: plan.categoryIds,
-                                          note: plan.note,
-                                          createdAt: plan.createdAt,
-                                          isArchived: true,
-                                        );
-                                        await planProvider.update(updated);
                                       },
                                     ),
                                   ],

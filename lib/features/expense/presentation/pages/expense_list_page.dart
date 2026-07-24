@@ -11,6 +11,7 @@ import 'package:expense_tracker/features/expense/presentation/pages/expense_deta
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
@@ -234,6 +235,74 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
+  void _showSetBudgetDialog(BuildContext context) {
+    final settingsProvider = context.read<SettingsProvider>();
+    final expenseProvider = context.read<ExpenseProvider>();
+    final controller = TextEditingController(
+      text: settingsProvider.budget > 0 ? settingsProvider.budget.toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Monthly Budget'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter your overall total budget for the month. This will be used to track progress on the summary page.',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  hintText: '0.00',
+                  prefixText: '${settingsProvider.currentSymbol} ',
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final text = controller.text.trim();
+              final amount = double.tryParse(text) ?? 0.0;
+              
+              await settingsProvider.setBudget(amount);
+              await expenseProvider.setGlobalBudget(amount);
+              
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Monthly budget updated to ${settingsProvider.currentSymbol}$amount'),
+                    backgroundColor: AppTheme.emeraldGreen,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBalanceSummary(BuildContext context, ExpenseProvider provider) {
     final totalIncome = provider.expenses
         .where((e) => e.type == CategoryType.income)
@@ -278,7 +347,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   ),
                 ],
               ),
-              Icon(Icons.account_balance_wallet_rounded, color: AppTheme.emeraldGreen.withOpacity(0.5), size: 40),
+              IconButton(
+                icon: const Icon(Icons.account_balance_wallet_rounded, size: 40),
+                color: AppTheme.emeraldGreen.withOpacity(0.5),
+                onPressed: () => _showSetBudgetDialog(context),
+              ),
             ],
           ),
           const SizedBox(height: 20),

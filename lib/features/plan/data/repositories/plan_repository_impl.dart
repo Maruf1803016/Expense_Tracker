@@ -4,6 +4,8 @@ import 'package:expense_tracker/features/plan/data/datasources/plan_remote_data_
 import 'package:expense_tracker/features/plan/data/models/plan_model.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
+import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
+import 'package:expense_tracker/features/expense/data/models/expense_model.dart';
 
 class PlanRepositoryImpl implements PlanRepository {
   final PlanRemoteDataSource remoteDataSource;
@@ -23,6 +25,19 @@ class PlanRepositoryImpl implements PlanRepository {
       throw ServerFailure(e.message);
     } catch (e) {
       throw const ServerFailure('An unexpected error occurred while adding plan.');
+    }
+  }
+
+  @override
+  Future<void> addPlanWithExpenses(Plan plan, List<Expense> expenses) async {
+    try {
+      final planModel = PlanModel.fromEntity(plan);
+      final expenseModels = expenses.map((e) => ExpenseModel.fromEntity(e)).toList();
+      await remoteDataSource.addPlanWithExpenses(planModel, expenseModels);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message);
+    } catch (e) {
+      throw const ServerFailure('An unexpected error occurred while saving plan and expenses.');
     }
   }
 

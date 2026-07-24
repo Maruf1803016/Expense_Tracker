@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/core/error/exceptions.dart';
 import 'package:expense_tracker/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:expense_tracker/features/plan/data/models/plan_model.dart';
+import 'package:expense_tracker/features/expense/data/models/expense_model.dart';
 
 abstract class PlanRemoteDataSource {
   Stream<List<PlanModel>> getPlans();
   Future<void> addPlan(PlanModel plan);
+  Future<void> addPlanWithExpenses(PlanModel plan, List<ExpenseModel> expenses);
   Future<void> updatePlan(PlanModel plan);
   Future<void> deletePlan(String id);
 }
@@ -47,6 +49,25 @@ class PlanRemoteDataSourceImpl implements PlanRemoteDataSource {
       await _planCollection.doc(plan.id).set(plan.toMap());
     } catch (e) {
       throw ServerException('Failed to add plan: $e');
+    }
+  }
+
+  @override
+  Future<void> addPlanWithExpenses(PlanModel plan, List<ExpenseModel> expenses) async {
+    try {
+      final batch = firestore.batch();
+      final userDoc = _userDoc;
+      final planRef = userDoc.collection('plans').doc(plan.id);
+      batch.set(planRef, plan.toMap());
+      
+      final expenseCollection = userDoc.collection('expenses');
+      for (var exp in expenses) {
+        batch.set(expenseCollection.doc(exp.id), exp.toMap());
+      }
+      
+      await batch.commit();
+    } catch (e) {
+      throw ServerException('Failed to save plan and expenses in batch: $e');
     }
   }
 

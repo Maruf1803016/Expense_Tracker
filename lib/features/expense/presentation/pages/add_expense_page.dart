@@ -17,6 +17,24 @@ enum TransactionMode {
   plan,
 }
 
+class PlannedTransactionEntry {
+  final String id;
+  final String title;
+  final double amount;
+  final String categoryId;
+  final String? subCategory;
+  final String? subCategoryIcon;
+
+  PlannedTransactionEntry({
+    required this.id,
+    required this.title,
+    required this.amount,
+    required this.categoryId,
+    this.subCategory,
+    this.subCategoryIcon,
+  });
+}
+
 class AddExpensePage extends StatefulWidget {
   final Expense? expenseToEdit;
   final String? preselectedPlanId;
@@ -50,6 +68,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
   DateTime _planEndDate = DateTime.now().add(const Duration(days: 30));
   List<String> _planSelectedCategoryIds = [];
 
+  // Plan inline mini-form entries
+  final List<PlannedTransactionEntry> _plannedEntries = [];
+  bool _showAddTransactionForm = false;
+  late TextEditingController _miniAmountController;
+  late TextEditingController _miniDescriptionController;
+  String? _miniSelectedCategoryId;
+  String? _miniSelectedSubCategoryName;
+  String? _miniSelectedSubCategoryIcon;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +87,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
     );
+    _miniAmountController = TextEditingController();
+    _miniDescriptionController = TextEditingController();
     _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
     
@@ -104,40 +133,73 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _planSelectedCategoryIds = [];
     _planStartDate = DateTime.now();
     _planEndDate = DateTime.now().add(const Duration(days: 30));
+    _plannedEntries.clear();
+    _showAddTransactionForm = false;
+    _miniAmountController.clear();
+    _miniDescriptionController.clear();
+    _miniSelectedCategoryId = null;
+    _miniSelectedSubCategoryName = null;
+    _miniSelectedSubCategoryIcon = null;
   }
 
   Future<void> _saveExpense() async {
+    debugPrint('[DEBUG] _saveExpense entered. mode: $_mode');
     if (_mode == TransactionMode.plan) {
-      if (!_formKey.currentState!.validate()) return;
+      if (!_formKey.currentState!.validate()) {
+        debugPrint('[DEBUG] Plan form validation failed');
+        return;
+      }
     } else {
       if (!_formKey.currentState!.validate() || _selectedCategoryId == null) {
         if (_selectedCategoryId == null) {
+          debugPrint('[DEBUG] Regular form validation failed: category is null');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please select a category')),
           );
+        } else {
+          debugPrint('[DEBUG] Regular form validation failed');
         }
         return;
       }
     }
 
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
 
     try {
       if (_mode == TransactionMode.plan) {
+        final planId = const Uuid().v4();
+        final derivedCategoryIds = _plannedEntries.map((e) => e.categoryId).toSet().toList();
+
         final plan = Plan(
-          id: const Uuid().v4(),
+          id: planId,
           title: _titleController.text.trim(),
           totalBudget: double.parse(_amountController.text.trim()),
           startDate: _planStartDate,
           endDate: _planEndDate,
-          categoryIds: _planSelectedCategoryIds,
-          note: _noteController.text.trim(),
+          categoryIds: derivedCategoryIds,
+          note: '',
           createdAt: DateTime.now(),
         );
-        
+
+        final expenses = _plannedEntries.map((entry) {
+          return Expense(
+            id: entry.id,
+            title: entry.title,
+            amount: entry.amount,
+            categoryId: entry.categoryId,
+            date: _planStartDate,
+            note: '',
+            type: CategoryType.expense,
+            subCategory: entry.subCategory,
+            subCategoryIcon: entry.subCategoryIcon,
+            planId: planId,
+          );
+        }).toList();
+
         final planProvider = context.read<PlanProvider>();
-        await planProvider.add(plan);
+        debugPrint('[DEBUG] Saving plan and ${expenses.length} expenses to Firestore starting...');
+        await planProvider.addPlanWithExpenses(plan, expenses);
+        debugPrint('[DEBUG] Saving plan and expenses to Firestore completed');
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Custom Plan saved'),
@@ -162,7 +224,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
         final provider = context.read<ExpenseProvider>();
         
         if (widget.expenseToEdit != null) {
+          debugPrint('[DEBUG] Updating expense starting...');
           await provider.updateExpense(expense);
+          debugPrint('[DEBUG] Updating expense completed');
           messenger.showSnackBar(
             SnackBar(
               content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} updated'),
@@ -171,7 +235,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
             ),
           );
         } else {
+          debugPrint('[DEBUG] Adding expense starting...');
           await provider.addExpense(expense);
+          debugPrint('[DEBUG] Adding expense completed');
           messenger.showSnackBar(
             SnackBar(
               content: Text('${_mode == TransactionMode.expense ? 'Expense' : 'Income'} saved'),
@@ -181,7 +247,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[DEBUG] ERROR caught in _saveExpense: $e');
+      debugPrint('[DEBUG] STACKTRACE: $stackTrace');
       messenger.showSnackBar(
         SnackBar(
           content: Text('Error saving: $e'),
@@ -191,7 +259,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
       );
     } finally {
       _clearFormState();
-      navigator.pop();
+      debugPrint('[DEBUG] Finally block reached in _saveExpense. mounted = $mounted, context.mounted = ${context.mounted}');
+      if (context.mounted) {
+        debugPrint('[DEBUG] Calling Navigator.pop(context) in finally block');
+        Navigator.pop(context);
+        debugPrint('[DEBUG] Navigator.pop(context) completed in finally block');
+      } else {
+        debugPrint('[DEBUG] Context not mounted in finally block, Navigator.pop(context) skipped');
+      }
     }
   }
 
@@ -261,6 +336,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       focusedBorder: InputBorder.none,
                     ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) {
+                      setState(() {});
+                    },
                     validator: (v) {
                       if (v == null || v.isEmpty) return 'Required';
                       if (double.tryParse(v) == null) return 'Invalid number';
@@ -354,47 +432,119 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                _buildSectionLabel('Limit to Categories (Optional)'),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: categories.map((category) {
-                    final isSelected = _planSelectedCategoryIds.contains(category.id);
-                    return FilterChip(
-                      label: Text(category.name),
-                      selected: isSelected,
-                      selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
-                      checkmarkColor: AppTheme.emeraldGreen,
-                      onSelected: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _planSelectedCategoryIds.add(category.id);
-                          } else {
-                            _planSelectedCategoryIds.remove(category.id);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                _buildSectionLabel('Note / Description'),
-                _buildInputCard(
-                  child: TextFormField(
-                    controller: _noteController,
-                    decoration: const InputDecoration(
-                      hintText: 'Add description...',
-                      prefixIcon: Icon(Icons.notes),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
+                const Divider(color: Colors.white10),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'EXPENSES',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white54,
+                        letterSpacing: 1.5,
+                      ),
                     ),
-                    maxLines: 2,
+                    Text(
+                      'Used: ${context.watch<SettingsProvider>().currentSymbol} ${_plannedEntries.fold<double>(0.0, (sum, e) => sum + e.amount).toStringAsFixed(2)} / Budget: ${context.watch<SettingsProvider>().currentSymbol} ${(double.tryParse(_amountController.text) ?? 0.0).toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _plannedEntries.fold<double>(0.0, (sum, e) => sum + e.amount) > (double.tryParse(_amountController.text) ?? 0.0)
+                            ? AppTheme.expenseColor
+                            : AppTheme.emeraldGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _showAddTransactionForm = !_showAddTransactionForm;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 0),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      _showAddTransactionForm ? 'Cancel Add' : 'Add Transaction',
+                      style: const TextStyle(color: AppTheme.emeraldGreen, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
+
+                _buildMiniTransactionForm(context, categories),
+
+                if (_plannedEntries.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _plannedEntries.length,
+                    itemBuilder: (context, idx) {
+                      final entry = _plannedEntries[idx];
+                      final category = categoryProvider.getCategoryById(entry.categoryId);
+                      final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        color: Colors.white.withOpacity(0.02),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(category.icon, color: AppTheme.expenseColor),
+                          title: Text(
+                            entry.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          subtitle: entry.subCategory != null
+                              ? Row(
+                                  children: [
+                                    Icon(
+                                      entry.subCategoryIcon != null ? IconUtils.getIcon(entry.subCategoryIcon) : Icons.label_outline,
+                                      size: 12,
+                                      color: Colors.white54,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(entry.subCategory!, style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                                  ],
+                                )
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$currencySymbol ${entry.amount.toStringAsFixed(2)}',
+                                style: const TextStyle(color: AppTheme.expenseColor, fontWeight: FontWeight.bold),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.white30),
+                                onPressed: () {
+                                  setState(() {
+                                    _plannedEntries.removeAt(idx);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
                 const SizedBox(height: 40),
 
                 ElevatedButton(
@@ -493,7 +643,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 20),
 
-                if (_mode == TransactionMode.expense) ...[
+                if (_mode == TransactionMode.expense && _selectedCategoryId != null) ...[
                   _buildSectionLabel('Sub-category'),
                   _buildInputCard(
                     child: Padding(
@@ -630,7 +780,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     return defaultCat.subCategories.any((s) => s.name.toLowerCase() == subName.toLowerCase());
   }
 
-  Future<void> _deleteSubCategory(BuildContext context, Category category, SubCategory sub) async {
+  Future<void> _deleteSubCategory(BuildContext context, Category category, SubCategory sub, {bool isMini = false}) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -662,24 +812,33 @@ class _AddExpensePageState extends State<AddExpensePage> {
       );
       
       await context.read<CategoryProvider>().update(updatedCategory);
-      if (_selectedSubCategoryName == sub.name) {
+      final currentSelectedName = isMini ? _miniSelectedSubCategoryName : _selectedSubCategoryName;
+      if (currentSelectedName == sub.name) {
         setState(() {
-          _selectedSubCategoryName = null;
-          _selectedSubCategoryIcon = null;
+          if (isMini) {
+            _miniSelectedSubCategoryName = null;
+            _miniSelectedSubCategoryIcon = null;
+          } else {
+            _selectedSubCategoryName = null;
+            _selectedSubCategoryIcon = null;
+          }
         });
       }
     }
   }
 
-  Widget _buildSubCategorySection(BuildContext context, List<Category> categories) {
-    if (_selectedCategoryId == null) {
+  Widget _buildSubCategorySection(BuildContext context, List<Category> categories, {bool isMini = false}) {
+    final targetCategoryId = isMini ? _miniSelectedCategoryId : _selectedCategoryId;
+    final targetSelectedSubName = isMini ? _miniSelectedSubCategoryName : _selectedSubCategoryName;
+
+    if (targetCategoryId == null) {
       return const Text(
         'Please select a category first',
         style: TextStyle(color: Colors.white54, fontSize: 14),
       );
     }
 
-    final category = categories.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => categories.first);
+    final category = categories.firstWhere((c) => c.id == targetCategoryId, orElse: () => categories.first);
     if (category.subCategories.isEmpty) {
       return Wrap(
         spacing: 8.0,
@@ -688,7 +847,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ActionChip(
             avatar: const Icon(Icons.add, size: 16, color: AppTheme.emeraldGreen),
             label: const Text('Add Custom', style: TextStyle(color: AppTheme.emeraldGreen)),
-            onPressed: () => _showAddCustomSubCategoryDialog(context, category),
+            onPressed: () => _showAddCustomSubCategoryDialog(context, category, isMini: isMini),
             backgroundColor: Colors.white.withOpacity(0.05),
           ),
         ],
@@ -697,7 +856,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
     final List<Widget> chips = [];
     for (var sub in category.subCategories) {
-      final isSelected = _selectedSubCategoryName == sub.name;
+      final isSelected = targetSelectedSubName == sub.name;
       final isDefault = _isDefaultSubCategory(category, sub.name);
       chips.add(
         InputChip(
@@ -707,17 +866,27 @@ class _AddExpensePageState extends State<AddExpensePage> {
           onSelected: (selected) {
             setState(() {
               if (selected) {
-                _selectedSubCategoryName = sub.name;
-                _selectedSubCategoryIcon = IconUtils.getIconName(sub.icon);
+                if (isMini) {
+                  _miniSelectedSubCategoryName = sub.name;
+                  _miniSelectedSubCategoryIcon = IconUtils.getIconName(sub.icon);
+                } else {
+                  _selectedSubCategoryName = sub.name;
+                  _selectedSubCategoryIcon = IconUtils.getIconName(sub.icon);
+                }
               } else {
-                _selectedSubCategoryName = null;
-                _selectedSubCategoryIcon = null;
+                if (isMini) {
+                  _miniSelectedSubCategoryName = null;
+                  _miniSelectedSubCategoryIcon = null;
+                } else {
+                  _selectedSubCategoryName = null;
+                  _selectedSubCategoryIcon = null;
+                }
               }
             });
           },
           onDeleted: isDefault
               ? null
-              : () => _deleteSubCategory(context, category, sub),
+              : () => _deleteSubCategory(context, category, sub, isMini: isMini),
           deleteIcon: const Icon(Icons.cancel, size: 16, color: Colors.white70),
           selectedColor: AppTheme.emeraldGreen,
           backgroundColor: Colors.white.withOpacity(0.05),
@@ -730,7 +899,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       ActionChip(
         avatar: const Icon(Icons.add, size: 16, color: AppTheme.emeraldGreen),
         label: const Text('Add Custom', style: TextStyle(color: AppTheme.emeraldGreen)),
-        onPressed: () => _showAddCustomSubCategoryDialog(context, category),
+        onPressed: () => _showAddCustomSubCategoryDialog(context, category, isMini: isMini),
         backgroundColor: Colors.white.withOpacity(0.05),
       ),
     );
@@ -742,7 +911,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
   }
 
-  void _showAddCustomSubCategoryDialog(BuildContext context, Category category) {
+  void _showAddCustomSubCategoryDialog(BuildContext context, Category category, {bool isMini = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -765,12 +934,176 @@ class _AddExpensePageState extends State<AddExpensePage> {
             await context.read<CategoryProvider>().update(updatedCategory);
             
             setState(() {
-              _selectedSubCategoryName = name;
-              _selectedSubCategoryIcon = IconUtils.getIconName(icon);
+              if (isMini) {
+                _miniSelectedSubCategoryName = name;
+                _miniSelectedSubCategoryIcon = IconUtils.getIconName(icon);
+              } else {
+                _selectedSubCategoryName = name;
+                _selectedSubCategoryIcon = IconUtils.getIconName(icon);
+              }
             });
           },
         );
       },
+    );
+  }
+
+  Widget _buildMiniTransactionForm(BuildContext context, List<Category> categories) {
+    if (!_showAddTransactionForm) return const SizedBox.shrink();
+
+    final currentCategoryType = CategoryType.expense;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'New Entry Details',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white70),
+          ),
+          const SizedBox(height: 16),
+
+          _buildSectionLabel('Amount'),
+          _buildInputCard(
+            child: TextFormField(
+              controller: _miniAmountController,
+              decoration: const InputDecoration(
+                hintText: '0.00',
+                prefixIcon: Icon(Icons.monetization_on_outlined),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          _buildSectionLabel('Category'),
+          _buildInputCard(
+            child: DropdownButtonFormField<String>(
+              value: _miniSelectedCategoryId,
+              decoration: const InputDecoration(
+                hintText: 'Select Category',
+                prefixIcon: Icon(Icons.category_outlined),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+              items: () {
+                final Map<String, Category> unique = {};
+                for (var c in categories.where((c) => c.type == currentCategoryType)) {
+                  unique[c.id] = c;
+                }
+                final sorted = unique.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+                return sorted.map((category) => DropdownMenuItem(
+                  value: category.id,
+                  child: Row(
+                    children: [
+                      Icon(
+                        category.icon,
+                        size: 20,
+                        color: AppTheme.expenseColor,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(category.name),
+                    ],
+                  ),
+                )).toList();
+              }(),
+              onChanged: (value) {
+                setState(() {
+                  _miniSelectedCategoryId = value;
+                  _miniSelectedSubCategoryName = null;
+                  _miniSelectedSubCategoryIcon = null;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          if (_miniSelectedCategoryId != null) ...[
+            _buildSectionLabel('Sub-category'),
+            _buildInputCard(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: _buildSubCategorySection(context, categories, isMini: true),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          _buildSectionLabel('Description'),
+          _buildInputCard(
+            child: TextFormField(
+              controller: _miniDescriptionController,
+              decoration: const InputDecoration(
+                hintText: 'Short description/title...',
+                prefixIcon: Icon(Icons.notes),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emeraldGreen,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              final amountText = _miniAmountController.text.trim();
+              final categoryId = _miniSelectedCategoryId;
+              final descText = _miniDescriptionController.text.trim();
+
+              if (amountText.isEmpty || double.tryParse(amountText) == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid amount')),
+                );
+                return;
+              }
+              if (categoryId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please select a category')),
+                );
+                return;
+              }
+
+              setState(() {
+                _plannedEntries.add(
+                  PlannedTransactionEntry(
+                    id: const Uuid().v4(),
+                    title: descText.isEmpty ? 'Planned Expense' : descText,
+                    amount: double.parse(amountText),
+                    categoryId: categoryId,
+                    subCategory: _miniSelectedSubCategoryName,
+                    subCategoryIcon: _miniSelectedSubCategoryIcon,
+                  ),
+                );
+
+                _miniAmountController.clear();
+                _miniDescriptionController.clear();
+                _miniSelectedCategoryId = null;
+                _miniSelectedSubCategoryName = null;
+                _miniSelectedSubCategoryIcon = null;
+                _showAddTransactionForm = false;
+              });
+            },
+            child: const Text('Add Entry', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }
