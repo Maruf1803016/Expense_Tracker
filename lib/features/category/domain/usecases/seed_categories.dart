@@ -112,13 +112,6 @@ class SeedCategoriesUseCase implements UseCase<void, NoParams> {
         icon: IconUtils.getIcon('gift'),
         subCategories: const [],
       ),
-      Category(
-        id: 'other',
-        name: 'Other',
-        type: CategoryType.income,
-        icon: IconUtils.getIcon('plus-circle'),
-        subCategories: const [],
-      ),
     ];
 
     // Ensure system categories are up-to-date

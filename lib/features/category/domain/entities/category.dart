@@ -129,13 +129,6 @@ class Category extends Equatable {
       icon: Icons.card_giftcard,
       subCategories: [],
     ),
-    const Category(
-      id: 'other',
-      name: 'Other',
-      type: CategoryType.income,
-      icon: Icons.add_circle,
-      subCategories: [],
-    ),
   ];
 
   @override
