@@ -352,8 +352,10 @@ class ExpenseProvider with ChangeNotifier {
       _expensesSubscription = _getExpensesStream().listen(
         (data) {
           _isInitialized = true;
-          if (const ListEquality().equals(_expenses, data)) return;
-          _expenses = List<Expense>.from(data);
+          final sortedData = List<Expense>.from(data)
+            ..sort((a, b) => b.date.compareTo(a.date));
+          if (const ListEquality().equals(_expenses, sortedData)) return;
+          _expenses = sortedData;
           _isLoading = false; 
           notifyListeners();
         },
