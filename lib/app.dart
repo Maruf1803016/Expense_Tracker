@@ -12,6 +12,8 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/shared/presentation/pages/home_page.dart';
 import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/core/utils/messenger_utils.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -124,6 +126,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // Initialize data for the new user context
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.read<ExpenseProvider>().init();
+        context.read<CategoryProvider>().init();
+        context.read<PlanProvider>().init();
         context.read<SettingsProvider>().loadSettings();
       });
     }

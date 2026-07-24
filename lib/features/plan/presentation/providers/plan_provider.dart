@@ -62,6 +62,14 @@ class PlanProvider with ChangeNotifier {
     }
   }
 
+  void clear() {
+    _plansSubscription?.cancel();
+    _plansSubscription = null;
+    _plans = [];
+    _isLoading = false;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _plansSubscription?.cancel();

@@ -49,7 +49,7 @@ void main() async {
           create: (_) => sl<SettingsProvider>()..loadSettings(),
         ),
         ChangeNotifierProvider(
-          create: (_) => sl<PlanProvider>()..init(),
+          create: (_) => sl<PlanProvider>(),
         ),
       ],
       child: const App(),

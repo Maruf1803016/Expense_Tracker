@@ -8,6 +8,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 
 class PlansTabView extends StatefulWidget {
   const PlansTabView({super.key});
@@ -78,22 +79,41 @@ class _PlansTabViewState extends State<PlansTabView> {
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.archive_outlined, size: 20, color: Colors.white.withOpacity(0.4)),
-                                  onPressed: () async {
-                                    final updated = Plan(
-                                      id: plan.id,
-                                      title: plan.title,
-                                      totalBudget: plan.totalBudget,
-                                      startDate: plan.startDate,
-                                      endDate: plan.endDate,
-                                      categoryId: plan.categoryId,
-                                      note: plan.note,
-                                      createdAt: plan.createdAt,
-                                      isArchived: true,
-                                    );
-                                    await planProvider.update(updated);
-                                  },
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.add_card_outlined, size: 20, color: AppTheme.emeraldGreen),
+                                      tooltip: 'Add Expense to Plan',
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => AddExpensePage(
+                                              preselectedPlanId: plan.id,
+                                              preselectedCategoryId: plan.categoryId,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.archive_outlined, size: 20, color: Colors.white.withOpacity(0.4)),
+                                      onPressed: () async {
+                                        final updated = Plan(
+                                          id: plan.id,
+                                          title: plan.title,
+                                          totalBudget: plan.totalBudget,
+                                          startDate: plan.startDate,
+                                          endDate: plan.endDate,
+                                          categoryId: plan.categoryId,
+                                          note: plan.note,
+                                          createdAt: plan.createdAt,
+                                          isArchived: true,
+                                        );
+                                        await planProvider.update(updated);
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
