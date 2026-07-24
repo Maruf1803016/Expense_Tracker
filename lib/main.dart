@@ -12,6 +12,7 @@ import 'package:expense_tracker/features/analytics/presentation/providers/financ
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => sl<SettingsProvider>()..loadSettings(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => sl<PlanProvider>()..init(),
         ),
       ],
       child: const App(),

@@ -22,71 +22,128 @@ class ExpenseListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIncome = category.type == CategoryType.income;
     final displayColor = isIncome ? AppTheme.incomeColor : AppTheme.expenseColor;
+    final isPlanLinked = expense.planId != null;
 
     return Card(
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+        side: BorderSide(
+          color: isPlanLinked 
+              ? AppTheme.emeraldGreen.withOpacity(0.5) 
+              : Colors.white.withOpacity(0.05),
+          width: isPlanLinked ? 1.5 : 1.0,
+        ),
       ),
-      child: ListTile(
+      color: AppTheme.secondaryBackground,
+      child: InkWell(
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: displayColor.withOpacity(0.08),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            category.icon,
-            color: displayColor,
-            size: 24,
-          ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                category.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            Text(
-              CurrencyFormatter.format(expense.amount),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: displayColor,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                DateFormatter.format(expense.date),
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              if (expense.note.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                const Icon(Icons.fiber_manual_record, size: 4, color: Colors.grey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    expense.note,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category & Sub-category row
+                    Row(
+                      children: [
+                        Icon(
+                          category.icon,
+                          size: 14,
+                          color: displayColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          category.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        if (expense.subCategory != null && expense.subCategory!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            expense.subCategoryIcon != null
+                                ? IconUtils.getIcon(expense.subCategoryIcon)
+                                : Icons.label_outline,
+                            size: 12,
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            expense.subCategory!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                        if (isPlanLinked) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emeraldGreen.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'PLAN',
+                              style: TextStyle(
+                                color: AppTheme.emeraldGreen,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Transaction Title
+                    Text(
+                      expense.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Note / Date
+                    Text(
+                      expense.note.isNotEmpty ? expense.note : DateFormatter.format(expense.date),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              const SizedBox(width: 16),
+              // Amount
+              Text(
+                (isIncome ? '+' : '-') + CurrencyFormatter.format(expense.amount),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: displayColor,
+                ),
+              ),
             ],
           ),
         ),

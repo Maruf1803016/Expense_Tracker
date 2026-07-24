@@ -358,6 +358,9 @@ class _ExpenseItemState extends State<_ExpenseItem> {
 
   @override
   Widget build(BuildContext context) {
+    final displayColor = widget.isExpense ? AppTheme.expenseColor : AppTheme.incomeColor;
+    final isPlanLinked = widget.expense.planId != null;
+
     return GestureDetector(
       onTapDown: (_) => _startTimer(),
       onTapUp: (_) => _cancelTimer(),
@@ -365,41 +368,121 @@ class _ExpenseItemState extends State<_ExpenseItem> {
       onTap: widget.onTap,
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: (widget.isExpense ? AppTheme.expenseColor : AppTheme.incomeColor).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              widget.category.icon,
-              color: widget.isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
-              size: 20,
-            ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: isPlanLinked 
+                ? AppTheme.emeraldGreen.withOpacity(0.5) 
+                : Colors.white.withOpacity(0.05),
+            width: isPlanLinked ? 1.5 : 1.0,
           ),
-          title: Text(
-            widget.category.name,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        color: AppTheme.secondaryBackground,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category & Sub-category row
+                    Row(
+                      children: [
+                        Icon(
+                          widget.category.icon,
+                          size: 14,
+                          color: displayColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.category.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        if (widget.expense.subCategory != null && widget.expense.subCategory!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            widget.expense.subCategoryIcon != null
+                                ? IconUtils.getIcon(widget.expense.subCategoryIcon)
+                                : Icons.label_outline,
+                            size: 12,
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            widget.expense.subCategory!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                        if (isPlanLinked) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emeraldGreen.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'PLAN',
+                              style: TextStyle(
+                                color: AppTheme.emeraldGreen,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Transaction Title
+                    Text(
+                      widget.expense.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Note / Date
+                    Text(
+                      widget.expense.note.isNotEmpty ? widget.expense.note : DateFormatter.format(widget.expense.date),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Amount
               Text(
-                '${DateFormatter.format(widget.expense.date)}${widget.expense.note.isNotEmpty ? ' • ${widget.expense.note}' : ''}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
+                (widget.isExpense ? '-' : '+') + CurrencyFormatter.format(widget.expense.amount),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: displayColor,
+                ),
               ),
             ],
-          ),
-          trailing: Text(
-            CurrencyFormatter.format(widget.expense.amount),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: widget.isExpense ? AppTheme.expenseColor : AppTheme.incomeColor,
-            ),
           ),
         ),
       ),

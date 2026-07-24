@@ -17,6 +17,7 @@ class ExpenseModel extends Expense {
     super.deletedAt,
     super.subCategory,
     super.subCategoryIcon,
+    super.planId,
   });
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -32,6 +33,7 @@ class ExpenseModel extends Expense {
       deletedAt: map['deletedAt'] != null ? (map['deletedAt'] as Timestamp).toDate() : null,
       subCategory: map['subCategory'],
       subCategoryIcon: map['subCategoryIcon'],
+      planId: map['planId'],
     );
   }
 
@@ -47,6 +49,7 @@ class ExpenseModel extends Expense {
       'deletedAt': deletedAt != null ? Timestamp.fromDate(deletedAt!) : null,
       'subCategory': subCategory,
       'subCategoryIcon': subCategoryIcon,
+      'planId': planId,
     };
   }
 
@@ -63,6 +66,7 @@ class ExpenseModel extends Expense {
       deletedAt: expense.deletedAt,
       subCategory: expense.subCategory,
       subCategoryIcon: expense.subCategoryIcon,
+      planId: expense.planId,
     );
   }
 }

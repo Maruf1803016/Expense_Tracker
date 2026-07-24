@@ -9,6 +9,8 @@ import 'package:expense_tracker/features/analytics/presentation/widgets/trend_li
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/alerts/domain/entities/smart_alert.dart';
 
+import 'package:expense_tracker/features/plan/presentation/widgets/plans_tab_view.dart';
+
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
 
@@ -29,6 +31,33 @@ class _InsightsPageState extends State<InsightsPage> {
 
   @override
   Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(text: 'Analytics'),
+              Tab(text: 'Custom Plans'),
+            ],
+            indicatorColor: AppTheme.emeraldGreen,
+            labelColor: AppTheme.emeraldGreen,
+            unselectedLabelColor: Colors.white54,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildAnalyticsContent(context),
+                const PlansTabView(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsContent(BuildContext context) {
     final insightsProvider = context.watch<FinancialInsightsProvider>();
     final alertsProvider = context.watch<SmartAlertsProvider>();
     final expenseProvider = context.watch<ExpenseProvider>();

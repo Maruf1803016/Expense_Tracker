@@ -8,6 +8,7 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 
 class AddExpensePage extends StatefulWidget {
   final Expense? expenseToEdit;
@@ -28,6 +29,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   CategoryType _selectedType = CategoryType.expense;
   String? _selectedSubCategoryName;
   String? _selectedSubCategoryIcon;
+  String? _selectedPlanId;
 
   @override
   void initState() {
@@ -44,6 +46,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedType = widget.expenseToEdit?.type ?? CategoryType.expense;
     _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
     _selectedSubCategoryIcon = widget.expenseToEdit?.subCategoryIcon;
+    _selectedPlanId = widget.expenseToEdit?.planId;
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -80,6 +83,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       type: _selectedType,
       subCategory: _selectedSubCategoryName,
       subCategoryIcon: _selectedSubCategoryIcon,
+      planId: _selectedPlanId,
     );
 
     final provider = context.read<ExpenseProvider>();
@@ -279,7 +283,54 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   maxLines: 2,
                 ),
               ),
-              const SizedBox(height: 40),
+              // Plan (Dropdown Selector)
+              _buildSectionLabel('Link to Plan'),
+              _buildInputCard(
+                child: DropdownButtonFormField<String?>(
+                  value: _selectedPlanId,
+                  decoration: const InputDecoration(
+                    hintText: 'Select Plan (Optional)',
+                    prefixIcon: Icon(Icons.assignment_outlined),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
+                  items: () {
+                    final plans = context.watch<PlanProvider>().plans.where((p) => !p.isArchived).toList();
+                    final List<DropdownMenuItem<String?>> items = [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Row(
+                          children: [
+                            Icon(Icons.block, size: 20, color: Colors.white54),
+                            SizedBox(width: 12),
+                            Text('No Plan'),
+                          ],
+                        ),
+                      ),
+                    ];
+                    items.addAll(plans.map((plan) => DropdownMenuItem<String?>(
+                      value: plan.id,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.assignment_outlined, size: 20, color: AppTheme.emeraldGreen),
+                          const SizedBox(width: 12),
+                          Text(plan.title),
+                        ],
+                      ),
+                    )));
+                    return items;
+                  }(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedPlanId = value;
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              const SizedBox(height: 20),
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
