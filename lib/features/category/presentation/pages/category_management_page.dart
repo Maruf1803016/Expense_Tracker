@@ -43,7 +43,7 @@ class CategoryManagementPage extends StatelessWidget {
         body: TabBarView(
           children: [
             _buildGridSection(context, topLevelCategories.where((c) => c.type == CategoryType.expense).toList(), expenseProvider),
-            _buildGridSection(context, topLevelCategories.where((c) => c.type == CategoryType.income).toList(), expenseProvider),
+            _buildGridSection(context, topLevelCategories.where((c) => c.type == CategoryType.income && c.id != 'other').toList(), expenseProvider),
           ],
         ),
       ),
@@ -172,25 +172,28 @@ class CategoryManagementPage extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _CreateCategorySheet(categoryProvider: categoryProvider, type: type),
+      builder: (context) => CreateCategorySheet(categoryProvider: categoryProvider, type: type),
     );
   }
 }
 
-class _CreateCategorySheet extends StatefulWidget {
+class CreateCategorySheet extends StatefulWidget {
   final CategoryProvider categoryProvider;
   final CategoryType type;
+  final Function(String categoryId)? onSave;
 
-  const _CreateCategorySheet({
+  const CreateCategorySheet({
+    super.key,
     required this.categoryProvider,
     required this.type,
+    this.onSave,
   });
 
   @override
-  State<_CreateCategorySheet> createState() => _CreateCategorySheetState();
+  State<CreateCategorySheet> createState() => _CreateCategorySheetState();
 }
 
-class _CreateCategorySheetState extends State<_CreateCategorySheet> {
+class _CreateCategorySheetState extends State<CreateCategorySheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   String? _selectedIconName;
@@ -307,6 +310,9 @@ class _CreateCategorySheetState extends State<_CreateCategorySheet> {
                             subCategories: const [],
                           );
                           await widget.categoryProvider.add(newCategory);
+                          if (widget.onSave != null) {
+                            widget.onSave!(newCategory.id);
+                          }
                           if (context.mounted) {
                             Navigator.pop(context);
                           }

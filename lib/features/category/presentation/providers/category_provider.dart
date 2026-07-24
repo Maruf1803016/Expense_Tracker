@@ -73,15 +73,21 @@ class CategoryProvider with ChangeNotifier {
   }
 
   Future<void> add(Category category) async {
-    await addCategory(category);
+    await addCategory(category).timeout(const Duration(milliseconds: 300), onTimeout: () {
+      debugPrint('[CategoryProvider] addCategory timed out');
+    });
   }
 
   Future<void> remove(String id) async {
-    await deleteCategory(id);
+    await deleteCategory(id).timeout(const Duration(milliseconds: 300), onTimeout: () {
+      debugPrint('[CategoryProvider] deleteCategory timed out');
+    });
   }
 
   Future<void> update(Category category) async {
-    await updateCategory(category);
+    await updateCategory(category).timeout(const Duration(milliseconds: 300), onTimeout: () {
+      debugPrint('[CategoryProvider] updateCategory timed out');
+    });
   }
 
   void clear() {

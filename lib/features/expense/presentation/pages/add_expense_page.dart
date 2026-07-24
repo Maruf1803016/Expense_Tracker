@@ -10,6 +10,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 
 enum TransactionMode {
   expense,
@@ -289,6 +290,27 @@ class _AddExpensePageState extends State<AddExpensePage> {
         });
       }
     }
+  }
+
+  void _showCreateCustomCategoryDialog(BuildContext context, CategoryType type) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return CreateCategorySheet(
+          categoryProvider: context.read<CategoryProvider>(),
+          type: type,
+          onSave: (newCategoryId) {
+            setState(() {
+              _selectedCategoryId = newCategoryId;
+              _selectedSubCategoryName = null;
+              _selectedSubCategoryIcon = null;
+            });
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -635,11 +657,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     ),
                     items: () {
                       final Map<String, Category> unique = {};
-                      for (var c in categories.where((c) => c.type == currentCategoryType)) {
+                      for (var c in categories.where((c) => c.type == currentCategoryType && (currentCategoryType != CategoryType.income || c.id != 'other'))) {
                         unique[c.id] = c;
                       }
                       final sorted = unique.values.toList()..sort((a, b) => a.name.compareTo(b.name));
-                      return sorted.map((category) => DropdownMenuItem(
+                      final items = sorted.map((category) => DropdownMenuItem<String>(
                         value: category.id,
                         child: Row(
                           children: [
@@ -653,15 +675,45 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           ],
                         ),
                       )).toList();
+
+                      if (isIncomeMode) {
+                        items.add(
+                          const DropdownMenuItem<String>(
+                            value: 'CREATE_CUSTOM',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: AppTheme.emeraldGreen,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Create Custom Category...',
+                                  style: TextStyle(
+                                    color: AppTheme.emeraldGreen,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      return items;
                     }(),
                     onChanged: (value) {
-                      setState(() {
-                        _selectedCategoryId = value;
-                        _selectedSubCategoryName = null;
-                        _selectedSubCategoryIcon = null;
-                      });
+                      if (value == 'CREATE_CUSTOM') {
+                        _showCreateCustomCategoryDialog(context, currentCategoryType);
+                      } else {
+                        setState(() {
+                          _selectedCategoryId = value;
+                          _selectedSubCategoryName = null;
+                          _selectedSubCategoryIcon = null;
+                        });
+                      }
                     },
-                    validator: (value) => value == null ? 'Required' : null,
+                    validator: (value) => (value == null || value == 'CREATE_CUSTOM') ? 'Required' : null,
                   ),
                 ),
                 const SizedBox(height: 20),
