@@ -39,11 +39,13 @@ class CategoryProvider with ChangeNotifier {
     try {
       // Subscribe to categories stream
       getCategoriesStream().listen(
-        (list) {
+        (list) async {
           if (list.isEmpty) {
-            _categories = Category.defaultCategories;
+            _categories = List<Category>.from(Category.defaultCategories);
+            // Write them to Firestore so they are persisted permanently
+            await seedCategories(const NoParams());
           } else {
-            _categories = list;
+            _categories = List<Category>.from(list);
           }
           _isLoading = false;
           debugPrint('[CategoryProvider] loaded ${_categories.length} categories');
@@ -52,7 +54,7 @@ class CategoryProvider with ChangeNotifier {
         onError: (e) {
           debugPrint('[CategoryProvider] Error loading categories: $e');
           if (_categories.isEmpty) {
-            _categories = Category.defaultCategories;
+            _categories = List<Category>.from(Category.defaultCategories);
           }
           _isLoading = false;
           notifyListeners();

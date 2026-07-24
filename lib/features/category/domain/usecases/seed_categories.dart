@@ -10,11 +10,6 @@ class SeedCategoriesUseCase implements UseCase<void, NoParams> {
 
   @override
   Future<void> call(NoParams params) async {
-    // Check if collection is empty before seeding
-    final isEmpty = await repository.isCollectionEmpty();
-    if (!isEmpty) {
-      return;
-    }
 
     final initialCategories = [
       // Expense Categories

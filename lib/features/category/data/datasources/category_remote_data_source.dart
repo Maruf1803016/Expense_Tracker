@@ -67,13 +67,6 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<void> seedCategories(List<CategoryModel> categories) async {
     try {
-      final snapshot = await _categoryCollection.get();
-      final deleteBatch = firestore.batch();
-      for (var doc in snapshot.docs) {
-        deleteBatch.delete(doc.reference);
-      }
-      await deleteBatch.commit();
-
       final batch = firestore.batch();
       for (var category in categories) {
         if (category.id.isEmpty) continue;
