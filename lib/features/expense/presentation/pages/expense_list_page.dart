@@ -347,10 +347,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.account_balance_wallet_rounded, size: 40),
-                color: AppTheme.emeraldGreen.withOpacity(0.5),
-                onPressed: () => _showSetBudgetDialog(context),
+              Material(
+                color: AppTheme.emeraldGreen.withOpacity(0.1),
+                shape: const CircleBorder(
+                  side: BorderSide(
+                    color: AppTheme.emeraldGreen,
+                    width: 1.5,
+                  ),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.account_balance_wallet_rounded, size: 24, color: AppTheme.emeraldGreen),
+                  tooltip: 'Set Monthly Budget',
+                  onPressed: () => _showSetBudgetDialog(context),
+                ),
               ),
             ],
           ),

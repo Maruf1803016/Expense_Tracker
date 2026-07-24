@@ -71,6 +71,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   // Plan inline mini-form entries
   final List<PlannedTransactionEntry> _plannedEntries = [];
   bool _showAddTransactionForm = false;
+  bool _isSaving = false;
   late TextEditingController _miniAmountController;
   late TextEditingController _miniDescriptionController;
   String? _miniSelectedCategoryId;
@@ -144,6 +145,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
   Future<void> _saveExpense() async {
     debugPrint('[DEBUG] _saveExpense entered. mode: $_mode');
+    if (_isSaving) {
+      debugPrint('[DEBUG] Save already in progress, ignoring double tap.');
+      return;
+    }
+
     if (_mode == TransactionMode.plan) {
       if (!_formKey.currentState!.validate()) {
         debugPrint('[DEBUG] Plan form validation failed');
@@ -162,6 +168,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
         return;
       }
     }
+
+    setState(() {
+      _isSaving = true;
+    });
 
     final messenger = ScaffoldMessenger.of(context);
 
@@ -198,7 +208,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
         final planProvider = context.read<PlanProvider>();
         debugPrint('[DEBUG] Saving plan and ${expenses.length} expenses to Firestore starting...');
-        await planProvider.addPlanWithExpenses(plan, expenses);
+        await planProvider.addPlanWithExpenses(plan, expenses).timeout(const Duration(milliseconds: 300), onTimeout: () {
+          debugPrint('[DEBUG] addPlanWithExpenses timed out (running in background)');
+        });
         debugPrint('[DEBUG] Saving plan and expenses to Firestore completed');
         messenger.showSnackBar(
           const SnackBar(
@@ -225,7 +237,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
         
         if (widget.expenseToEdit != null) {
           debugPrint('[DEBUG] Updating expense starting...');
-          await provider.updateExpense(expense);
+          await provider.updateExpense(expense).timeout(const Duration(milliseconds: 300), onTimeout: () {
+            debugPrint('[DEBUG] updateExpense timed out (running in background)');
+          });
           debugPrint('[DEBUG] Updating expense completed');
           messenger.showSnackBar(
             SnackBar(
@@ -236,7 +250,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           );
         } else {
           debugPrint('[DEBUG] Adding expense starting...');
-          await provider.addExpense(expense);
+          await provider.addExpense(expense).timeout(const Duration(milliseconds: 300), onTimeout: () {
+            debugPrint('[DEBUG] addExpense timed out (running in background)');
+          });
           debugPrint('[DEBUG] Adding expense completed');
           messenger.showSnackBar(
             SnackBar(
@@ -258,14 +274,19 @@ class _AddExpensePageState extends State<AddExpensePage> {
         ),
       );
     } finally {
-      _clearFormState();
       debugPrint('[DEBUG] Finally block reached in _saveExpense. mounted = $mounted, context.mounted = ${context.mounted}');
       if (context.mounted) {
-        debugPrint('[DEBUG] Calling Navigator.pop(context) in finally block');
+        debugPrint('[DEBUG] LITERALLY BEFORE Navigator.pop(context) call');
         Navigator.pop(context);
-        debugPrint('[DEBUG] Navigator.pop(context) completed in finally block');
+        debugPrint('[DEBUG] LITERALLY AFTER Navigator.pop(context) call');
       } else {
         debugPrint('[DEBUG] Context not mounted in finally block, Navigator.pop(context) skipped');
+      }
+      _clearFormState();
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
@@ -462,22 +483,24 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 12),
 
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton(
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
                     onPressed: () {
                       setState(() {
                         _showAddTransactionForm = !_showAddTransactionForm;
                       });
                     },
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 0),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.emeraldGreen, width: 1.5),
+                      foregroundColor: AppTheme.emeraldGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
+                    icon: Icon(_showAddTransactionForm ? Icons.close : Icons.add, size: 20),
+                    label: Text(
                       _showAddTransactionForm ? 'Cancel Add' : 'Add Transaction',
-                      style: const TextStyle(color: AppTheme.emeraldGreen, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

@@ -426,6 +426,27 @@ class ExpenseProvider with ChangeNotifier {
     await _updateExpense(expense);
   }
 
+  Future<void> orphanPlanExpenses(String planId) async {
+    final linked = _expenses.where((e) => e.planId == planId).toList();
+    for (var exp in linked) {
+      final updated = Expense(
+        id: exp.id,
+        title: exp.title,
+        amount: exp.amount,
+        categoryId: exp.categoryId,
+        date: exp.date,
+        note: exp.note,
+        type: exp.type,
+        subCategory: exp.subCategory,
+        subCategoryIcon: exp.subCategoryIcon,
+        planId: null,
+        isDeleted: exp.isDeleted,
+        deletedAt: exp.deletedAt,
+      );
+      await updateExpense(updated);
+    }
+  }
+
   Future<void> deleteExpense(String id) async {
     await _deleteExpense(id);
   }
