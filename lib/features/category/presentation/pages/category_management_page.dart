@@ -77,7 +77,7 @@ class CategoryManagementPage extends StatelessWidget {
             color: AppTheme.secondaryBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.white.withOpacity(0.05), style: BorderStyle.dashed),
+              side: BorderSide(color: Colors.white.withOpacity(0.08)),
             ),
             child: InkWell(
               onTap: () => _showAddCategorySheet(context, categoryProvider, type),
