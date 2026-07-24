@@ -26,16 +26,109 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     super.dispose();
   }
 
+  Widget _buildFilterTabs(BuildContext context, ExpenseProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: ExpenseFilter.values.map((filter) {
+          final isSelected = provider.selectedFilter == filter;
+          String label;
+          IconData icon;
+          switch (filter) {
+            case ExpenseFilter.all:
+              label = 'All';
+              icon = Icons.all_inclusive_rounded;
+              break;
+            case ExpenseFilter.expense:
+              label = 'Expense';
+              icon = Icons.remove_circle_outline;
+              break;
+            case ExpenseFilter.income:
+              label = 'Income';
+              icon = Icons.add_circle_outline;
+              break;
+            case ExpenseFilter.plan:
+              label = 'Plan';
+              icon = Icons.assignment_outlined;
+              break;
+          }
+
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () {
+                  provider.setSelectedFilter(filter);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.emeraldGreen.withOpacity(0.15)
+                        : AppTheme.secondaryBackground,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppTheme.emeraldGreen
+                          : Colors.white.withOpacity(0.05),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: isSelected ? AppTheme.emeraldGreen : Colors.white60,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? AppTheme.emeraldGreen : Colors.white70,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
     final expenses = provider.expenses;
 
+    final filteredExpenses = expenses.where((e) {
+      switch (provider.selectedFilter) {
+        case ExpenseFilter.all:
+          return true;
+        case ExpenseFilter.expense:
+          return e.type == CategoryType.expense && e.planId == null;
+        case ExpenseFilter.income:
+          return e.type == CategoryType.income;
+        case ExpenseFilter.plan:
+          return e.planId != null;
+      }
+    }).toList();
+
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
+        _buildFilterTabs(context, provider),
         Expanded(
-          child: _buildBody(context, provider, expenses),
+          child: _buildBody(context, provider, filteredExpenses),
         ),
       ],
     );

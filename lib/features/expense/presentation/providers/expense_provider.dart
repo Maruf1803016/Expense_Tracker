@@ -28,6 +28,13 @@ import 'package:expense_tracker/features/expense/domain/usecases/restore_expense
 import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/empty_recycle_bin.dart';
 
+enum ExpenseFilter {
+  all,
+  expense,
+  income,
+  plan,
+}
+
 class ExpenseProvider with ChangeNotifier {
   final GetCategoriesStreamUseCase _getCategoriesStream;
   final SeedCategoriesUseCase _seedCategories;
@@ -93,6 +100,14 @@ class ExpenseProvider with ChangeNotifier {
 
   List<Expense> _expenses = [];
   List<Expense> get expenses => _expenses;
+
+  ExpenseFilter _selectedFilter = ExpenseFilter.all;
+  ExpenseFilter get selectedFilter => _selectedFilter;
+
+  void setSelectedFilter(ExpenseFilter filter) {
+    _selectedFilter = filter;
+    notifyListeners();
+  }
 
   List<Expense> _recycleBinExpenses = [];
   List<Expense> get recycleBinExpenses => _recycleBinExpenses;
@@ -415,6 +430,7 @@ class ExpenseProvider with ChangeNotifier {
     _summary = MonthlySummary.empty();
     _budgetStatuses = [];
     _errorMessage = null;
+    _selectedFilter = ExpenseFilter.all;
     notifyListeners();
   }
 

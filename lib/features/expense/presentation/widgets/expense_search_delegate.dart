@@ -62,8 +62,21 @@ class ExpenseSearchDelegate extends SearchDelegate<Expense?> {
       );
     }
 
+    final filteredExpenses = expenses.where((e) {
+      switch (provider.selectedFilter) {
+        case ExpenseFilter.all:
+          return true;
+        case ExpenseFilter.expense:
+          return e.type == CategoryType.expense && e.planId == null;
+        case ExpenseFilter.income:
+          return e.type == CategoryType.income;
+        case ExpenseFilter.plan:
+          return e.planId != null;
+      }
+    }).toList();
+
     final lowerQuery = query.toLowerCase();
-    final results = expenses.where((e) {
+    final results = filteredExpenses.where((e) {
       final category = provider.getCategoryById(e.categoryId);
       return e.title.toLowerCase().contains(lowerQuery) ||
           e.note.toLowerCase().contains(lowerQuery) ||
