@@ -73,6 +73,12 @@ import 'package:expense_tracker/features/settings/data/repositories/settings_rep
 import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 
+// --- Plan ---
+import 'package:expense_tracker/features/plan/data/datasources/plan_remote_data_source.dart';
+import 'package:expense_tracker/features/plan/data/repositories/plan_repository_impl.dart';
+import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -184,4 +190,9 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => SmartAlertsProvider(getSmartAlerts: sl()));
   sl.registerLazySingleton(() => ExpenseSearchProvider(searchExpenses: sl()));
   sl.registerLazySingleton(() => SettingsProvider(repository: sl()));
+  
+  // --- Plan ---
+  sl.registerLazySingleton<PlanRemoteDataSource>(() => PlanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<PlanRepository>(() => PlanRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => PlanProvider(repository: sl()));
 }
