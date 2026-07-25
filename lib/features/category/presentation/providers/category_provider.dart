@@ -75,33 +75,48 @@ class CategoryProvider with ChangeNotifier {
   }
 
   Future<void> add(Category category) async {
+    final previousCategories = _categories;
     _categories = List<Category>.from(_categories)..add(category);
     notifyListeners();
 
-    await addCategory(category).timeout(const Duration(milliseconds: 300), onTimeout: () {
-      debugPrint('[CategoryProvider] addCategory timed out');
-    });
+    try {
+      await addCategory(category);
+    } catch (e) {
+      _categories = previousCategories;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> remove(String id) async {
+    final previousCategories = _categories;
     _categories = List<Category>.from(_categories)..removeWhere((c) => c.id == id);
     notifyListeners();
 
-    await deleteCategory(id).timeout(const Duration(milliseconds: 300), onTimeout: () {
-      debugPrint('[CategoryProvider] deleteCategory timed out');
-    });
+    try {
+      await deleteCategory(id);
+    } catch (e) {
+      _categories = previousCategories;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   Future<void> update(Category category) async {
+    final previousCategories = _categories;
     final idx = _categories.indexWhere((c) => c.id == category.id);
     if (idx != -1) {
       _categories = List<Category>.from(_categories)..[idx] = category;
       notifyListeners();
     }
 
-    await updateCategory(category).timeout(const Duration(milliseconds: 300), onTimeout: () {
-      debugPrint('[CategoryProvider] updateCategory timed out');
-    });
+    try {
+      await updateCategory(category);
+    } catch (e) {
+      _categories = previousCategories;
+      notifyListeners();
+      rethrow;
+    }
   }
 
   void clear() {

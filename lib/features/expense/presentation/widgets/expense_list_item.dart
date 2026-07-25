@@ -61,21 +61,25 @@ class ExpenseListItem extends StatelessWidget {
                                 color: displayColor,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                category.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white.withOpacity(0.7),
+                              Flexible(
+                                child: Text(
+                                  category.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
                                 ),
                               ),
                               if (expense.subCategory != null && expense.subCategory!.isNotEmpty) ...[
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 4),
                                 Text(
                                   '•',
                                   style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 4),
                                 Icon(
                                   expense.subCategoryIcon != null
                                       ? IconUtils.getIcon(expense.subCategoryIcon)
@@ -84,11 +88,15 @@ class ExpenseListItem extends StatelessWidget {
                                   color: Colors.white.withOpacity(0.5),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  expense.subCategory!,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white.withOpacity(0.5),
+                                Flexible(
+                                  child: Text(
+                                    expense.subCategory!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white.withOpacity(0.5),
+                                    ),
                                   ),
                                 ),
                               ],

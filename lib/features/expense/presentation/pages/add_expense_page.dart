@@ -210,9 +210,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
         final planProvider = context.read<PlanProvider>();
         debugPrint('[DEBUG] Saving plan and ${expenses.length} expenses to Firestore starting...');
-        await planProvider.addPlanWithExpenses(plan, expenses).timeout(const Duration(milliseconds: 300), onTimeout: () {
-          debugPrint('[DEBUG] addPlanWithExpenses timed out (running in background)');
-        });
+        await planProvider.addPlanWithExpenses(plan, expenses);
         debugPrint('[DEBUG] Saving plan and expenses to Firestore completed');
         messenger.showSnackBar(
           const SnackBar(
@@ -239,9 +237,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         
         if (widget.expenseToEdit != null) {
           debugPrint('[DEBUG] Updating expense starting...');
-          await provider.updateExpense(expense).timeout(const Duration(milliseconds: 300), onTimeout: () {
-            debugPrint('[DEBUG] updateExpense timed out (running in background)');
-          });
+          await provider.updateExpense(expense);
           debugPrint('[DEBUG] Updating expense completed');
           messenger.showSnackBar(
             SnackBar(
@@ -252,9 +248,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
           );
         } else {
           debugPrint('[DEBUG] Adding expense starting...');
-          await provider.addExpense(expense).timeout(const Duration(milliseconds: 300), onTimeout: () {
-            debugPrint('[DEBUG] addExpense timed out (running in background)');
-          });
+          await provider.addExpense(expense);
           debugPrint('[DEBUG] Adding expense completed');
           messenger.showSnackBar(
             SnackBar(

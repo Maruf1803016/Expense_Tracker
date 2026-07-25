@@ -50,6 +50,7 @@ class SettingsProvider with ChangeNotifier {
   Future<void> updateCurrency(String currencyCode) async {
     if (_selectedCurrency == currencyCode) return;
     
+    final previousCurrency = _selectedCurrency;
     _selectedCurrency = currencyCode;
     CurrencyFormatter.setSymbol(currentSymbol);
     notifyListeners();
@@ -57,18 +58,24 @@ class SettingsProvider with ChangeNotifier {
     try {
       await repository.updateCurrency(currencyCode);
     } catch (e) {
-      // Log error
+      _selectedCurrency = previousCurrency;
+      CurrencyFormatter.setSymbol(currentSymbol);
+      notifyListeners();
+      rethrow;
     }
   }
 
   Future<void> setBudget(double amount) async {
+    final previousBudget = _budget;
     _budget = amount;
     notifyListeners();
     
     try {
       await repository.updateBudget(amount);
     } catch (e) {
-      // Log error
+      _budget = previousBudget;
+      notifyListeners();
+      rethrow;
     }
   }
 }
