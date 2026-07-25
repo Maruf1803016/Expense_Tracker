@@ -168,14 +168,18 @@ class CategoryManagementPage extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  CurrencyFormatter.format(totalSpent),
+                  category.type == CategoryType.expense
+                      ? (budgetStatus.limit > 0 
+                          ? '${CurrencyFormatter.format(totalSpent)} spent / ${CurrencyFormatter.format(budgetStatus.limit)}' 
+                          : '${CurrencyFormatter.format(totalSpent)} spent')
+                      : '${CurrencyFormatter.format(totalSpent)} earned',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     color: color,
                     fontWeight: FontWeight.w600,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 if (category.type == CategoryType.expense && budgetStatus.limit > 0) ...[
                   const SizedBox(height: 6),

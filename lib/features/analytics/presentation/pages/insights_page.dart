@@ -104,16 +104,60 @@ class _InsightsPageState extends State<InsightsPage> {
         children: [
           _buildHealthScoreCard(expenseProvider.healthScore, expenseProvider),
           const SizedBox(height: 24),
-          _buildSectionHeader('Spending Trend'),
-          const SizedBox(height: 12),
           Card(
+            elevation: 0,
+            color: AppTheme.secondaryBackground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+              side: BorderSide(color: Colors.white.withOpacity(0.05)),
+            ),
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: TrendLineChart(trendData: insights.expenseTrend),
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Spending Trend',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Comparison to previous month',
+                            style: TextStyle(fontSize: 12, color: Colors.white54),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: (insights.trendComparison > 0 ? AppTheme.expenseColor : AppTheme.incomeColor).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          insights.trendComparison > 0
+                              ? '+${insights.trendComparison.toStringAsFixed(0)}% (Warning)'
+                              : '${insights.trendComparison.toStringAsFixed(0)}% (Good)',
+                          style: TextStyle(
+                            color: insights.trendComparison > 0 ? AppTheme.expenseColor : AppTheme.incomeColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TrendLineChart(trendData: insights.expenseTrend),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 24),
-          _buildTrendSection(insights.trendComparison),
           const SizedBox(height: 24),
           _buildSectionHeader('Budget Performance'),
           const SizedBox(height: 12),
@@ -250,23 +294,7 @@ class _InsightsPageState extends State<InsightsPage> {
     );
   }
 
-  Widget _buildTrendSection(double trend) {
-    final isUp = trend > 0;
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          isUp ? Icons.trending_up : Icons.trending_down,
-          color: isUp ? AppTheme.expenseColor : AppTheme.incomeColor,
-        ),
-        title: const Text('Spending Trend'),
-        subtitle: Text(isUp ? 'Increased by ${trend.toStringAsFixed(1)}%' : 'Decreased by ${trend.abs().toStringAsFixed(1)}%'),
-        trailing: Text(
-          isUp ? 'Warning' : 'Good',
-          style: TextStyle(color: isUp ? AppTheme.expenseColor : AppTheme.incomeColor, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildBudgetPerformance(int successful, int total) {
     final double percentage = total > 0 ? (successful / total) : 1.0;

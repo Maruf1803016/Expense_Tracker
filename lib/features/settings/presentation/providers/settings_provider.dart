@@ -10,9 +10,6 @@ class SettingsProvider with ChangeNotifier {
   String _selectedCurrency = 'USD';
   String get selectedCurrency => _selectedCurrency;
 
-  double _budget = 0.0;
-  double get budget => _budget;
-
   static const Map<String, String> currencySymbols = {
     'USD': '\$',
     'EUR': '€',
@@ -33,10 +30,9 @@ class SettingsProvider with ChangeNotifier {
     
     try {
       final currency = await repository.getCurrency();
-      final budget = await repository.getBudget();
+      await repository.getBudget(); // ignore budget value
       
       _selectedCurrency = currency;
-      _budget = budget;
       CurrencyFormatter.setSymbol(currentSymbol);
       _isLoading = false;
       notifyListeners();
@@ -60,20 +56,6 @@ class SettingsProvider with ChangeNotifier {
     } catch (e) {
       _selectedCurrency = previousCurrency;
       CurrencyFormatter.setSymbol(currentSymbol);
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> setBudget(double amount) async {
-    final previousBudget = _budget;
-    _budget = amount;
-    notifyListeners();
-    
-    try {
-      await repository.updateBudget(amount);
-    } catch (e) {
-      _budget = previousBudget;
       notifyListeners();
       rethrow;
     }

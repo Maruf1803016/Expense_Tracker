@@ -308,26 +308,6 @@ class MonthlySummaryPage extends StatelessWidget {
           ),
           const SizedBox(height: 40),
 
-          _buildSectionHeader(context, 'Monthly Budgets'),
-          const SizedBox(height: 16),
-          if (provider.rolledUpBudgetStatuses.isEmpty)
-            const Center(child: Text('Add categories to start budgeting'))
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.1,
-              ),
-              itemCount: provider.rolledUpBudgetStatuses.length,
-              itemBuilder: (context, index) => _buildBudgetTile(context, provider, provider.rolledUpBudgetStatuses[index]),
-            ),
-
-          const SizedBox(height: 40),
-
           _buildSectionHeader(context, 'Category Breakdown'),
           const SizedBox(height: 16),
 
@@ -350,6 +330,23 @@ class MonthlySummaryPage extends StatelessWidget {
                     final total = summary.totalIncome + summary.totalExpense;
                     final percentage = total > 0 ? (entry.value / total) : 0.0;
                     final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                    
+                    final budgetStatus = provider.rolledUpBudgetStatuses.firstWhere(
+                      (b) => b.categoryId == category.id,
+                      orElse: () => CategoryBudgetStatus.fromAmounts(
+                        categoryId: category.id,
+                        categoryName: category.name,
+                        limit: 0.0,
+                        spent: entry.value,
+                        month: selectedMonth.month,
+                        year: selectedMonth.year,
+                      ),
+                    );
+                    final double? budgetLimit = (category.type == CategoryType.expense && budgetStatus.limit > 0) ? budgetStatus.limit : null;
+                    final double progressValue = budgetLimit != null ? (entry.value / budgetLimit).clamp(0.0, 1.0) : percentage;
+                    final Color progressBarColor = budgetLimit != null 
+                        ? (entry.value > budgetLimit ? AppTheme.expenseColor : AppTheme.emeraldGreen) 
+                        : catColor;
                     
                     return Column(
                       children: [
@@ -385,10 +382,12 @@ class MonthlySummaryPage extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        CurrencyFormatter.format(entry.value),
+                                        budgetLimit != null
+                                            ? '${CurrencyFormatter.format(entry.value)} / ${CurrencyFormatter.format(budgetLimit)} (budget)'
+                                            : CurrencyFormatter.format(entry.value),
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 15,
+                                          fontSize: 13,
                                         ),
                                       ),
                                     ],
@@ -397,15 +396,17 @@ class MonthlySummaryPage extends StatelessWidget {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
                                     child: LinearProgressIndicator(
-                                      value: percentage,
+                                      value: progressValue,
                                       minHeight: 8,
                                       backgroundColor: Colors.white.withOpacity(0.05),
-                                      color: catColor,
+                                      color: progressBarColor,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    '${(percentage * 100).toStringAsFixed(1)}% of total spending',
+                                    budgetLimit != null
+                                        ? '${(entry.value / budgetLimit * 100).toStringAsFixed(0)}% of budget · ${(percentage * 100).toStringAsFixed(1)}% of total spending'
+                                        : '${(percentage * 100).toStringAsFixed(1)}% of total spending',
                                     style: const TextStyle(
                                       color: Colors.white54,
                                       fontSize: 11,
@@ -503,57 +504,5 @@ class MonthlySummaryPage extends StatelessWidget {
   }
 
 
-  Widget _buildBudgetTile(BuildContext context, ExpenseProvider provider, CategoryBudgetStatus status) {
-    final Color stateColor = status.isExceeded
-        ? Colors.red
-        : (status.percentageUsed > 0.8 ? Colors.orange : Colors.green);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              status.categoryName, 
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${CurrencyFormatter.format(status.spent)} ${status.limit > 0 ? "/ " + CurrencyFormatter.format(status.limit) : ""}',
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            if (status.limit > 0) ...[
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: status.percentageUsed.clamp(0.0, 1.0),
-                  minHeight: 6,
-                  backgroundColor: Colors.white.withOpacity(0.05),
-                  valueColor: AlwaysStoppedAnimation<Color>(stateColor),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                status.isExceeded 
-                    ? 'Over!'
-                    : '${(status.percentageUsed * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: stateColor,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 }
