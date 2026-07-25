@@ -287,31 +287,29 @@ class ExpenseProvider with ChangeNotifier {
     return '';
   }
 
-  double get healthScore {
-    // Budget efficiency calculation for summary page if needed, but this is the health score logic
-    // We will implement the specific logic in Fix 6
-    return _calculateHealthScore();
+  double get savingsPoints {
+    if (_summary.totalIncome == 0) return 0.0;
+    double savingsRate = (_summary.totalIncome - _summary.totalExpense) / _summary.totalIncome;
+    return (savingsRate.clamp(0.0, 1.0) * 40);
   }
 
-  double _calculateHealthScore() {
-    if (_summary.totalIncome == 0 || monthlyBudget == 0) return 0;
-    
-    // savingsRate = (totalIncome - totalExpenses) / totalIncome   → worth 40 points
-    double savingsRate = (_summary.totalIncome - _summary.totalExpense) / _summary.totalIncome;
-    double savingsPoints = (savingsRate.clamp(0.0, 1.0) * 40);
+  double get budgetPoints {
+    final double totalBudget = rolledUpBudgetStatuses.fold(0.0, (sum, item) => sum + item.limit);
+    if (totalBudget == 0) return 0.0;
+    double budgetAdherence = 1 - (_summary.totalExpense / totalBudget);
+    return (budgetAdherence.clamp(0.0, 1.0) * 30);
+  }
 
-    // budgetAdherence = 1 - (totalExpenses / budget)              → worth 30 points
-    double budgetAdherence = 1 - (_summary.totalExpense / monthlyBudget);
-    double budgetPoints = (budgetAdherence.clamp(0.0, 1.0) * 30);
-
-    // consistencyScore = based on number of days with recorded expenses → worth 30 points
-    // Simplified: check unique days in the month with expenses
+  double get consistencyPoints {
     final uniqueDays = _expenses.where((e) => e.date.month == _selectedMonth.month && e.date.year == _selectedMonth.year)
                                 .map((e) => e.date.day).toSet().length;
-    double consistencyPoints = (uniqueDays / 15).clamp(0.0, 1.0) * 30; // 15 days for max points
+    return (uniqueDays / 15).clamp(0.0, 1.0) * 30; // 15 days for max points
+  }
 
+  double get healthScore {
     return savingsPoints + budgetPoints + consistencyPoints;
   }
+
 
   String get healthStatus {
     final score = healthScore;
@@ -320,10 +318,6 @@ class ExpenseProvider with ChangeNotifier {
     return 'Needs Work';
   }
 
-  Color _getDeterministicColor(String id) {
-    // No longer used for pie chart but kept for compatibility
-    return pieColors[id.hashCode.abs() % pieColors.length];
-  }
 
   bool _isInitializing = false;
 

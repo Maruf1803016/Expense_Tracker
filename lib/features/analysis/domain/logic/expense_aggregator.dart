@@ -15,7 +15,9 @@ class ExpenseAggregator {
   Map<String, double> groupSpentByCategory(List<Expense> expenses) {
     final Map<String, double> totals = {};
     for (var expense in expenses) {
-      totals[expense.categoryId] = (totals[expense.categoryId] ?? 0.0) + expense.amount;
+      if (expense.type == CategoryType.expense) {
+        totals[expense.categoryId] = (totals[expense.categoryId] ?? 0.0) + expense.amount;
+      }
     }
     return totals;
   }

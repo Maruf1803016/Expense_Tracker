@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
@@ -73,18 +72,14 @@ class SettingsPage extends StatelessWidget {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.account_balance_wallet_outlined),
-                title: const Text('Monthly Budget'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      CurrencyFormatter.format(settingsProvider.budget),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
-                    ),
-                    const Icon(Icons.chevron_right),
-                  ],
+                title: const Text('Total Budgeted (This Month)'),
+                trailing: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: Text(
+                    formatCurrency(expenseProvider.rolledUpBudgetStatuses.fold(0.0, (sum, item) => sum + item.limit)),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
+                  ),
                 ),
-                onTap: () => _showBudgetDialog(context, settingsProvider),
               ),
               const Divider(height: 1),
               ListTile(
@@ -198,80 +193,5 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _showBudgetDialog(BuildContext context, SettingsProvider settingsProvider) {
-    final currentBudget = context.read<SettingsProvider>().budget;
-    final budgetController = TextEditingController(
-      text: currentBudget == 0 ? '' : currentBudget.toStringAsFixed(0),
-    );
-    
-    // Select all text for easy overwrite
-    budgetController.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: budgetController.text.length,
-    );
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Monthly Budget'),
-        content: TextField(
-          controller: budgetController,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            prefixText: '${settingsProvider.currentSymbol} ',
-            hintText: '0',
-            filled: false,
-            fillColor: Colors.transparent,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppTheme.emeraldGreen, width: 2),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(context);
-              
-              try {
-                final value = double.tryParse(budgetController.text) ?? 0.0;
-                await settingsProvider.setBudget(value);
-                
-                scaffoldMessenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Budget updated successfully'),
-                    backgroundColor: AppTheme.emeraldGreen,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-                navigator.pop();
-              } catch (e) {
-                scaffoldMessenger.showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to save budget: ${e.toString()}'),
-                    backgroundColor: AppTheme.expenseColor,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emeraldGreen,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
+
 }

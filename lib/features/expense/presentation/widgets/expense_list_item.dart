@@ -28,7 +28,7 @@ class ExpenseListItem extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         side: BorderSide(
           color: isPlanLinked 
               ? AppTheme.emeraldGreen.withOpacity(0.5) 
@@ -37,115 +37,140 @@ class ExpenseListItem extends StatelessWidget {
         ),
       ),
       color: AppTheme.secondaryBackground,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        child: Stack(
+          children: [
+            InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Category & Sub-category row
-                    Row(
-                      children: [
-                        Icon(
-                          category.icon,
-                          size: 14,
-                          color: displayColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          category.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withOpacity(0.7),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category & Sub-category row
+                          Row(
+                            children: [
+                              Icon(
+                                category.icon,
+                                size: 14,
+                                color: displayColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                category.name,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.7),
+                                ),
+                              ),
+                              if (expense.subCategory != null && expense.subCategory!.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  '•',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  expense.subCategoryIcon != null
+                                      ? IconUtils.getIcon(expense.subCategoryIcon)
+                                      : Icons.label_outline,
+                                  size: 12,
+                                  color: Colors.white.withOpacity(0.5),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  expense.subCategory!,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withOpacity(0.5),
+                                  ),
+                                ),
+                              ],
+                              if (isPlanLinked) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emeraldGreen.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'GOAL',
+                                    style: TextStyle(
+                                      color: AppTheme.emeraldGreen,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        if (expense.subCategory != null && expense.subCategory!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 8),
+                          // Transaction Title
                           Text(
-                            '•',
-                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                            expense.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            expense.subCategoryIcon != null
-                                ? IconUtils.getIcon(expense.subCategoryIcon)
-                                : Icons.label_outline,
-                            size: 12,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 4),
+                          const SizedBox(height: 4),
+                          // Note / Date
                           Text(
-                            expense.subCategory!,
+                            expense.note.isNotEmpty ? expense.note : DateFormatter.format(expense.date),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               color: Colors.white.withOpacity(0.5),
                             ),
                           ),
                         ],
-                        if (isPlanLinked) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.emeraldGreen.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'PLAN',
-                              style: TextStyle(
-                                color: AppTheme.emeraldGreen,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Transaction Title
-                    Text(
-                      expense.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    // Note / Date
+                    const SizedBox(width: 16),
+                    // Amount
                     Text(
-                      expense.note.isNotEmpty ? expense.note : DateFormatter.format(expense.date),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      (isIncome ? '+' : '-') + CurrencyFormatter.format(expense.amount),
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.5),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: displayColor,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              // Amount
-              Text(
-                (isIncome ? '+' : '-') + CurrencyFormatter.format(expense.amount),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: displayColor,
+            ),
+            if (isPlanLinked)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.emeraldGreen,
+                    borderRadius: BorderRadius.only(
+                      bottomRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.track_changes_rounded,
+                    size: 10,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

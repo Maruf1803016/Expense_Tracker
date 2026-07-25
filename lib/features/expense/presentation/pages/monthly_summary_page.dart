@@ -107,6 +107,70 @@ class MonthlySummaryPage extends StatelessWidget {
     );
   }
 
+  Widget _buildHeroSavingsCard(BuildContext context, MonthlySummary summary) {
+    final double net = summary.netBalance;
+    final bool isSaved = net >= 0;
+    final Color accentColor = isSaved ? AppTheme.incomeColor : AppTheme.expenseColor;
+    final IconData icon = isSaved ? Icons.savings_rounded : Icons.trending_down_rounded;
+    final String statusText = isSaved ? 'Net Savings' : 'Net Loss';
+    final String message = isSaved 
+        ? 'Great job! You saved ${CurrencyFormatter.format(net)} this month.' 
+        : 'You spent ${CurrencyFormatter.format(net.abs())} more than your income.';
+
+    return Card(
+      elevation: 0,
+      color: AppTheme.secondaryBackground,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        side: BorderSide(color: accentColor.withOpacity(0.2), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 24.0),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: accentColor, size: 40),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              statusText,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              CurrencyFormatter.format(net),
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTotalBudgetOverview(BuildContext context, ExpenseProvider provider) {
     // Priority: Global monthly budget from SettingsProvider, then sum of category budgets
     final settingsProvider = context.watch<SettingsProvider>();
@@ -206,74 +270,7 @@ class MonthlySummaryPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSavingsAnalysisCard(BuildContext context, MonthlySummary summary) {
-    final double net = summary.netBalance;
-    final bool isSaved = net >= 0;
-    final Color accentColor = isSaved ? AppTheme.incomeColor : AppTheme.expenseColor;
-    final IconData icon = isSaved ? Icons.savings_rounded : Icons.trending_down_rounded;
-    final String statusText = isSaved ? 'Net Savings' : 'Net Loss';
-    final String message = isSaved 
-        ? 'Great job! You saved ${CurrencyFormatter.format(net)} this month.' 
-        : 'You spent ${CurrencyFormatter.format(net.abs())} more than your income.';
 
-    return Card(
-      elevation: 0,
-      color: AppTheme.secondaryBackground,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: accentColor.withOpacity(0.2), width: 1.5),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: accentColor, size: 32),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    statusText,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    CurrencyFormatter.format(net),
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildBudgetDetailItem(String label, double amount, Color color) {
     return Expanded(
@@ -351,9 +348,7 @@ class MonthlySummaryPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _buildTotalBudgetOverview(context, provider),
-          const SizedBox(height: 24),
-          _buildSavingsAnalysisCard(context, summary),
+          _buildHeroSavingsCard(context, summary),
           const SizedBox(height: 32),
 
           _buildSectionHeader(context, 'Spending Insights'),
@@ -451,6 +446,7 @@ class MonthlySummaryPage extends StatelessWidget {
                     final category = provider.getCategoryById(entry.key);
                     final total = summary.totalIncome + summary.totalExpense;
                     final percentage = total > 0 ? (entry.value / total) : 0.0;
+                    final catColor = AppTheme.getCategoryColor(category.id, category.name);
                     
                     return Column(
                       children: [
@@ -460,12 +456,12 @@ class MonthlySummaryPage extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length].withOpacity(0.15),
+                                color: catColor.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 category.icon,
-                                color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
+                                color: catColor,
                                 size: 20,
                               ),
                             ),
@@ -501,7 +497,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                       value: percentage,
                                       minHeight: 8,
                                       backgroundColor: Colors.white.withOpacity(0.05),
-                                      color: ExpenseProvider.pieColors[index % ExpenseProvider.pieColors.length],
+                                      color: catColor,
                                     ),
                                   ),
                                   const SizedBox(height: 6),

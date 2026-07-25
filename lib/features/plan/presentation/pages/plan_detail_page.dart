@@ -17,8 +17,8 @@ class PlanDetailPage extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Plan'),
-        content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this plan will NOT be deleted.'),
+        title: const Text('Delete Goal'),
+        content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this goal will NOT be deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -47,7 +47,7 @@ class PlanDetailPage extends StatelessWidget {
       
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Plan "${plan.title}" deleted'),
+          content: Text('Goal "${plan.title}" deleted'),
           backgroundColor: AppTheme.emeraldGreen,
         ),
       );
@@ -63,6 +63,10 @@ class PlanDetailPage extends StatelessWidget {
     final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
     final amountSpent = planExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
     final remaining = plan.totalBudget - amountSpent;
+    final distinctCategoryIds = {
+      ...plan.categoryIds,
+      ...planExpenses.map((e) => e.categoryId),
+    }.toList();
     final double percentUsed = plan.totalBudget > 0 ? (amountSpent / plan.totalBudget) : 0.0;
 
     Color progressColor;
@@ -108,7 +112,7 @@ class PlanDetailPage extends StatelessWidget {
               Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                   side: BorderSide(color: Colors.white.withOpacity(0.05)),
                 ),
                 color: AppTheme.secondaryBackground,
@@ -161,7 +165,7 @@ class PlanDetailPage extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Category Breakdown
-              if (plan.categoryIds.isNotEmpty) ...[
+              if (distinctCategoryIds.isNotEmpty) ...[
                 const Text(
                   'Category Breakdown',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
@@ -170,21 +174,21 @@ class PlanDetailPage extends StatelessWidget {
                 Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                     side: BorderSide(color: Colors.white.withOpacity(0.05)),
                   ),
                   color: AppTheme.secondaryBackground,
                   child: Padding(
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
-                      children: plan.categoryIds.asMap().entries.map((itemEntry) {
+                      children: distinctCategoryIds.asMap().entries.map((itemEntry) {
                         final idx = itemEntry.key;
                         final catId = itemEntry.value;
                         final category = expenseProvider.getCategoryById(catId);
                         final catExpenses = planExpenses.where((e) => e.categoryId == catId);
                         final catSpent = catExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
                         final double catPercent = plan.totalBudget > 0 ? (catSpent / plan.totalBudget) : 0.0;
-                        final catColor = ExpenseProvider.pieColors[idx % ExpenseProvider.pieColors.length];
+                        final catColor = AppTheme.getCategoryColor(catId, category.name);
 
                         return Padding(
                           padding: EdgeInsets.only(top: idx == 0 ? 0.0 : 16.0),
@@ -259,7 +263,7 @@ class PlanDetailPage extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Text(
-                      'No transactions logged under this plan yet.',
+                      'No transactions logged under this goal yet.',
                       style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
                     ),
                   ),

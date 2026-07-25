@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// App-wide theme configuration
 class AppTheme {
   AppTheme._();
+
+  // Constants
+  static const double cardRadius = 16.0;
 
   // Colors
   static const Color primaryBackground = Color(0xFF0F1B2D);
@@ -18,10 +22,44 @@ class AppTheme {
   static const Color incomeColor = emeraldGreen;
   static const Color expenseColor = errorRed;
 
+  static const List<Color> categoryPalette = [
+    Color(0xFF3F8CFF), // Indigo/Blue
+    Color(0xFFFF4D6A), // Rose/Pink
+    Color(0xFF00C49F), // Teal/Green
+    Color(0xFFFFBB28), // Yellow/Amber
+    Color(0xFFFF8042), // Orange
+    Color(0xFF8884D8), // Purple
+  ];
+
+  static Color getCategoryColor(String id, String name) {
+    final nameLower = name.toLowerCase();
+    if (nameLower.contains('food') || nameLower.contains('dining') || nameLower.contains('restaurant') || nameLower.contains('cafe') || nameLower.contains('groceries')) {
+      return const Color(0xFFFFBB28); // Amber
+    } else if (nameLower.contains('transport') || nameLower.contains('car') || nameLower.contains('travel') || nameLower.contains('taxi') || nameLower.contains('bus')) {
+      return const Color(0xFF3F8CFF); // Indigo
+    } else if (nameLower.contains('bill') || nameLower.contains('utilities') || nameLower.contains('rent') || nameLower.contains('subscription')) {
+      return const Color(0xFFFF4D6A); // Rose
+    } else if (nameLower.contains('shop') || nameLower.contains('clothes') || nameLower.contains('gadget')) {
+      return const Color(0xFF8884D8); // Purple/Violet
+    } else if (nameLower.contains('health') || nameLower.contains('medical') || nameLower.contains('pharmacy') || nameLower.contains('doctor')) {
+      return const Color(0xFF00C49F); // Teal
+    } else if (nameLower.contains('entertainment') || nameLower.contains('movie') || nameLower.contains('leisure') || nameLower.contains('fun')) {
+      return const Color(0xFFFF8042); // Orange
+    } else if (nameLower.contains('salary') || nameLower.contains('income') || nameLower.contains('business') || nameLower.contains('gift')) {
+      return const Color(0xFF00C896); // Green/Emerald
+    }
+    // Fallback: deterministic selection from palette
+    return categoryPalette[id.hashCode.abs() % categoryPalette.length];
+  }
+
   static ThemeData get darkTheme {
+    final baseTextTheme = ThemeData.dark().textTheme;
+    final interTextTheme = GoogleFonts.interTextTheme(baseTextTheme);
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: GoogleFonts.inter().fontFamily,
       scaffoldBackgroundColor: primaryBackground,
       colorScheme: const ColorScheme.dark(
         primary: emeraldGreen,
@@ -48,7 +86,7 @@ class AppTheme {
         color: secondaryBackground,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(cardRadius),
           side: const BorderSide(color: borderDivider, width: 1),
         ),
       ),
@@ -58,15 +96,15 @@ class AppTheme {
         hintStyle: const TextStyle(color: textSecondary),
         labelStyle: const TextStyle(color: textSecondary),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(cardRadius),
           borderSide: const BorderSide(color: borderDivider),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(cardRadius),
           borderSide: const BorderSide(color: borderDivider),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(cardRadius),
           borderSide: const BorderSide(color: emeraldGreen, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(
@@ -115,17 +153,17 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(56),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(cardRadius),
           ),
           elevation: 2,
         ),
       ),
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-        headlineMedium: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-        titleLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
-        bodyLarge: TextStyle(color: textPrimary),
-        bodyMedium: TextStyle(color: textSecondary),
+      textTheme: interTextTheme.copyWith(
+        headlineLarge: const TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+        headlineMedium: const TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+        titleLarge: const TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+        bodyLarge: const TextStyle(color: textPrimary),
+        bodyMedium: const TextStyle(color: textSecondary),
       ),
       dividerTheme: const DividerThemeData(
         color: borderDivider,

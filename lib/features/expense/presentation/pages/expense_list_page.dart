@@ -49,8 +49,8 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               icon = Icons.add_circle_outline;
               break;
             case ExpenseFilter.plan:
-              label = 'Plan';
-              icon = Icons.assignment_outlined;
+              label = 'Goal';
+              icon = Icons.track_changes_rounded;
               break;
           }
 
@@ -108,6 +108,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
+    final settingsProvider = context.watch<SettingsProvider>();
     final expenses = provider.expenses;
 
     final filteredExpenses = expenses.where((e) {
@@ -126,6 +127,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
+        const SizedBox(height: 16),
         _buildFilterTabs(context, provider),
         Expanded(
           child: _buildBody(context, provider, filteredExpenses),
@@ -407,7 +409,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -417,7 +419,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.2)),
       ),
       child: Column(
@@ -544,7 +546,7 @@ class _ExpenseItemState extends State<_ExpenseItem> {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           side: BorderSide(
             color: isPlanLinked 
                 ? AppTheme.emeraldGreen.withOpacity(0.5) 
@@ -553,110 +555,144 @@ class _ExpenseItemState extends State<_ExpenseItem> {
           ),
         ),
         color: AppTheme.secondaryBackground,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          child: Stack(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Category & Sub-category row
-                    Row(
-                      children: [
-                        Icon(
-                          widget.category.icon,
-                          size: 14,
-                          color: displayColor,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          widget.category.name,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withOpacity(0.7),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category & Sub-category row
+                          Row(
+                            children: [
+                              Icon(
+                                widget.category.icon,
+                                size: 14,
+                                color: displayColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  widget.category.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (widget.expense.subCategory != null && widget.expense.subCategory!.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '•',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  widget.expense.subCategoryIcon != null
+                                      ? IconUtils.getIcon(widget.expense.subCategoryIcon)
+                                      : Icons.label_outline,
+                                  size: 12,
+                                  color: Colors.white.withOpacity(0.5),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    widget.expense.subCategory!,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white.withOpacity(0.5),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                              if (isPlanLinked) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emeraldGreen.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'GOAL',
+                                    style: TextStyle(
+                                      color: AppTheme.emeraldGreen,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        if (widget.expense.subCategory != null && widget.expense.subCategory!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(height: 8),
+                          // Transaction Title
                           Text(
-                            '•',
-                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                            widget.expense.title,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            widget.expense.subCategoryIcon != null
-                                ? IconUtils.getIcon(widget.expense.subCategoryIcon)
-                                : Icons.label_outline,
-                            size: 12,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
-                          const SizedBox(width: 4),
+                          const SizedBox(height: 4),
+                          // Note / Date
                           Text(
-                            widget.expense.subCategory!,
+                            widget.expense.note.isNotEmpty ? widget.expense.note : DateFormatter.format(widget.expense.date),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               color: Colors.white.withOpacity(0.5),
                             ),
                           ),
                         ],
-                        if (isPlanLinked) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.emeraldGreen.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'PLAN',
-                              style: TextStyle(
-                                color: AppTheme.emeraldGreen,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Transaction Title
-                    Text(
-                      widget.expense.title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    // Note / Date
+                    const SizedBox(width: 16),
+                    // Amount
                     Text(
-                      widget.expense.note.isNotEmpty ? widget.expense.note : DateFormatter.format(widget.expense.date),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      (widget.isExpense ? '-' : '+') + CurrencyFormatter.format(widget.expense.amount),
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.5),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: displayColor,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              // Amount
-              Text(
-                (widget.isExpense ? '-' : '+') + CurrencyFormatter.format(widget.expense.amount),
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: displayColor,
+              if (isPlanLinked)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.emeraldGreen,
+                      borderRadius: BorderRadius.only(
+                        bottomRight: Radius.circular(8),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.track_changes_rounded,
+                      size: 10,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),

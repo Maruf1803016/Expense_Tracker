@@ -78,9 +78,12 @@ class _HomePageState extends State<HomePage> {
       ),
       body: _pages[_currentIndex],
       floatingActionButton: _currentIndex == 0 
-          ? FloatingActionButton(
-              onPressed: _openAddExpense,
-              child: const Icon(Icons.add),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: FloatingActionButton(
+                onPressed: _openAddExpense,
+                child: const Icon(Icons.add),
+              ),
             )
           : null,
       bottomNavigationBar: NavigationBar(

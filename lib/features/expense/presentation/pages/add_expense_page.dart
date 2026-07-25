@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
+import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
@@ -215,7 +216,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         debugPrint('[DEBUG] Saving plan and expenses to Firestore completed');
         messenger.showSnackBar(
           const SnackBar(
-            content: Text('Custom Plan saved'),
+            content: Text('Custom Goal saved'),
             backgroundColor: AppTheme.emeraldGreen,
             duration: Duration(seconds: 2),
           ),
@@ -336,7 +337,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 segments: const [
                   ButtonSegment(value: TransactionMode.expense, label: Text('Expense'), icon: Icon(Icons.remove_circle_outline)),
                   ButtonSegment(value: TransactionMode.income, label: Text('Income'), icon: Icon(Icons.add_circle_outline)),
-                  ButtonSegment(value: TransactionMode.plan, label: Text('Plan'), icon: Icon(Icons.assignment_outlined)),
+                  ButtonSegment(value: TransactionMode.plan, label: Text('Goal'), icon: Icon(Icons.track_changes_rounded)),
                 ],
                 selected: {_mode},
                 onSelectionChanged: (newSelection) {
@@ -350,7 +351,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
               if (_mode == TransactionMode.plan) ...[
                 // Plan Mode Form
-                _buildSectionLabel('Plan Title'),
+                _buildSectionLabel('Goal Title'),
                 _buildInputCard(
                   child: TextFormField(
                     controller: _titleController,
@@ -492,7 +493,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       ),
                     ),
                     Text(
-                      'Used: ${context.watch<SettingsProvider>().currentSymbol} ${_plannedEntries.fold<double>(0.0, (sum, e) => sum + e.amount).toStringAsFixed(2)} / Budget: ${context.watch<SettingsProvider>().currentSymbol} ${(double.tryParse(_amountController.text) ?? 0.0).toStringAsFixed(2)}',
+                      'Used: ${formatCurrency(_plannedEntries.fold<double>(0.0, (sum, e) => sum + e.amount))} / Budget: ${formatCurrency(double.tryParse(_amountController.text) ?? 0.0)}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -572,7 +573,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '$currencySymbol ${entry.amount.toStringAsFixed(2)}',
+                                formatCurrency(entry.amount),
                                 style: const TextStyle(color: AppTheme.expenseColor, fontWeight: FontWeight.bold),
                               ),
                               IconButton(
@@ -600,7 +601,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                   onPressed: _saveExpense,
                   child: const Text(
-                    'Save Plan',
+                    'Save Goal',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),

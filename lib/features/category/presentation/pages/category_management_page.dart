@@ -9,6 +9,7 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:expense_tracker/features/category/presentation/pages/category_detail_page.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
+import 'package:expense_tracker/features/budget/domain/entities/category_budget_status.dart';
 
 class CategoryManagementPage extends StatelessWidget {
   const CategoryManagementPage({super.key});
@@ -107,6 +108,7 @@ class CategoryManagementPage extends StatelessWidget {
 
         final category = categories[index];
         final color = category.type == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor;
+        final catColor = AppTheme.getCategoryColor(category.id, category.name);
 
         // Calculate this month's spending/income for the category
         final now = DateTime.now();
@@ -118,11 +120,23 @@ class CategoryManagementPage extends StatelessWidget {
         });
         final totalSpent = thisMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
 
+        final budgetStatus = expenseProvider.rolledUpBudgetStatuses.firstWhere(
+          (b) => b.categoryId == category.id,
+          orElse: () => CategoryBudgetStatus.fromAmounts(
+            categoryId: category.id,
+            categoryName: category.name,
+            limit: 0.0,
+            spent: totalSpent,
+            month: now.month,
+            year: now.year,
+          ),
+        );
+
         return Card(
           color: AppTheme.secondaryBackground,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: color.withOpacity(0.1)),
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            side: BorderSide(color: catColor.withOpacity(0.15)),
           ),
           child: InkWell(
             onTap: () {
@@ -133,14 +147,18 @@ class CategoryManagementPage extends StatelessWidget {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  category.icon,
-                  color: color,
-                  size: 28,
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: catColor.withOpacity(0.15),
+                  child: Icon(
+                    category.icon,
+                    color: catColor,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -155,10 +173,25 @@ class CategoryManagementPage extends StatelessWidget {
                   CurrencyFormatter.format(totalSpent),
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withOpacity(0.5),
+                    color: color,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (category.type == CategoryType.expense && budgetStatus.limit > 0) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
+                        minHeight: 3,
+                        backgroundColor: Colors.white.withOpacity(0.05),
+                        color: budgetStatus.isExceeded ? AppTheme.expenseColor : AppTheme.emeraldGreen,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

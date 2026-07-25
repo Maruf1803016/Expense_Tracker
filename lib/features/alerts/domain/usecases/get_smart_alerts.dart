@@ -5,6 +5,7 @@ import 'package:expense_tracker/features/expense/domain/usecases/get_monthly_sum
 import 'package:expense_tracker/features/alerts/domain/entities/smart_alert.dart';
 import 'package:expense_tracker/features/analysis/domain/logic/financial_analysis_service.dart';
 import 'package:expense_tracker/features/shared/domain/policies/smart_alert_policy.dart';
+import 'package:expense_tracker/core/utils/currency_formatter.dart';
 
 class GetSmartAlertsStreamUseCase {
   final GetMonthlySummaryUseCase getSummary;
@@ -88,7 +89,7 @@ class GetSmartAlertsStreamUseCase {
               id: 'unusual_${e.id}',
               type: AlertType.unusualActivity,
               title: 'Unusual Transaction',
-              message: 'Transaction of ${e.amount} is unusually high.',
+              message: 'Transaction of ${formatCurrency(e.amount)} is unusually high.',
               severity: AlertSeverity.medium,
               categoryId: e.categoryId,
               amount: e.amount,

@@ -55,12 +55,12 @@ class _PlansTabViewState extends State<PlansTabView> {
                       elevation: 0,
                       margin: const EdgeInsets.only(bottom: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                         side: BorderSide(color: Colors.white.withOpacity(0.05)),
                       ),
                       color: AppTheme.secondaryBackground,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
@@ -72,8 +72,8 @@ class _PlansTabViewState extends State<PlansTabView> {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Delete Plan'),
-                              content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this plan will NOT be deleted.'),
+                              title: const Text('Delete Goal'),
+                              content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this goal will NOT be deleted.'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context, false),
@@ -96,7 +96,7 @@ class _PlansTabViewState extends State<PlansTabView> {
                             await planProvider.delete(plan.id);
                             messenger.showSnackBar(
                               SnackBar(
-                                content: Text('Plan "${plan.title}" deleted'),
+                                content: Text('Goal "${plan.title}" deleted'),
                                 backgroundColor: AppTheme.emeraldGreen,
                               ),
                             );
@@ -268,18 +268,18 @@ class _PlansTabViewState extends State<PlansTabView> {
               color: AppTheme.emeraldGreen.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.assignment_outlined, size: 64, color: AppTheme.emeraldGreen),
+            child: const Icon(Icons.track_changes_rounded, size: 64, color: AppTheme.emeraldGreen),
           ),
           const SizedBox(height: 24),
           const Text(
-            'No Custom Plans Yet',
+            'No Goals Yet',
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 40.0),
             child: Text(
-              'Set dynamic custom budgets with fixed date ranges and track specific projects or trips.',
+              'Set dynamic goals with fixed date ranges and track specific projects, events, or trips.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white54),
             ),

@@ -38,7 +38,7 @@ class _InsightsPageState extends State<InsightsPage> {
           const TabBar(
             tabs: [
               Tab(text: 'Analytics'),
-              Tab(text: 'Custom Plans'),
+              Tab(text: 'Goals'),
             ],
             indicatorColor: AppTheme.emeraldGreen,
             labelColor: AppTheme.emeraldGreen,
@@ -463,20 +463,25 @@ class _InsightsPageState extends State<InsightsPage> {
     Color color = Colors.blue;
     IconData icon = Icons.info_outline;
 
-    switch (alert.severity) {
-      case AlertSeverity.high:
-        color = Colors.red;
+    switch (alert.type) {
+      case AlertType.spendingSpike:
+        color = Colors.amber;
         icon = Icons.warning_amber_rounded;
         break;
-      case AlertSeverity.medium:
-        color = Colors.orange;
-        icon = Icons.error_outline;
+      case AlertType.budgetExceeded:
+        color = Colors.red;
+        icon = Icons.cancel_outlined;
         break;
-      case AlertSeverity.low:
+      case AlertType.unusualActivity:
+        color = Colors.orange;
+        icon = Icons.error_outline_rounded;
+        break;
+      case AlertType.trendWarning:
         color = Colors.blue;
-        icon = Icons.info_outline;
+        icon = Icons.trending_up_rounded;
         break;
     }
+
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

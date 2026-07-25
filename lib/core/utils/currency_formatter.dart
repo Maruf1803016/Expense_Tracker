@@ -29,3 +29,26 @@ class CurrencyFormatter {
     return formatter.format(amount);
   }
 }
+
+const Map<String, String> _currencySymbolsMap = {
+  'USD': '\$',
+  'EUR': '€',
+  'GBP': '£',
+  'BDT': '৳',
+  'INR': '₹',
+  'JPY': '¥',
+};
+
+/// Global currency formatting helper
+String formatCurrency(double amount, {String? currencyCode}) {
+  final symbol = currencyCode != null 
+      ? (_currencySymbolsMap[currencyCode] ?? CurrencyFormatter.currentSymbol)
+      : CurrencyFormatter.currentSymbol;
+  
+  final formatter = NumberFormat.currency(
+    symbol: symbol,
+    decimalDigits: 2,
+  );
+  return formatter.format(amount);
+}
+
