@@ -7,6 +7,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
+import 'package:expense_tracker/features/category/domain/entities/category.dart';
 
 class PlanDetailPage extends StatelessWidget {
   final Plan plan;
@@ -61,7 +62,7 @@ class PlanDetailPage extends StatelessWidget {
     final expenseProvider = context.watch<ExpenseProvider>();
     final expenses = expenseProvider.expenses;
     final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
-    final amountSpent = planExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final amountSpent = planExpenses.fold<double>(0.0, (sum, e) => e.type == CategoryType.expense ? sum + e.amount : sum - e.amount);
     final remaining = plan.totalBudget - amountSpent;
     final distinctCategoryIds = {
       ...plan.categoryIds,
@@ -125,7 +126,7 @@ class PlanDetailPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           _buildStatItem('Total Budget', plan.totalBudget, Colors.white),
-                          _buildStatItem('Spent', amountSpent, progressColor),
+                          _buildStatItem('Saved', amountSpent, progressColor),
                           _buildStatItem('Remaining', remaining, remaining >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor),
                         ],
                       ),
@@ -147,7 +148,7 @@ class PlanDetailPage extends StatelessWidget {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Over budget by ${CurrencyFormatter.format(amountSpent - plan.totalBudget)}',
+                                'Over target by ${CurrencyFormatter.format(amountSpent - plan.totalBudget)}',
                                 style: const TextStyle(
                                   color: AppTheme.expenseColor,
                                   fontSize: 12,

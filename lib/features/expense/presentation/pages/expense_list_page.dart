@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
@@ -21,8 +22,13 @@ class ExpenseListPage extends StatefulWidget {
 }
 
 class _ExpenseListPageState extends State<ExpenseListPage> {
+  String _searchQuery = '';
+  String? _selectedCategoryId;
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void dispose() {
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -112,21 +118,39 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final expenses = provider.expenses;
 
     final filteredExpenses = expenses.where((e) {
+      bool matchesTab = true;
       switch (provider.selectedFilter) {
         case ExpenseFilter.all:
-          return true;
+          matchesTab = true;
+          break;
         case ExpenseFilter.expense:
-          return e.type == CategoryType.expense && e.planId == null;
+          matchesTab = e.type == CategoryType.expense && e.planId == null;
+          break;
         case ExpenseFilter.income:
-          return e.type == CategoryType.income;
+          matchesTab = e.type == CategoryType.income;
+          break;
         case ExpenseFilter.plan:
-          return e.planId != null;
+          matchesTab = e.planId != null;
+          break;
       }
+      if (!matchesTab) return false;
+
+      if (_searchQuery.isNotEmpty) {
+        final matchesQuery = e.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        if (!matchesQuery) return false;
+      }
+
+      if (_selectedCategoryId != null) {
+        if (e.categoryId != _selectedCategoryId) return false;
+      }
+
+      return true;
     }).toList();
 
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
+        _buildSearchAndFilters(context, provider),
         const SizedBox(height: 16),
         _buildFilterTabs(context, provider),
         Expanded(
@@ -185,30 +209,63 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       );
     }
 
+    // Sort to be extra safe
+    filteredExpenses.sort((a, b) => b.date.compareTo(a.date));
+
+    // Map to list items with group headers
+    final listItems = <_DashboardListItem>[];
+    String? currentGroupLabel;
+    
+    for (var expense in filteredExpenses) {
+      final label = _getDateLabel(expense.date);
+      if (currentGroupLabel != label) {
+        currentGroupLabel = label;
+        listItems.add(_HeaderItem(label));
+      }
+      listItems.add(_TransactionItem(expense));
+    }
+
     return RefreshIndicator(
       onRefresh: () => provider.init(),
       child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 100),
-        itemCount: filteredExpenses.length,
+        itemCount: listItems.length,
         itemBuilder: (context, index) {
-          final expense = filteredExpenses[index];
-          final category = provider.getCategoryById(expense.categoryId);
-          final isExpense = category.type == CategoryType.expense;
+          final item = listItems[index];
 
-          return _ExpenseItem(
-            expense: expense,
-            category: category,
-            isExpense: isExpense,
-            onLongPress: () => _showDeleteBottomSheet(context, provider, expense),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ExpenseDetailPage(expense: expense),
+          if (item is _HeaderItem) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Text(
+                item.title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white54,
+                  letterSpacing: 1.2,
                 ),
-              );
-            },
-          );
+              ),
+            );
+          } else {
+            final expense = (item as _TransactionItem).expense;
+            final category = provider.getCategoryById(expense.categoryId);
+            final isExpense = category.type == CategoryType.expense;
+
+            return _ExpenseItem(
+              expense: expense,
+              category: category,
+              isExpense: isExpense,
+              onLongPress: () => _showDeleteBottomSheet(context, provider, expense),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ExpenseDetailPage(expense: expense),
+                  ),
+                );
+              },
+            );
+          }
         },
       ),
     );
@@ -614,4 +671,157 @@ class _ExpenseItemState extends State<_ExpenseItem> {
       ),
     );
   }
+
+  Widget _buildSearchAndFilters(BuildContext context, ExpenseProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val.trim();
+              });
+            },
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Search transactions...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                      },
+                      child: const Icon(Icons.clear, color: Colors.white38, size: 20),
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppTheme.secondaryBackground,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppTheme.emeraldGreen, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildCategoryPill(
+                  label: 'All',
+                  isSelected: _selectedCategoryId == null,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                  },
+                  color: AppTheme.emeraldGreen,
+                ),
+                ...provider.categories.map((category) {
+                  final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                  return _buildCategoryPill(
+                    label: category.name,
+                    icon: category.icon,
+                    isSelected: _selectedCategoryId == category.id,
+                    onTap: () {
+                      setState(() {
+                        _selectedCategoryId = category.id;
+                      });
+                    },
+                    color: catColor,
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryPill({
+    required String label,
+    IconData? icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.2) : AppTheme.secondaryBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color : Colors.white.withOpacity(0.05),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: isSelected ? color : Colors.white60),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white60,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getDateLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final checkDate = DateTime(date.year, date.month, date.day);
+    if (checkDate == today) {
+      return 'TODAY';
+    } else if (checkDate == yesterday) {
+      return 'YESTERDAY';
+    } else {
+      return DateFormat('EEEE, MMM d').format(date).toUpperCase();
+    }
+  }
+}
+
+abstract class _DashboardListItem {}
+
+class _HeaderItem implements _DashboardListItem {
+  final String title;
+  _HeaderItem(this.title);
+}
+
+class _TransactionItem implements _DashboardListItem {
+  final Expense expense;
+  _TransactionItem(this.expense);
 }

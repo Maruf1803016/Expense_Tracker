@@ -58,6 +58,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _titleController;
   late TextEditingController _amountController;
   late TextEditingController _noteController;
+  late TextEditingController _tagsController;
   String? _selectedCategoryId;
   late DateTime _selectedDate;
   TransactionMode _mode = TransactionMode.expense;
@@ -80,6 +81,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
   String? _miniSelectedSubCategoryName;
   String? _miniSelectedSubCategoryIcon;
 
+  // Two-step flow fields
+  int _currentStep = 1;
+  String _amountString = '';
+  bool _isRecurring = false;
+  bool _isGoalContribution = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +97,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
     );
+    _tagsController = TextEditingController();
     _miniAmountController = TextEditingController();
     _miniDescriptionController = TextEditingController();
     _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
@@ -99,6 +107,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
       _mode = widget.expenseToEdit!.type == CategoryType.income
           ? TransactionMode.income
           : TransactionMode.expense;
+      _amountString = widget.expenseToEdit!.amount.toString();
+      if (_amountString.endsWith('.0')) {
+        _amountString = _amountString.substring(0, _amountString.length - 2);
+      }
     } else {
       _mode = TransactionMode.expense;
     }
@@ -106,6 +118,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
     _selectedSubCategoryIcon = widget.expenseToEdit?.subCategoryIcon;
     _selectedPlanId = widget.preselectedPlanId ?? widget.expenseToEdit?.planId;
+    _isGoalContribution = _selectedPlanId != null;
     
     if (widget.preselectedCategoryId != null) {
       _planSelectedCategoryIds = [widget.preselectedCategoryId!];
@@ -130,6 +143,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _titleController.clear();
     _amountController.clear();
     _noteController.clear();
+    _tagsController.clear();
+    _amountString = '';
+    _currentStep = 1;
+    _isRecurring = false;
+    _isGoalContribution = false;
     _selectedCategoryId = null;
     _selectedSubCategoryName = null;
     _selectedSubCategoryIcon = null;
@@ -600,181 +618,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                 ),
               ] else ...[
-                // Regular Expense/Income Form
-                _buildSectionLabel('Title'),
-                _buildInputCard(
-                  child: TextFormField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter title',
-                      prefixIcon: Icon(Icons.title_rounded),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    validator: (value) => value == null || value.isEmpty ? 'Title is required' : null,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                _buildSectionLabel('Amount'),
-                _buildInputCard(
-                  child: TextFormField(
-                    controller: _amountController,
-                    decoration: InputDecoration(
-                      hintText: '0.00',
-                      prefixIcon: const Icon(Icons.monetization_on_outlined),
-                      prefixText: '${context.watch<SettingsProvider>().currentSymbol} ',
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) return 'Required';
-                      if (double.tryParse(value) == null) return 'Invalid number';
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                _buildSectionLabel('Category'),
-                _buildInputCard(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedCategoryId,
-                    decoration: const InputDecoration(
-                      hintText: 'Select Category',
-                      prefixIcon: Icon(Icons.category_outlined),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    items: () {
-                      final Map<String, Category> unique = {};
-                      for (var c in categories.where((c) => c.type == currentCategoryType && (currentCategoryType != CategoryType.income || c.id != 'other'))) {
-                        unique[c.id] = c;
-                      }
-                      final sorted = unique.values.toList()..sort((a, b) => a.name.compareTo(b.name));
-                      final items = sorted.map((category) => DropdownMenuItem<String>(
-                        value: category.id,
-                        child: Row(
-                          children: [
-                            Icon(
-                              category.icon,
-                              size: 20,
-                              color: isIncomeMode ? AppTheme.incomeColor : AppTheme.expenseColor,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(category.name),
-                          ],
-                        ),
-                      )).toList();
-
-                      if (isIncomeMode) {
-                        items.add(
-                          const DropdownMenuItem<String>(
-                            value: 'CREATE_CUSTOM',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.add,
-                                  size: 20,
-                                  color: AppTheme.emeraldGreen,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Create Custom Category...',
-                                  style: TextStyle(
-                                    color: AppTheme.emeraldGreen,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      return items;
-                    }(),
-                    onChanged: (value) {
-                      if (value == 'CREATE_CUSTOM') {
-                        _showCreateCustomCategoryDialog(context, currentCategoryType);
-                      } else {
-                        setState(() {
-                          _selectedCategoryId = value;
-                          _selectedSubCategoryName = null;
-                          _selectedSubCategoryIcon = null;
-                        });
-                      }
-                    },
-                    validator: (value) => (value == null || value == 'CREATE_CUSTOM') ? 'Required' : null,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                if (_mode == TransactionMode.expense && _selectedCategoryId != null) ...[
-                  _buildSectionLabel('Sub-category'),
-                  _buildInputCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: _buildSubCategorySection(context, categories),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                _buildSectionLabel('Date'),
-                _buildInputCard(
-                  child: InkWell(
-                    onTap: () => _selectDate(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const Spacer(),
-                          const Icon(Icons.edit_outlined, size: 20, color: Colors.white24),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                _buildSectionLabel('Note'),
-                _buildInputCard(
-                  child: TextFormField(
-                    controller: _noteController,
-                    decoration: const InputDecoration(
-                      hintText: 'Additional notes...',
-                      prefixIcon: Icon(Icons.notes_rounded),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                    maxLines: 2,
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.emeraldGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: _saveExpense,
-                  child: Text(
-                    _mode == TransactionMode.expense ? 'Save Expense' : 'Save Income',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
+                if (_currentStep == 1)
+                  _buildStep1(categories)
+                else
+                  _buildStep2(categories)
               ],
             ],
           ),
@@ -804,11 +651,480 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
   }
 
+  Widget _buildStep1(List<Category> categories) {
+    final isIncomeMode = _mode == TransactionMode.income;
+    final currentCategoryType = isIncomeMode ? CategoryType.income : CategoryType.expense;
+    
+    final filteredCategories = categories
+        .where((c) => c.type == currentCategoryType && (currentCategoryType != CategoryType.income || c.id != 'other'))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+
+    final displayColor = isIncomeMode ? AppTheme.incomeColor : AppTheme.expenseColor;
+    final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<TransactionMode>(
+          segments: const [
+            ButtonSegment(value: TransactionMode.expense, label: Text('Expense'), icon: Icon(Icons.remove_circle_outline)),
+            ButtonSegment(value: TransactionMode.income, label: Text('Income'), icon: Icon(Icons.add_circle_outline)),
+            ButtonSegment(value: TransactionMode.plan, label: Text('Goal'), icon: Icon(Icons.track_changes_rounded)),
+          ],
+          selected: {_mode},
+          onSelectionChanged: (newSelection) {
+            setState(() {
+              _mode = newSelection.first;
+              _clearFormState();
+              _mode = newSelection.first;
+            });
+          },
+        ),
+        const SizedBox(height: 32),
+
+        Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '$currencySymbol ${_amountString.isEmpty ? "0.00" : _amountString}',
+              style: TextStyle(
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+                color: displayColor,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        _buildNumpad(),
+        const SizedBox(height: 32),
+
+        _buildSectionLabel('Category'),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: filteredCategories.map((category) {
+              final isSelected = _selectedCategoryId == category.id;
+              final catColor = AppTheme.getCategoryColor(category.id, category.name);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = category.id;
+                      _selectedSubCategoryName = null;
+                      _selectedSubCategoryIcon = null;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected ? catColor.withOpacity(0.2) : AppTheme.secondaryBackground,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? catColor : Colors.white.withOpacity(0.05),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(category.icon, size: 16, color: isSelected ? catColor : Colors.white60),
+                        const SizedBox(width: 8),
+                        Text(
+                          category.name,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white60,
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 40),
+
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emeraldGreen,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          onPressed: (_amountString.isNotEmpty && double.tryParse(_amountString) != null && double.parse(_amountString) > 0 && _selectedCategoryId != null)
+              ? () {
+                  setState(() {
+                    _currentStep = 2;
+                  });
+                }
+              : null,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, size: 20),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNumpad() {
+    return Column(
+      children: [
+        _buildNumpadRow(['1', '2', '3']),
+        const SizedBox(height: 12),
+        _buildNumpadRow(['4', '5', '6']),
+        const SizedBox(height: 12),
+        _buildNumpadRow(['7', '8', '9']),
+        const SizedBox(height: 12),
+        _buildNumpadRow(['.', '0', 'backspace']),
+      ],
+    );
+  }
+
+  Widget _buildNumpadRow(List<String> keys) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: keys.map((key) {
+        final isBackspace = key == 'backspace';
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+            child: AspectRatio(
+              aspectRatio: 1.6,
+              child: InkWell(
+                onTap: () => _handleNumpadTap(key),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryBackground,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.02)),
+                  ),
+                  alignment: Alignment.center,
+                  child: isBackspace
+                      ? const Icon(Icons.backspace_outlined, color: Colors.white70)
+                      : Text(
+                          key,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _handleNumpadTap(String key) {
+    setState(() {
+      if (key == 'backspace') {
+        if (_amountString.isNotEmpty) {
+          _amountString = _amountString.substring(0, _amountString.length - 1);
+        }
+      } else if (key == '.') {
+        if (!_amountString.contains('.')) {
+          if (_amountString.isEmpty) {
+            _amountString = '0.';
+          } else {
+            _amountString += '.';
+          }
+        }
+      } else {
+        if (_amountString.length >= 10) return;
+        if (_amountString.contains('.')) {
+          final dotIndex = _amountString.indexOf('.');
+          if (_amountString.substring(dotIndex + 1).length >= 2) {
+            return;
+          }
+        }
+        if (_amountString == '0') {
+          _amountString = key;
+        } else {
+          _amountString += key;
+        }
+      }
+      _amountController.text = _amountString;
+    });
+  }
+
+  Widget _buildStep2(List<Category> categories) {
+    final selectedCategory = categories.firstWhere((c) => c.id == _selectedCategoryId, orElse: () => categories.first);
+    final catColor = AppTheme.getCategoryColor(selectedCategory.id, selectedCategory.name);
+    final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
+    final planProvider = context.watch<PlanProvider>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() {
+              _currentStep = 1;
+            });
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.secondaryBackground,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: catColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(selectedCategory.icon, color: catColor, size: 20),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedCategory.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Tap to edit amount or category',
+                        style: TextStyle(fontSize: 12, color: Colors.white38),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '$currencySymbol $_amountString',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: _mode == TransactionMode.income ? AppTheme.incomeColor : AppTheme.expenseColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        _buildSectionLabel('Title'),
+        _buildInputCard(
+          child: TextFormField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              hintText: 'Enter title (e.g. Lunch, Taxi)',
+              prefixIcon: Icon(Icons.title_rounded),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+            validator: (value) => value == null || value.isEmpty ? 'Title is required' : null,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        if (_mode == TransactionMode.expense && _selectedCategoryId != null) ...[
+          _buildSectionLabel('Sub-category'),
+          _buildInputCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: _buildSubCategorySection(context, categories),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        _buildSectionLabel('Date'),
+        _buildInputCard(
+          child: InkWell(
+            onTap: () => _selectDate(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined, color: Colors.white54, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const Spacer(),
+                  const Icon(Icons.edit_outlined, size: 20, color: Colors.white24),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        _buildSectionLabel('Note'),
+        _buildInputCard(
+          child: TextFormField(
+            controller: _noteController,
+            decoration: const InputDecoration(
+              hintText: 'Additional notes...',
+              prefixIcon: Icon(Icons.notes_rounded),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+            maxLines: 2,
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        _buildSectionLabel('Tags'),
+        _buildInputCard(
+          child: TextFormField(
+            controller: _tagsController,
+            decoration: const InputDecoration(
+              hintText: 'e.g. food, holiday, personal',
+              prefixIcon: Icon(Icons.tag_rounded),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        Card(
+          margin: EdgeInsets.zero,
+          color: AppTheme.secondaryBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: const Text('Recurring Transaction'),
+                subtitle: const Text('Automatically repeat this transaction'),
+                value: _isRecurring,
+                onChanged: (val) {
+                  setState(() {
+                    _isRecurring = val;
+                  });
+                },
+                activeColor: AppTheme.emeraldGreen,
+              ),
+              if (_mode == TransactionMode.expense && planProvider.plans.isNotEmpty) ...[
+                const Divider(height: 1, color: Colors.white10),
+                SwitchListTile(
+                  title: const Text('Goal Contribution'),
+                  subtitle: const Text('Link this expense to a savings goal'),
+                  value: _isGoalContribution,
+                  onChanged: (val) {
+                    setState(() {
+                      _isGoalContribution = val;
+                      if (!val) {
+                        _selectedPlanId = null;
+                      } else {
+                        _selectedPlanId = planProvider.plans.first.id;
+                      }
+                    });
+                  },
+                  activeColor: AppTheme.emeraldGreen,
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        if (_isGoalContribution && _mode == TransactionMode.expense && planProvider.plans.isNotEmpty) ...[
+          _buildSectionLabel('Select Goal'),
+          _buildInputCard(
+            child: DropdownButtonFormField<String>(
+              value: _selectedPlanId,
+              decoration: const InputDecoration(
+                hintText: 'Select Goal',
+                prefixIcon: Icon(Icons.track_changes_rounded),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+              ),
+              items: planProvider.plans.map((plan) => DropdownMenuItem<String>(
+                value: plan.id,
+                child: Text(plan.title),
+              )).toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedPlanId = val;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+        ] else ...[
+          const SizedBox(height: 12),
+        ],
+
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _currentStep = 1;
+                  });
+                },
+                child: const Text('Back', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emeraldGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: _saveExpense,
+                child: Text(
+                  _mode == TransactionMode.expense ? 'Save Expense' : 'Save Income',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _tagsController.dispose();
     super.dispose();
   }
 
