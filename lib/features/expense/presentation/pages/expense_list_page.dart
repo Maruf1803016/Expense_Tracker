@@ -464,6 +464,147 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       ),
     );
   }
+
+  Widget _buildSearchAndFilters(BuildContext context, ExpenseProvider provider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: (val) {
+              setState(() {
+                _searchQuery = val.trim();
+              });
+            },
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Search transactions...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                      },
+                      child: const Icon(Icons.clear, color: Colors.white38, size: 20),
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppTheme.secondaryBackground,
+              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: AppTheme.emeraldGreen, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildCategoryPill(
+                  label: 'All',
+                  isSelected: _selectedCategoryId == null,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                  },
+                  color: AppTheme.emeraldGreen,
+                ),
+                ...provider.categories.map((category) {
+                  final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                  return _buildCategoryPill(
+                    label: category.name,
+                    icon: category.icon,
+                    isSelected: _selectedCategoryId == category.id,
+                    onTap: () {
+                      setState(() {
+                        _selectedCategoryId = category.id;
+                      });
+                    },
+                    color: catColor,
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryPill({
+    required String label,
+    IconData? icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.2) : AppTheme.secondaryBackground,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color : Colors.white.withOpacity(0.05),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: isSelected ? color : Colors.white60),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white60,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getDateLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final checkDate = DateTime(date.year, date.month, date.day);
+    if (checkDate == today) {
+      return 'TODAY';
+    } else if (checkDate == yesterday) {
+      return 'YESTERDAY';
+    } else {
+      return DateFormat('EEEE, MMM d').format(date).toUpperCase();
+    }
+  }
 }
 
 class _ExpenseItem extends StatefulWidget {
@@ -670,147 +811,6 @@ class _ExpenseItemState extends State<_ExpenseItem> {
         ),
       ),
     );
-  }
-
-  Widget _buildSearchAndFilters(BuildContext context, ExpenseProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            onChanged: (val) {
-              setState(() {
-                _searchQuery = val.trim();
-              });
-            },
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Search transactions...',
-              hintStyle: const TextStyle(color: Colors.white38),
-              prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 20),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _searchQuery = '';
-                          _searchController.clear();
-                        });
-                      },
-                      child: const Icon(Icons.clear, color: Colors.white38, size: 20),
-                    )
-                  : null,
-              filled: true,
-              fillColor: AppTheme.secondaryBackground,
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.05)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTheme.emeraldGreen, width: 1.5),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildCategoryPill(
-                  label: 'All',
-                  isSelected: _selectedCategoryId == null,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategoryId = null;
-                    });
-                  },
-                  color: AppTheme.emeraldGreen,
-                ),
-                ...provider.categories.map((category) {
-                  final catColor = AppTheme.getCategoryColor(category.id, category.name);
-                  return _buildCategoryPill(
-                    label: category.name,
-                    icon: category.icon,
-                    isSelected: _selectedCategoryId == category.id,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategoryId = category.id;
-                      });
-                    },
-                    color: catColor,
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryPill({
-    required String label,
-    IconData? icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required Color color,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.2) : AppTheme.secondaryBackground,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected ? color : Colors.white.withOpacity(0.05),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 14, color: isSelected ? color : Colors.white60),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white60,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _getDateLabel(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final checkDate = DateTime(date.year, date.month, date.day);
-    if (checkDate == today) {
-      return 'TODAY';
-    } else if (checkDate == yesterday) {
-      return 'YESTERDAY';
-    } else {
-      return DateFormat('EEEE, MMM d').format(date).toUpperCase();
-    }
   }
 }
 
