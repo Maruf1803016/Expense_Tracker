@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
@@ -8,7 +9,6 @@ import 'package:expense_tracker/features/analytics/presentation/providers/financ
 import 'package:expense_tracker/features/analytics/presentation/widgets/trend_line_chart.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/alerts/domain/entities/smart_alert.dart';
-
 import 'package:expense_tracker/features/plan/presentation/widgets/plans_tab_view.dart';
 
 class InsightsPage extends StatefulWidget {
@@ -33,26 +33,30 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
-      child: Column(
-        children: [
-          const TabBar(
-            tabs: [
-              Tab(text: 'Analytics'),
-              Tab(text: 'Goals'),
-            ],
-            indicatorColor: AppTheme.emeraldGreen,
-            labelColor: AppTheme.emeraldGreen,
-            unselectedLabelColor: Colors.white54,
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildAnalyticsContent(context),
-                const PlansTabView(),
+      child: Scaffold(
+        backgroundColor: AppTheme.paper,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            color: AppTheme.paper,
+            child: TabBar(
+              tabs: [
+                Tab(child: Text('Analytics', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Goals', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
               ],
+              indicatorColor: AppTheme.ink,
+              labelColor: AppTheme.ink,
+              unselectedLabelColor: AppTheme.muted,
+              dividerColor: AppTheme.line,
             ),
           ),
-        ],
+        ),
+        body: TabBarView(
+          children: [
+            _buildAnalyticsContent(context),
+            const PlansTabView(),
+          ],
+        ),
       ),
     );
   }
@@ -65,7 +69,7 @@ class _InsightsPageState extends State<InsightsPage> {
     final alerts = alertsProvider.alerts;
 
     if (insightsProvider.isLoading || alertsProvider.isLoading || expenseProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen));
+      return const Center(child: CircularProgressIndicator(color: AppTheme.gold));
     }
 
     if (insights == null || expenseProvider.expenses.isEmpty) {
@@ -76,21 +80,21 @@ class _InsightsPageState extends State<InsightsPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.05),
+                color: AppTheme.gold.withOpacity(0.05),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.insights_rounded, size: 64, color: Colors.blue),
+              child: const Icon(Icons.insights_rounded, size: 64, color: AppTheme.gold),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'No Insights Yet',
-              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your spending habits, trends, and smart alerts will appear here as you track more transactions.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54),
+              style: GoogleFonts.inter(color: AppTheme.muted),
             ),
           ],
         ),
@@ -104,12 +108,11 @@ class _InsightsPageState extends State<InsightsPage> {
         children: [
           _buildHealthScoreCard(expenseProvider.healthScore, expenseProvider),
           const SizedBox(height: 24),
-          Card(
-            elevation: 0,
-            color: AppTheme.secondaryBackground,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: BorderSide(color: Colors.white.withOpacity(0.05)),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.paperCard,
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              border: Border.all(color: AppTheme.line),
             ),
             child: Padding(
               padding: const EdgeInsets.all(24.0),
@@ -119,32 +122,32 @@ class _InsightsPageState extends State<InsightsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Spending Trend',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
                             'Comparison to previous month',
-                            style: TextStyle(fontSize: 12, color: Colors.white54),
+                            style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
                           ),
                         ],
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: (insights.trendComparison > 0 ? AppTheme.expenseColor : AppTheme.incomeColor).withOpacity(0.1),
+                          color: (insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           insights.trendComparison > 0
                               ? '+${insights.trendComparison.toStringAsFixed(0)}% (Warning)'
                               : '${insights.trendComparison.toStringAsFixed(0)}% (Good)',
-                          style: TextStyle(
-                            color: insights.trendComparison > 0 ? AppTheme.expenseColor : AppTheme.incomeColor,
+                          style: GoogleFonts.inter(
+                            color: insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -162,13 +165,13 @@ class _InsightsPageState extends State<InsightsPage> {
           _buildSectionHeader('Budget Performance'),
           const SizedBox(height: 12),
           _buildBudgetPerformance(insights.successfulBudgets, insights.totalBudgetedCategories),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _buildTopCategory(insights.topSpendingCategory, insights.topSpendingCategoryPercentage),
           const SizedBox(height: 32),
           if (alerts.isNotEmpty) ...[
-            const Text(
+            Text(
               'Smart Alerts',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
             const SizedBox(height: 12),
             ...alerts.map((alert) => _buildAlertCard(alert)),
@@ -181,57 +184,59 @@ class _InsightsPageState extends State<InsightsPage> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
     );
   }
 
   Widget _buildHealthScoreCard(double score, ExpenseProvider provider) {
     String description = '';
     String label = '';
-    Color color = Colors.grey;
+    Color color = AppTheme.muted;
 
     if (provider.summary.totalIncome == 0) {
       description = 'Add income transactions to calculate your financial health score.';
       label = 'INCOMPLETE';
-      color = Colors.grey;
+      color = AppTheme.muted;
     } else if (score >= 80) {
       description = 'Your finances are in great shape. Keep up the disciplined habits.';
       label = 'EXCELLENT';
-      color = const Color(0xFF00C896);
+      color = AppTheme.emerald;
     } else if (score >= 60) {
       description = 'Your financial health is decent but has room for improvement.';
       label = 'GOOD';
-      color = const Color(0xFF4ECDC4);
+      color = AppTheme.gold;
     } else {
       description = 'Your financial health needs attention. Review your spending patterns.';
       label = 'POOR';
-      color = const Color(0xFFFF6B6B);
+      color = AppTheme.brick;
     }
 
-    return Card(
-      elevation: 0,
-      color: AppTheme.secondaryBackground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: Colors.white.withOpacity(0.05))),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.line),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Financial Health Score',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
             const SizedBox(height: 24),
             Stack(
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  height: 140,
-                  width: 140,
+                  height: 130,
+                  width: 130,
                   child: CircularProgressIndicator(
                     value: score / 100,
-                    strokeWidth: 14,
+                    strokeWidth: 12,
                     color: color,
-                    backgroundColor: color.withOpacity(0.1),
+                    backgroundColor: AppTheme.paper2,
                     strokeCap: StrokeCap.round,
                   ),
                 ),
@@ -240,23 +245,23 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       '${score.toInt()}',
-                      style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: color),
+                      style: GoogleFonts.spaceGrotesk(fontSize: 36, fontWeight: FontWeight.bold, color: color),
                     ),
                     Text(
                       label,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color.withOpacity(0.8)),
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: color),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             Text(
               description,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.white70, height: 1.4),
+              style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark, height: 1.4),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
             _buildScoreLegend('Savings Rate: ${provider.savingsPoints.toStringAsFixed(0)}/40', 'Worth 40 points', provider.savingsPoints >= 24),
@@ -270,23 +275,21 @@ class _InsightsPageState extends State<InsightsPage> {
     );
   }
 
-
-
   Widget _buildScoreLegend(String title, String subtitle, bool isPositive) {
     return Row(
       children: [
         Icon(
           isPositive ? Icons.check_circle_rounded : Icons.info_outline_rounded,
           size: 16,
-          color: isPositive ? AppTheme.incomeColor : Colors.white24,
+          color: isPositive ? AppTheme.emerald : AppTheme.muted,
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-              Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+              Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+              Text(subtitle, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
             ],
           ),
         ),
@@ -294,51 +297,48 @@ class _InsightsPageState extends State<InsightsPage> {
     );
   }
 
-
-
   Widget _buildBudgetPerformance(int successful, int total) {
     final double percentage = total > 0 ? (successful / total) : 1.0;
     final bool isLow = percentage < 0.5;
     final bool isCritical = percentage < 0.2;
     
     String statusText = 'Excellent spending control!';
-    Color statusColor = const Color(0xFF00C896);
+    Color statusColor = AppTheme.emerald;
     
     if (isCritical) {
       statusText = 'Critical: Review your budgets immediately';
-      statusColor = const Color(0xFFFF6B6B);
+      statusColor = AppTheme.brick;
     } else if (isLow) {
       statusText = 'Warning: You are approaching budget limits';
-      statusColor = const Color(0xFFFFE66D);
+      statusColor = AppTheme.gold;
     }
 
-    return Card(
-      elevation: 0,
-      color: AppTheme.secondaryBackground,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: Colors.white.withOpacity(0.05)),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.line),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            const Text(
+            Text(
               'Budget Performance',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
             const SizedBox(height: 24),
             Stack(
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  height: 140,
-                  width: 140,
+                  height: 130,
+                  width: 130,
                   child: CircularProgressIndicator(
                     value: percentage,
-                    strokeWidth: 14,
+                    strokeWidth: 12,
                     color: statusColor,
-                    backgroundColor: statusColor.withOpacity(0.1),
+                    backgroundColor: AppTheme.paper2,
                     strokeCap: StrokeCap.round,
                   ),
                 ),
@@ -347,51 +347,51 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       '${(percentage * 100).toInt()}%',
-                      style: TextStyle(
-                        fontSize: 40,
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 36,
                         fontWeight: FontWeight.bold,
                         color: statusColor,
                       ),
                     ),
-                    const Text(
+                    Text(
                       'Safe',
-                      style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(fontSize: 13, color: AppTheme.muted, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('On Track', style: TextStyle(fontSize: 12, color: Colors.white54)),
+                      Text('On Track', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
                       const SizedBox(height: 4),
                       Text(
                         '$successful Categories',
-                        style: const TextStyle(
-                          color: Color(0xFF00C896),
+                        style: GoogleFonts.spaceGrotesk(
+                          color: AppTheme.emerald,
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 14,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Container(width: 1, height: 30, color: Colors.white.withOpacity(0.1)),
+                Container(width: 1, height: 30, color: AppTheme.line),
                 Expanded(
                   child: Column(
                     children: [
-                      const Text('Over Budget', style: TextStyle(fontSize: 12, color: Colors.white54)),
+                      Text('Over Budget', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
                       const SizedBox(height: 4),
                       Text(
                         '${total - successful} Categories',
-                        style: const TextStyle(
-                          color: Color(0xFFFF6B6B),
+                        style: GoogleFonts.spaceGrotesk(
+                          color: AppTheme.brick,
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -399,9 +399,9 @@ class _InsightsPageState extends State<InsightsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             const Divider(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -410,9 +410,9 @@ class _InsightsPageState extends State<InsightsPage> {
                 Expanded(
                   child: Text(
                     statusText,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: statusColor.withOpacity(0.9),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: statusColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -426,52 +426,65 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Widget _buildTopCategory(String name, double percentage) {
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.line),
+      ),
       child: ListTile(
-        leading: const Icon(Icons.pie_chart),
-        title: const Text('Top Spending Category'),
-        subtitle: Text(name),
+        leading: const Icon(Icons.pie_chart, color: AppTheme.gold),
+        title: Text('Top Spending Category', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+        subtitle: Text(name, style: GoogleFonts.inter(color: AppTheme.muted)),
         trailing: Text(
           '${(percentage * 100).toStringAsFixed(0)}%',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, color: AppTheme.textDark, fontSize: 16),
         ),
       ),
     );
   }
 
   Widget _buildAlertCard(SmartAlert alert) {
-    Color color = Colors.blue;
+    Color color = AppTheme.gold;
     IconData icon = Icons.info_outline;
 
     switch (alert.type) {
       case AlertType.spendingSpike:
-        color = Colors.amber;
+        color = AppTheme.gold;
         icon = Icons.warning_amber_rounded;
         break;
       case AlertType.budgetExceeded:
-        color = Colors.red;
+        color = AppTheme.brick;
         icon = Icons.cancel_outlined;
         break;
       case AlertType.unusualActivity:
-        color = Colors.orange;
+        color = AppTheme.gold;
         icon = Icons.error_outline_rounded;
         break;
       case AlertType.trendWarning:
-        color = Colors.blue;
+        color = AppTheme.gold;
         icon = Icons.trending_up_rounded;
         break;
     }
 
-
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.line),
+      ),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.1),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, color: color),
         ),
-        title: Text(alert.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(alert.message),
+        title: Text(alert.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+        subtitle: Text(alert.message, style: GoogleFonts.inter(color: AppTheme.muted)),
       ),
     );
   }

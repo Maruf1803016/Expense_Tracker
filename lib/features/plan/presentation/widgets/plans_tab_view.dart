@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
@@ -13,6 +14,7 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 
 class PlansTabView extends StatefulWidget {
   const PlansTabView({super.key});
@@ -64,16 +66,9 @@ class _PlansTabViewState extends State<PlansTabView> {
       margin: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primaryBackground,
-            AppTheme.secondaryBackground,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.paperCard,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.emeraldGreen.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,19 +76,19 @@ class _PlansTabViewState extends State<PlansTabView> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Total Goals Progress',
-                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 13, fontWeight: FontWeight.bold),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.emeraldGreen.withOpacity(0.1),
+                  color: AppTheme.emerald.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '$activeGoalsCount Active',
-                  style: const TextStyle(color: AppTheme.emeraldGreen, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.inter(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -105,22 +100,22 @@ class _PlansTabViewState extends State<PlansTabView> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Total Saved', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  Text('Total Saved', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
                   const SizedBox(height: 4),
                   Text(
                     CurrencyFormatter.format(totalSaved),
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.spaceGrotesk(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('Target Total', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  Text('Target Total', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
                   const SizedBox(height: 4),
                   Text(
                     CurrencyFormatter.format(targetTotal),
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.spaceGrotesk(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -132,14 +127,14 @@ class _PlansTabViewState extends State<PlansTabView> {
             child: LinearProgressIndicator(
               value: overallProgress.clamp(0.0, 1.0),
               minHeight: 8,
-              color: AppTheme.emeraldGreen,
-              backgroundColor: AppTheme.emeraldGreen.withOpacity(0.1),
+              color: AppTheme.emerald,
+              backgroundColor: AppTheme.paper2,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             '${(overallProgress * 100).toStringAsFixed(0)}% of target saved',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11),
           ),
         ],
       ),
@@ -157,8 +152,22 @@ class _PlansTabViewState extends State<PlansTabView> {
       children: [
         Scaffold(
           backgroundColor: Colors.transparent,
+          floatingActionButton: Padding(
+            padding: const EdgeInsets.only(bottom: 16.0, right: 8.0),
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AddExpensePage(preselectedPlanMode: true),
+                  ),
+                );
+              },
+              backgroundColor: AppTheme.ink,
+              child: const Icon(Icons.add, color: AppTheme.goldSoft),
+            ),
+          ),
           body: planProvider.isLoading
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen))
+              ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
               : Column(
                   children: [
                     if (plans.isNotEmpty) _buildSummaryHeader(plans, expenses),
@@ -172,7 +181,6 @@ class _PlansTabViewState extends State<PlansTabView> {
                                 final plan = plans[index];
                                 final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
                                 
-                                // Computed dynamic saved progress (Expense is deposit, Income is withdrawal)
                                 final amountSaved = planExpenses.fold<double>(0.0, (sum, e) => e.type == CategoryType.expense ? sum + e.amount : sum - e.amount);
                                 final remaining = plan.totalBudget - amountSaved;
                                 final double percentUsed = plan.totalBudget > 0 ? (amountSaved / plan.totalBudget) : 0.0;
@@ -180,21 +188,20 @@ class _PlansTabViewState extends State<PlansTabView> {
                                 
                                 Color progressColor;
                                 if (percentUsed < 0.8) {
-                                  progressColor = AppTheme.emeraldGreen;
+                                  progressColor = AppTheme.emerald;
                                 } else if (percentUsed <= 1.0) {
-                                  progressColor = Colors.amber;
+                                  progressColor = AppTheme.gold;
                                 } else {
-                                  progressColor = Colors.amber; // Caps at positive progress color
+                                  progressColor = AppTheme.brick;
                                 }
 
-                                return Card(
-                                  elevation: 0,
+                                return Container(
                                   margin: const EdgeInsets.only(bottom: 16),
-                                  shape: RoundedRectangleBorder(
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.paperCard,
                                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                                    side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                                    border: Border.all(color: AppTheme.line),
                                   ),
-                                  color: AppTheme.secondaryBackground,
                                   child: Column(
                                     children: [
                                       InkWell(
@@ -221,16 +228,16 @@ class _PlansTabViewState extends State<PlansTabView> {
                                                   Expanded(
                                                     child: Text(
                                                       plan.title,
-                                                      style: const TextStyle(
-                                                        fontSize: 18,
+                                                      style: GoogleFonts.fraunces(
+                                                        fontSize: 16,
                                                         fontWeight: FontWeight.bold,
-                                                        color: Colors.white,
+                                                        color: AppTheme.textDark,
                                                       ),
                                                     ),
                                                   ),
                                                   Text(
                                                     percentUsed >= 1.0 ? 'Completed' : '${(percentUsed * 100).toStringAsFixed(0)}%',
-                                                    style: TextStyle(
+                                                    style: GoogleFonts.spaceGrotesk(
                                                       color: progressColor,
                                                       fontWeight: FontWeight.bold,
                                                       fontSize: 13,
@@ -242,89 +249,91 @@ class _PlansTabViewState extends State<PlansTabView> {
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   plan.note,
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors.white.withOpacity(0.5),
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 12,
+                                                    color: AppTheme.muted,
                                                   ),
                                                 ),
                                               ],
-                                              const SizedBox(height: 12),
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.calendar_today, size: 12, color: Colors.white.withOpacity(0.4)),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    '${DateFormatter.format(plan.startDate)} - ${DateFormatter.format(plan.endDate)}',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.white.withOpacity(0.4),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 20),
+                                              const SizedBox(height: 16),
                                               Row(
                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
-                                                  _buildStatColumn('Target', CurrencyFormatter.format(plan.totalBudget)),
-                                                  _buildStatColumn('Saved', CurrencyFormatter.format(amountSaved), valueColor: progressColor),
-                                                  _buildStatColumn('Remaining', CurrencyFormatter.format(remaining.clamp(0.0, double.infinity))),
-                                                  _buildStatColumn('Monthly Needed', monthlyNeeded),
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text('Saved', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10)),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        CurrencyFormatter.format(amountSaved),
+                                                        style: GoogleFonts.spaceGrotesk(color: AppTheme.textDark, fontSize: 14, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                                    children: [
+                                                      Text('Goal Target', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10)),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        CurrencyFormatter.format(plan.totalBudget),
+                                                        style: GoogleFonts.spaceGrotesk(color: AppTheme.textDark, fontSize: 14, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 16),
+                                              const SizedBox(height: 12),
                                               ClipRRect(
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius: BorderRadius.circular(6),
                                                 child: LinearProgressIndicator(
                                                   value: percentUsed.clamp(0.0, 1.0),
-                                                  minHeight: 8,
+                                                  minHeight: 6,
                                                   color: progressColor,
-                                                  backgroundColor: progressColor.withOpacity(0.1),
+                                                  backgroundColor: AppTheme.paper2,
                                                 ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    'Target: ${DateFormatter.format(plan.endDate)}',
+                                                    style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10),
+                                                  ),
+                                                  if (percentUsed < 1.0)
+                                                    Text(
+                                                      'Monthly needed: $monthlyNeeded',
+                                                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.bold),
+                                                    ),
+                                                ],
                                               ),
                                             ],
                                           ),
                                         ),
                                       ),
-                                      const Divider(height: 1, color: Colors.white10),
+                                      const Divider(height: 1),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                           children: [
-                                            Expanded(
-                                              child: ElevatedButton.icon(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: AppTheme.emeraldGreen.withOpacity(0.15),
-                                                  foregroundColor: AppTheme.emeraldGreen,
-                                                  elevation: 0,
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                                ),
-                                                icon: const Icon(Icons.add, size: 16),
-                                                label: const Text('Add Money', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                                onPressed: () => _showDepositWithdrawSheet(context, plan, true, amountSaved),
-                                              ),
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.add_rounded, size: 18),
+                                              label: const Text('Deposit'),
+                                              style: TextButton.styleFrom(foregroundColor: AppTheme.emerald),
+                                              onPressed: () => _showDepositWithdrawSheet(context, plan, true, amountSaved),
                                             ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: AppTheme.expenseColor,
-                                                  side: BorderSide(color: amountSaved > 0 ? AppTheme.expenseColor.withOpacity(0.4) : Colors.white10),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                                ),
-                                                icon: const Icon(Icons.remove, size: 16),
-                                                label: const Text('Withdraw', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                                onPressed: amountSaved > 0
-                                                    ? () => _showDepositWithdrawSheet(context, plan, false, amountSaved)
-                                                    : null,
-                                              ),
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.remove_rounded, size: 18),
+                                              label: const Text('Withdraw'),
+                                              style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+                                              onPressed: () => _showDepositWithdrawSheet(context, plan, false, amountSaved),
                                             ),
-                                            const SizedBox(width: 8),
-                                            IconButton(
-                                              icon: const Icon(Icons.history_rounded, size: 20, color: Colors.white60),
-                                              tooltip: 'Goal History',
+                                            TextButton.icon(
+                                              icon: const Icon(Icons.history_rounded, size: 18),
+                                              label: const Text('History'),
+                                              style: TextButton.styleFrom(foregroundColor: AppTheme.gold),
                                               onPressed: () => _showHistorySheet(context, plan, planExpenses),
                                             ),
                                           ],
@@ -345,70 +354,70 @@ class _PlansTabViewState extends State<PlansTabView> {
             confettiController: _confettiController,
             blastDirectionality: BlastDirectionality.explosive,
             shouldLoop: false,
-            colors: const [
-              Colors.green,
-              Colors.blue,
-              Colors.pink,
-              Colors.orange,
-              Colors.purple,
-            ],
+            colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatColumn(String label, String value, {Color? valueColor}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.white54)),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: valueColor ?? Colors.white,
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppTheme.gold.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.track_changes_rounded, size: 64, color: AppTheme.gold),
           ),
-        ),
-      ],
+          const SizedBox(height: 24),
+          Text(
+            'No Goals Yet',
+            style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40.0),
+            child: Text(
+              'Set dynamic goals with fixed date ranges and track specific projects, events, or trips.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: AppTheme.muted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Future<void> _showDeleteGoalDialog(BuildContext context, Plan plan) async {
-    final confirmed = await showDialog<bool>(
+  void _showDeleteGoalDialog(BuildContext context, Plan plan) {
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Goal'),
-        content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this goal will NOT be deleted.'),
+        content: Text('Are you sure you want to delete goal "${plan.title}"? linked transactions will be kept.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.expenseColor),
+            onPressed: () async {
+              Navigator.pop(context);
+              final planProvider = context.read<PlanProvider>();
+              final expenseProvider = context.read<ExpenseProvider>();
+              await expenseProvider.orphanPlanExpenses(plan.id);
+              await planProvider.delete(plan.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && context.mounted) {
-      final expenseProvider = context.read<ExpenseProvider>();
-      final planProvider = context.read<PlanProvider>();
-      final messenger = ScaffoldMessenger.of(context);
-      await expenseProvider.orphanPlanExpenses(plan.id);
-      await planProvider.delete(plan.id);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Goal "${plan.title}" deleted'),
-          backgroundColor: AppTheme.emeraldGreen,
-        ),
-      );
-    }
   }
 
   void _showDepositWithdrawSheet(BuildContext context, Plan plan, bool isDeposit, double currentSaved) {
@@ -429,7 +438,7 @@ class _PlansTabViewState extends State<PlansTabView> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      backgroundColor: AppTheme.secondaryBackground,
+      backgroundColor: AppTheme.paperCard,
       builder: (context) {
         final sortedHistory = List<Expense>.from(planExpenses)
           ..sort((a, b) => b.date.compareTo(a.date));
@@ -444,10 +453,10 @@ class _PlansTabViewState extends State<PlansTabView> {
                 children: [
                   Text(
                     '${plan.title} History',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close, color: AppTheme.muted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -455,45 +464,40 @@ class _PlansTabViewState extends State<PlansTabView> {
               const SizedBox(height: 16),
               Expanded(
                 child: sortedHistory.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
-                          'No transaction history yet',
-                          style: TextStyle(color: Colors.white38),
+                          'No history logged yet.',
+                          style: GoogleFonts.inter(color: AppTheme.muted),
                         ),
                       )
                     : ListView.builder(
                         itemCount: sortedHistory.length,
-                        itemBuilder: (context, idx) {
-                          final tx = sortedHistory[idx];
-                          final isDeposit = tx.type == CategoryType.expense; // expense represents deposit
-
-                          return ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: (isDeposit ? AppTheme.emeraldGreen : AppTheme.expenseColor).withOpacity(0.1),
-                                shape: BoxShape.circle,
+                        itemBuilder: (context, index) {
+                          final exp = sortedHistory[index];
+                          final isExpense = exp.type == CategoryType.expense;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.paperCard,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppTheme.line),
+                            ),
+                            child: ListTile(
+                              leading: Icon(
+                                isExpense ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                color: isExpense ? AppTheme.brick : AppTheme.emerald,
                               ),
-                              child: Icon(
-                                isDeposit ? Icons.add_rounded : Icons.remove_rounded,
-                                color: isDeposit ? AppTheme.emeraldGreen : AppTheme.expenseColor,
-                                size: 18,
+                              title: Text(exp.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                              subtitle: Text(
+                                DateFormatter.format(exp.date),
+                                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11),
                               ),
-                            ),
-                            title: Text(
-                              isDeposit ? 'Deposit' : 'Withdrawal',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            subtitle: Text(
-                              DateFormat('MMM d, yyyy · h:mm a').format(tx.date),
-                              style: const TextStyle(fontSize: 11, color: Colors.white54),
-                            ),
-                            trailing: Text(
-                              (isDeposit ? '+' : '-') + CurrencyFormatter.format(tx.amount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isDeposit ? AppTheme.emeraldGreen : AppTheme.expenseColor,
+                              trailing: Text(
+                                '${isExpense ? '+' : '-'} ${CurrencyFormatter.format(exp.amount)}',
+                                style: GoogleFonts.spaceGrotesk(
+                                  color: isExpense ? AppTheme.emerald : AppTheme.brick, 
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           );
@@ -504,38 +508,6 @@ class _PlansTabViewState extends State<PlansTabView> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.emeraldGreen.withOpacity(0.05),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.track_changes_rounded, size: 64, color: AppTheme.emeraldGreen),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'No Goals Yet',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40.0),
-            child: Text(
-              'Set dynamic goals with fixed date ranges and track specific projects, events, or trips.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -574,12 +546,12 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
         ? [500.0, 1000.0, 2000.0, 5000.0]
         : [50.0, 100.0, 200.0, 500.0];
 
-    final displayColor = widget.isDeposit ? AppTheme.emeraldGreen : AppTheme.expenseColor;
+    final displayColor = widget.isDeposit ? AppTheme.emerald : AppTheme.brick;
 
     return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.primaryBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: const BoxDecoration(
+        color: AppTheme.paper,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         top: 24,
@@ -596,10 +568,10 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
             children: [
               Text(
                 widget.isDeposit ? 'Deposit to ${widget.plan.title}' : 'Withdraw from ${widget.plan.title}',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                icon: const Icon(Icons.close, color: AppTheme.muted, size: 20),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -610,7 +582,7 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
               fit: BoxFit.scaleDown,
               child: Text(
                 '$currencySymbol $displayAmount',
-                style: TextStyle(
+                style: GoogleFonts.spaceGrotesk(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,
                   color: displayColor,
@@ -627,11 +599,11 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: ActionChip(
-                    backgroundColor: AppTheme.secondaryBackground,
-                    side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                    backgroundColor: AppTheme.paperCard,
+                    side: const BorderSide(color: AppTheme.line),
                     label: Text(
                       currencySymbol + preset.toStringAsFixed(0),
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {
                       setState(() {
@@ -648,38 +620,48 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.secondaryBackground,
+              color: AppTheme.paperCard,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: AppTheme.line),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Effect on Savings', style: TextStyle(color: Colors.white54, fontSize: 13)),
-                Text(
-                  '${CurrencyFormatter.format(widget.currentSaved)} → ${CurrencyFormatter.format(futureSaved)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Current Progress', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    Text(
+                      CurrencyFormatter.format(widget.currentSaved),
+                      style: GoogleFonts.spaceGrotesk(color: AppTheme.textDark, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                const Icon(Icons.arrow_forward_rounded, color: AppTheme.muted),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('New Progress', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    Text(
+                      CurrencyFormatter.format(futureSaved),
+                      style: GoogleFonts.spaceGrotesk(color: displayColor, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          // custom numpad
+          // Custom on-screen Numpad (Space Grotesk typography)
           _buildNumpad(),
           const SizedBox(height: 24),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: displayColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-            onPressed: enteredAmount > 0
-                ? () => _confirmAction(context, enteredAmount)
-                : null,
+            onPressed: enteredAmount > 0 ? () => _confirmAction(context, enteredAmount) : null,
             child: Text(
-              widget.isDeposit ? 'Add Money' : 'Withdraw',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              widget.isDeposit ? 'Confirm Deposit' : 'Confirm Withdrawal',
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
         ],
@@ -688,60 +670,52 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
   }
 
   Widget _buildNumpad() {
-    return Column(
-      children: [
-        _buildNumpadRow(['1', '2', '3']),
-        const SizedBox(height: 8),
-        _buildNumpadRow(['4', '5', '6']),
-        const SizedBox(height: 8),
-        _buildNumpadRow(['7', '8', '9']),
-        const SizedBox(height: 8),
-        _buildNumpadRow(['.', '0', 'backspace']),
-      ],
-    );
-  }
+    final keys = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['.', '0', '⌫'],
+    ];
 
-  Widget _buildNumpadRow(List<String> keys) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: keys.map((key) {
-        final isBackspace = key == 'backspace';
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: AspectRatio(
-              aspectRatio: 2.0,
+    return Table(
+      children: keys.map((row) {
+        return TableRow(
+          children: row.map((key) {
+            final isBack = key == '⌫';
+            return Padding(
+              padding: const EdgeInsets.all(4.0),
               child: InkWell(
-                onTap: () => _handleNumpadTap(key),
+                onTap: () => _handleNumpadPress(key),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryBackground,
+                    color: AppTheme.paper2,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
-                  child: isBackspace
-                      ? const Icon(Icons.backspace_outlined, color: Colors.white70, size: 18)
+                  child: isBack
+                      ? const Icon(Icons.backspace_outlined, size: 18, color: AppTheme.textDark)
                       : Text(
                           key,
-                          style: const TextStyle(
+                          style: GoogleFonts.spaceGrotesk(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppTheme.textDark,
                           ),
                         ),
                 ),
               ),
-            ),
-          ),
+            );
+          }).toList(),
         );
       }).toList(),
     );
   }
 
-  void _handleNumpadTap(String key) {
+  void _handleNumpadPress(String key) {
     setState(() {
-      if (key == 'backspace') {
+      if (key == '⌫') {
         if (_amountStr.isNotEmpty) {
           _amountStr = _amountStr.substring(0, _amountStr.length - 1);
         }
@@ -786,8 +760,6 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
         ? 'Deposit to ${widget.plan.title}'
         : 'Withdrawal from ${widget.plan.title}';
 
-    // Deposit is saved as CategoryType.expense (reduces net balance, increases goal saved progress)
-    // Withdrawal is saved as CategoryType.income (increases net balance, decreases goal saved progress)
     final tx = Expense(
       id: const Uuid().v4(),
       title: txTitle,
@@ -799,7 +771,7 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
       planId: widget.plan.id,
     );
 
-    Navigator.pop(context); // Close sheet immediately to show confetti clearly
+    Navigator.pop(context);
 
     try {
       await expenseProvider.addExpense(tx);
@@ -807,11 +779,10 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
       messenger.showSnackBar(
         SnackBar(
           content: Text(widget.isDeposit ? 'Deposit successful' : 'Withdrawal successful'),
-          backgroundColor: AppTheme.emeraldGreen,
+          backgroundColor: AppTheme.emerald,
         ),
       );
 
-      // Trigger confetti celebrate if goal becomes complete on this deposit
       if (widget.isDeposit && !wasFull && nowFull) {
         widget.confettiController.play();
       }
@@ -819,7 +790,7 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.expenseColor,
+          backgroundColor: AppTheme.brick,
         ),
       );
     }

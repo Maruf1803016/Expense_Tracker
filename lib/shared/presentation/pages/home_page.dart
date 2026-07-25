@@ -8,6 +8,7 @@ import 'package:expense_tracker/features/expense/presentation/pages/monthly_summ
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:expense_tracker/features/analytics/presentation/pages/insights_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
+import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_search_page.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/expense_search_delegate.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
@@ -87,32 +88,34 @@ class _HomePageState extends State<HomePage> {
             )
           : null,
       bottomNavigationBar: NavigationBar(
+        backgroundColor: AppTheme.paperCard,
+        indicatorColor: AppTheme.line,
         selectedIndex: _currentIndex,
         onDestinationSelected: _onTabTapped,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
+            icon: Icon(Icons.receipt_long_outlined, color: _currentIndex == 0 ? AppTheme.ink : AppTheme.muted),
+            selectedIcon: const Icon(Icons.receipt_long, color: AppTheme.ink),
             label: 'Expenses',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
+            icon: Icon(Icons.bar_chart_outlined, color: _currentIndex == 1 ? AppTheme.ink : AppTheme.muted),
+            selectedIcon: const Icon(Icons.bar_chart, color: AppTheme.ink),
             label: 'Summary',
           ),
           NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
+            icon: Icon(Icons.insights_outlined, color: _currentIndex == 2 ? AppTheme.ink : AppTheme.muted),
+            selectedIcon: const Icon(Icons.insights, color: AppTheme.ink),
             label: 'Insights',
           ),
           NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category),
+            icon: Icon(Icons.category_outlined, color: _currentIndex == 3 ? AppTheme.ink : AppTheme.muted),
+            selectedIcon: const Icon(Icons.category, color: AppTheme.ink),
             label: 'Categories',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
+            icon: Icon(Icons.settings_outlined, color: _currentIndex == 4 ? AppTheme.ink : AppTheme.muted),
+            selectedIcon: const Icon(Icons.settings, color: AppTheme.ink),
             label: 'Settings',
           ),
         ],

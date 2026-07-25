@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
@@ -27,7 +28,7 @@ class PlanDetailPage extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.expenseColor),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
             child: const Text('Delete'),
           ),
         ],
@@ -40,20 +41,17 @@ class PlanDetailPage extends StatelessWidget {
       final expenseProvider = context.read<ExpenseProvider>();
       final planProvider = context.read<PlanProvider>();
       
-      // 1. Orphan the linked expenses
       await expenseProvider.orphanPlanExpenses(plan.id);
-      
-      // 2. Delete the plan itself
       await planProvider.delete(plan.id);
       
       messenger.showSnackBar(
         SnackBar(
           content: Text('Goal "${plan.title}" deleted'),
-          backgroundColor: AppTheme.emeraldGreen,
+          backgroundColor: AppTheme.emerald,
         ),
       );
       
-      navigator.pop(); // Go back to the plans list
+      navigator.pop();
     }
   }
 
@@ -72,20 +70,20 @@ class PlanDetailPage extends StatelessWidget {
 
     Color progressColor;
     if (percentUsed < 0.8) {
-      progressColor = AppTheme.emeraldGreen;
+      progressColor = AppTheme.emerald;
     } else if (percentUsed <= 1.0) {
-      progressColor = Colors.amber;
+      progressColor = AppTheme.gold;
     } else {
-      progressColor = AppTheme.expenseColor;
+      progressColor = AppTheme.brick;
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.primaryBackground,
+      backgroundColor: AppTheme.paper,
       appBar: AppBar(
-        title: Text(plan.title),
+        title: Text(plan.title, style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppTheme.expenseColor),
+            icon: const Icon(Icons.delete_outline, color: AppTheme.brick),
             onPressed: () => _deletePlanFlow(context),
           ),
         ],
@@ -99,24 +97,23 @@ class PlanDetailPage extends StatelessWidget {
               // Date Range
               Row(
                 children: [
-                  const Icon(Icons.calendar_today, size: 16, color: Colors.white54),
+                  const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.muted),
                   const SizedBox(width: 8),
                   Text(
                     '${DateFormatter.format(plan.startDate)} - ${DateFormatter.format(plan.endDate)}',
-                    style: const TextStyle(fontSize: 14, color: Colors.white70),
+                    style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textDark, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
               // Overall Budget Card
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
+              Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.paperCard,
                   borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                  side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                  border: Border.all(color: AppTheme.line),
                 ),
-                color: AppTheme.secondaryBackground,
                 child: Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Column(
@@ -125,9 +122,9 @@ class PlanDetailPage extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _buildStatItem('Total Budget', plan.totalBudget, Colors.white),
+                          _buildStatItem('Target Budget', plan.totalBudget, AppTheme.textDark),
                           _buildStatItem('Saved', amountSpent, progressColor),
-                          _buildStatItem('Remaining', remaining, remaining >= 0 ? AppTheme.incomeColor : AppTheme.expenseColor),
+                          _buildStatItem('Remaining', remaining, remaining >= 0 ? AppTheme.emerald : AppTheme.brick),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -135,22 +132,22 @@ class PlanDetailPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
                           value: percentUsed.clamp(0.0, 1.0),
-                          minHeight: 10,
+                          minHeight: 8,
                           color: progressColor,
-                          backgroundColor: progressColor.withOpacity(0.1),
+                          backgroundColor: AppTheme.paper2,
                         ),
                       ),
                       if (percentUsed > 1.0) ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [
-                            const Icon(Icons.warning_amber_rounded, size: 16, color: AppTheme.expenseColor),
+                            const Icon(Icons.warning_amber_rounded, size: 16, color: AppTheme.brick),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 'Over target by ${CurrencyFormatter.format(amountSpent - plan.totalBudget)}',
-                                style: const TextStyle(
-                                  color: AppTheme.expenseColor,
+                                style: GoogleFonts.inter(
+                                  color: AppTheme.brick,
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -163,73 +160,70 @@ class PlanDetailPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
               // Category Breakdown
               if (distinctCategoryIds.isNotEmpty) ...[
-                const Text(
+                Text(
                   'Category Breakdown',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
+                  style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                 ),
                 const SizedBox(height: 12),
-                Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.paperCard,
                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                    side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                    border: Border.all(color: AppTheme.line),
                   ),
-                  color: AppTheme.secondaryBackground,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      children: distinctCategoryIds.asMap().entries.map((itemEntry) {
-                        final idx = itemEntry.key;
-                        final catId = itemEntry.value;
-                        final category = expenseProvider.getCategoryById(catId);
-                        final catExpenses = planExpenses.where((e) => e.categoryId == catId);
-                        final catSpent = catExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
-                        final double catPercent = plan.totalBudget > 0 ? (catSpent / plan.totalBudget) : 0.0;
-                        final catColor = AppTheme.getCategoryColor(catId, category.name);
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: distinctCategoryIds.asMap().entries.map((itemEntry) {
+                      final idx = itemEntry.key;
+                      final catId = itemEntry.value;
+                      final category = expenseProvider.getCategoryById(catId);
+                      final catExpenses = planExpenses.where((e) => e.categoryId == catId);
+                      final catSpent = catExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+                      final double catPercent = plan.totalBudget > 0 ? (catSpent / plan.totalBudget) : 0.0;
+                      final catColor = AppTheme.getCategoryColor(catId, category.name);
 
-                        return Padding(
-                          padding: EdgeInsets.only(top: idx == 0 ? 0.0 : 16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(category.icon, size: 16, color: catColor),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        category.name,
-                                        style: const TextStyle(fontSize: 13, color: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    '${CurrencyFormatter.format(catSpent)} / ${CurrencyFormatter.format(plan.totalBudget)}',
-                                    style: const TextStyle(fontSize: 12, color: Colors.white70),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: catPercent.clamp(0.0, 1.0),
-                                  minHeight: 6,
-                                  backgroundColor: Colors.white.withOpacity(0.05),
-                                  color: catColor,
+                      return Padding(
+                        padding: EdgeInsets.only(top: idx == 0 ? 0.0 : 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(category.icon, size: 16, color: catColor),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      category.name,
+                                      style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
                                 ),
+                                Text(
+                                  '${CurrencyFormatter.format(catSpent)} / ${CurrencyFormatter.format(plan.totalBudget)}',
+                                  style: GoogleFonts.spaceGrotesk(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: catPercent.clamp(0.0, 1.0),
+                                minHeight: 6,
+                                backgroundColor: AppTheme.paper2,
+                                color: catColor,
                               ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
                 const SizedBox(height: 28),
@@ -239,12 +233,12 @@ class PlanDetailPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Recent Transactions',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white70),
+                    style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: AppTheme.emeraldGreen),
+                    icon: const Icon(Icons.add_circle_outline, color: AppTheme.emerald),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -265,7 +259,7 @@ class PlanDetailPage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 24.0),
                     child: Text(
                       'No transactions logged under this goal yet.',
-                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 13),
+                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 13),
                     ),
                   ),
                 )
@@ -277,26 +271,36 @@ class PlanDetailPage extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final exp = planExpenses[index];
                     final category = expenseProvider.getCategoryById(exp.categoryId);
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      color: AppTheme.secondaryBackground,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                    final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                    final isExpense = exp.type == CategoryType.expense;
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.paperCard,
+                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                        border: Border.all(color: AppTheme.line),
                       ),
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.expenseColor.withOpacity(0.1),
-                          child: Icon(category.icon, color: AppTheme.expenseColor),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: catColor.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(category.icon, color: catColor, size: 20),
                         ),
-                        title: Text(exp.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        title: Text(exp.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark, fontSize: 14)),
                         subtitle: Text(
                           exp.subCategory ?? category.name,
-                          style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                          style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11),
                         ),
                         trailing: Text(
-                          '- ${CurrencyFormatter.format(exp.amount)}',
-                          style: const TextStyle(color: AppTheme.expenseColor, fontWeight: FontWeight.bold),
+                          '${isExpense ? '-' : '+'} ${CurrencyFormatter.format(exp.amount)}',
+                          style: GoogleFonts.spaceGrotesk(
+                            color: isExpense ? AppTheme.brick : AppTheme.emerald, 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     );
@@ -313,11 +317,11 @@ class PlanDetailPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white54)),
+        Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted, fontWeight: FontWeight.w500)),
         const SizedBox(height: 4),
         Text(
           CurrencyFormatter.format(amount),
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: amountColor),
+          style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: amountColor),
         ),
       ],
     );
