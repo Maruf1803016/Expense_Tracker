@@ -68,15 +68,26 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
           TextButton(
             onPressed: () async {
               final amount = double.tryParse(controller.text.trim()) ?? 0.0;
-              await provider.setBudget(category.id, amount);
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Budget for ${category.name} updated successfully'),
-                    backgroundColor: AppTheme.emeraldGreen,
-                  ),
-                );
+              try {
+                await provider.setBudget(category.id, amount);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Budget for ${category.name} updated successfully'),
+                      backgroundColor: AppTheme.emeraldGreen,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to save budget: $e'),
+                      backgroundColor: AppTheme.expenseColor,
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Save'),

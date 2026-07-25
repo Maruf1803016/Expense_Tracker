@@ -115,9 +115,7 @@ class _InsightsPageState extends State<InsightsPage> {
           const SizedBox(height: 24),
           _buildTrendSection(insights.trendComparison),
           const SizedBox(height: 24),
-          _buildSectionHeader('Budget & Efficiency'),
-          const SizedBox(height: 12),
-          _buildEfficiencyCard(context, expenseProvider),
+          _buildSectionHeader('Budget Performance'),
           const SizedBox(height: 12),
           _buildBudgetPerformance(insights.successfulBudgets, insights.totalBudgetedCategories),
           const SizedBox(height: 12),
@@ -217,64 +215,18 @@ class _InsightsPageState extends State<InsightsPage> {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 16),
-            _buildScoreLegend('Savings Rate', 'Worth 40 points', score > 60),
+            _buildScoreLegend('Savings Rate: ${provider.savingsPoints.toStringAsFixed(0)}/40', 'Worth 40 points', provider.savingsPoints >= 24),
             const SizedBox(height: 8),
-            _buildScoreLegend('Budget Adherence', 'Worth 30 points', score > 40),
+            _buildScoreLegend('Budget Adherence: ${provider.budgetPoints.toStringAsFixed(0)}/30', 'Worth 30 points', provider.budgetPoints >= 18),
             const SizedBox(height: 8),
-            _buildScoreLegend('Consistency', 'Worth 30 points', score > 20),
+            _buildScoreLegend('Consistency: ${provider.consistencyPoints.toStringAsFixed(0)}/30', 'Worth 30 points', provider.consistencyPoints >= 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEfficiencyCard(BuildContext context, ExpenseProvider provider) {
-    // In a real app we'd use context.read<SettingsProvider>() but here we can get it from ExpenseProvider if available
-    // or assume the user has set it. Let's use provider.monthlyBudget
-    final double totalBudget = provider.monthlyBudget;
-    final double totalSpent = provider.summary.totalExpense;
-    final double efficiency = totalBudget > 0 ? ((1 - (totalSpent / totalBudget)) * 100).clamp(0.0, 100.0) : 0.0;
-    
-    String effDesc = '';
-    if (totalBudget == 0) {
-      effDesc = 'Set a monthly budget in Settings to track your efficiency.';
-    } else if (efficiency >= 80) {
-      effDesc = 'You are well within your budget. Great spending control.';
-    } else if (efficiency >= 60) {
-      effDesc = 'You are managing your budget reasonably. Watch discretionary spending.';
-    } else {
-      effDesc = 'You are close to or over budget. Consider reducing expenses.';
-    }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.bolt_rounded, color: Colors.amber, size: 20),
-                SizedBox(width: 8),
-                Text('Budget Efficiency', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${efficiency.toStringAsFixed(0)}%',
-              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              effDesc,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.white70, height: 1.4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildScoreLegend(String title, String subtitle, bool isPositive) {
     return Row(

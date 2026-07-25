@@ -330,73 +330,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
-  void _showSetBudgetDialog(BuildContext context) {
-    final settingsProvider = context.read<SettingsProvider>();
-    final expenseProvider = context.read<ExpenseProvider>();
-    final controller = TextEditingController(
-      text: settingsProvider.budget > 0 ? settingsProvider.budget.toString() : '',
-    );
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Monthly Budget'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter your overall total budget for the month. This will be used to track progress on the summary page.',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  hintText: '0.00',
-                  prefixText: '${settingsProvider.currentSymbol} ',
-                  border: InputBorder.none,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              final text = controller.text.trim();
-              final amount = double.tryParse(text) ?? 0.0;
-              
-              await settingsProvider.setBudget(amount);
-              await expenseProvider.setGlobalBudget(amount);
-              
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Monthly budget updated to ${settingsProvider.currentSymbol}$amount'),
-                    backgroundColor: AppTheme.emeraldGreen,
-                  ),
-                );
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBalanceSummary(BuildContext context, ExpenseProvider provider) {
     final totalIncome = provider.expenses
@@ -425,36 +359,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Net Balance',
-                    style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    CurrencyFormatter.format(totalIncome - totalExpenses),
-                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Text(
+                'Net Balance',
+                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
               ),
-              Material(
-                color: AppTheme.emeraldGreen.withOpacity(0.1),
-                shape: const CircleBorder(
-                  side: BorderSide(
-                    color: AppTheme.emeraldGreen,
-                    width: 1.5,
-                  ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.account_balance_wallet_rounded, size: 24, color: AppTheme.emeraldGreen),
-                  tooltip: 'Set Monthly Budget',
-                  onPressed: () => _showSetBudgetDialog(context),
-                ),
+              const SizedBox(height: 4),
+              Text(
+                CurrencyFormatter.format(totalIncome - totalExpenses),
+                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
               ),
             ],
           ),
