@@ -108,11 +108,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
       return;
     }
 
+    final categories = context.read<CategoryProvider>().categories;
     if (_mode != TransactionMode.plan && _selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
-      return;
+      if (_mode == TransactionMode.income) {
+        final incomeCategories = categories.where((c) => c.type == CategoryType.income).toList();
+        if (incomeCategories.isNotEmpty) {
+          _selectedCategoryId = incomeCategories.first.id;
+        } else {
+          _selectedCategoryId = 'income';
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a category')),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -421,14 +431,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     },
                   ),
                   const SizedBox(height: 20),
-                ] else ...[
-                  // Auto-select Salary or other first category for income
-                  if (_selectedCategoryId == null && filteredCategories.isNotEmpty)
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      setState(() {
-                        _selectedCategoryId = filteredCategories.first.id;
-                      });
-                    }),
                 ],
 
                 _buildSectionLabel('Title / Merchant'),
