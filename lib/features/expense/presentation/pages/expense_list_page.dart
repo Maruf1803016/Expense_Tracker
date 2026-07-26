@@ -150,7 +150,6 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         _buildBalanceSummary(context, provider),
         _buildSearchAndFilters(context, provider),
         const SizedBox(height: 16),
-        _buildFilterTabs(context, provider),
         Expanded(
           child: _buildBody(context, provider, filteredExpenses),
         ),

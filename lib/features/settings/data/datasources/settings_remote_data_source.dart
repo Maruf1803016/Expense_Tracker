@@ -33,7 +33,12 @@ class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
 
   @override
   Future<void> updateCurrency(String currencyCode) async {
-    await _userDoc.set({'currency': currencyCode}, SetOptions(merge: true));
+    await _userDoc.set({'currency': currencyCode}, SetOptions(merge: true)).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw const ServerException(
+        'Request timed out. Please check your connection and try again.',
+      ),
+    );
   }
 
   @override
@@ -45,6 +50,11 @@ class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
 
   @override
   Future<void> updateBudget(double budget) async {
-    await _userDoc.set({'monthlyBudget': budget}, SetOptions(merge: true));
+    await _userDoc.set({'monthlyBudget': budget}, SetOptions(merge: true)).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw const ServerException(
+        'Request timed out. Please check your connection and try again.',
+      ),
+    );
   }
 }

@@ -537,6 +537,7 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
     final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
     final displayAmount = _amountStr.isEmpty ? '0' : _amountStr;
     final enteredAmount = double.tryParse(_amountStr) ?? 0.0;
+    final exceedsSaved = !widget.isDeposit && enteredAmount > widget.currentSaved;
     
     final double futureSaved = widget.isDeposit 
         ? widget.currentSaved + enteredAmount
@@ -656,9 +657,20 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
           const SizedBox(height: 24),
           // Custom on-screen Numpad (Space Grotesk typography)
           _buildNumpad(),
+          if (exceedsSaved) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Cannot withdraw more than ${CurrencyFormatter.format(widget.currentSaved)}',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: AppTheme.brick, fontSize: 12),
+            ),
+          ],
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: enteredAmount > 0 ? () => _confirmAction(context, enteredAmount) : null,
+            onPressed: enteredAmount > 0 &&
+                    (widget.isDeposit || enteredAmount <= widget.currentSaved)
+                ? () => _confirmAction(context, enteredAmount)
+                : null,
             child: Text(
               widget.isDeposit ? 'Confirm Deposit' : 'Confirm Withdrawal',
               style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),

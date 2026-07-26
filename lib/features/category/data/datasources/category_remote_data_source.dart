@@ -39,7 +39,12 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<void> addCategory(CategoryModel category) async {
     try {
-      await _categoryCollection.add(category.toMap());
+      await _categoryCollection.add(category.toMap()).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to add category: $e');
     }
@@ -48,7 +53,12 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<void> deleteCategory(String id) async {
     try {
-      await _categoryCollection.doc(id).delete();
+      await _categoryCollection.doc(id).delete().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to delete category: $e');
     }
@@ -73,7 +83,12 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
         final docRef = _categoryCollection.doc(category.id);
         batch.set(docRef, category.toMap(), SetOptions(merge: true));
       }
-      await batch.commit();
+      await batch.commit().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to seed categories: $e');
     }
@@ -81,7 +96,12 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<void> updateCategory(CategoryModel category) async {
     try {
-      await _categoryCollection.doc(category.id).update(category.toMap());
+      await _categoryCollection.doc(category.id).update(category.toMap()).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to update category: $e');
     }

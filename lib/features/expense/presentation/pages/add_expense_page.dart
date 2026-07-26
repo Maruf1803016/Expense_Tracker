@@ -42,6 +42,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _titleController;
   late TextEditingController _amountController;
   late TextEditingController _noteController;
+  late TextEditingController _subCategoryController;
   
   String? _selectedCategoryId;
   late DateTime _selectedDate;
@@ -62,6 +63,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
+    );
+    _subCategoryController = TextEditingController(
+      text: widget.expenseToEdit?.subCategory ?? '',
     );
     
     _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
@@ -84,6 +88,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _titleController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _subCategoryController.dispose();
     super.dispose();
   }
 
@@ -108,21 +113,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
       return;
     }
 
-    final categories = context.read<CategoryProvider>().categories;
     if (_mode != TransactionMode.plan && _selectedCategoryId == null) {
-      if (_mode == TransactionMode.income) {
-        final incomeCategories = categories.where((c) => c.type == CategoryType.income).toList();
-        if (incomeCategories.isNotEmpty) {
-          _selectedCategoryId = incomeCategories.first.id;
-        } else {
-          _selectedCategoryId = 'income';
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a category')),
-        );
-        return;
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a category')),
+      );
+      return;
     }
 
     setState(() {
@@ -163,6 +158,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           categoryId: _selectedCategoryId!,
           date: _selectedDate,
           note: _noteController.text.trim(),
+          subCategory: _subCategoryController.text.trim().isEmpty
+              ? null
+              : _subCategoryController.text.trim(),
           type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
           planId: _selectedPlanId,
         );
@@ -376,7 +374,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 }),
               ] else ...[
                 // Transaction Form (Expense/Income)
-                if (_mode == TransactionMode.expense) ...[
+                ...[
                   _buildSectionLabel('Category'),
                   GridView.builder(
                     shrinkWrap: true,
@@ -432,6 +430,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
+                _buildSectionLabel('Sub-category (Optional)'),
+                TextFormField(
+                  controller: _subCategoryController,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Coffee, Bus fare',
+                  ),
+                ),
+                const SizedBox(height: 16),
 
                 _buildSectionLabel('Title / Merchant'),
                 TextFormField(

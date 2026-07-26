@@ -47,7 +47,12 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
     try {
       // Use categoryId as the document ID for budgets (one budget per category/month)
       final docId = '${budget.categoryId}_${budget.month}_${budget.year}';
-      await _budgetCollection.doc(docId).set(budget.toMap());
+      await _budgetCollection.doc(docId).set(budget.toMap()).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to set budget: $e');
     }
@@ -65,7 +70,12 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
   @override
   Future<void> setGlobalMonthlyBudget(double amount) async {
     try {
-      await _userDoc.set({'monthlyBudget': amount}, SetOptions(merge: true));
+      await _userDoc.set({'monthlyBudget': amount}, SetOptions(merge: true)).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to set global budget: $e');
     }

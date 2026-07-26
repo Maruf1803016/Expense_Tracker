@@ -46,7 +46,12 @@ class PlanRemoteDataSourceImpl implements PlanRemoteDataSource {
   @override
   Future<void> addPlan(PlanModel plan) async {
     try {
-      await _planCollection.doc(plan.id).set(plan.toMap());
+      await _planCollection.doc(plan.id).set(plan.toMap()).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to add plan: $e');
     }
@@ -65,7 +70,12 @@ class PlanRemoteDataSourceImpl implements PlanRemoteDataSource {
         batch.set(expenseCollection.doc(exp.id), exp.toMap());
       }
       
-      await batch.commit();
+      await batch.commit().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to save plan and expenses in batch: $e');
     }
@@ -74,7 +84,12 @@ class PlanRemoteDataSourceImpl implements PlanRemoteDataSource {
   @override
   Future<void> updatePlan(PlanModel plan) async {
     try {
-      await _planCollection.doc(plan.id).update(plan.toMap());
+      await _planCollection.doc(plan.id).update(plan.toMap()).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to update plan: $e');
     }
@@ -83,7 +98,12 @@ class PlanRemoteDataSourceImpl implements PlanRemoteDataSource {
   @override
   Future<void> deletePlan(String id) async {
     try {
-      await _planCollection.doc(id).delete();
+      await _planCollection.doc(id).delete().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
     } catch (e) {
       throw ServerException('Failed to delete plan: $e');
     }
