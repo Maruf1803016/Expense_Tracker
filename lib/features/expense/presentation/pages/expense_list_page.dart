@@ -34,81 +34,6 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     super.dispose();
   }
 
-  Widget _buildFilterTabs(BuildContext context, ExpenseProvider provider) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: ExpenseFilter.values.map((filter) {
-          final isSelected = provider.selectedFilter == filter;
-          String label;
-          IconData icon;
-          switch (filter) {
-            case ExpenseFilter.all:
-              label = 'All';
-              icon = Icons.all_inclusive_rounded;
-              break;
-            case ExpenseFilter.expense:
-              label = 'Expense';
-              icon = Icons.remove_circle_outline;
-              break;
-            case ExpenseFilter.income:
-              label = 'Income';
-              icon = Icons.add_circle_outline;
-              break;
-            case ExpenseFilter.plan:
-              label = 'Goal';
-              icon = Icons.track_changes_rounded;
-              break;
-          }
-
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  provider.setSelectedFilter(filter);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.ink : AppTheme.paper2,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.gold : AppTheme.line,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        icon,
-                        size: 14,
-                        color: isSelected ? AppTheme.goldSoft : AppTheme.muted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        label,
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppTheme.goldSoft : AppTheme.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
@@ -561,15 +486,43 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               children: [
                 _buildCategoryPill(
                   label: 'All',
-                  isSelected: _selectedCategoryId == null,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.all,
                   onTap: () {
                     setState(() {
                       _selectedCategoryId = null;
                     });
+                    provider.setSelectedFilter(ExpenseFilter.all);
                   },
                   color: AppTheme.gold,
                 ),
-                ...provider.categories.map((category) {
+                _buildCategoryPill(
+                  label: 'Income',
+                  icon: Icons.arrow_downward_rounded,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.income,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.income);
+                  },
+                  color: AppTheme.emerald,
+                ),
+                _buildCategoryPill(
+                  label: 'Goal',
+                  icon: Icons.track_changes_rounded,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.plan,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.plan);
+                  },
+                  color: AppTheme.gold,
+                ),
+                ...provider.categories.where((category) => category.type == CategoryType.expense).map((category) {
                   final catColor = AppTheme.getCategoryColor(category.id, category.name);
                   return _buildCategoryPill(
                     label: category.name,
@@ -579,6 +532,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                       setState(() {
                         _selectedCategoryId = category.id;
                       });
+                      provider.setSelectedFilter(ExpenseFilter.expense);
                     },
                     color: catColor,
                   );

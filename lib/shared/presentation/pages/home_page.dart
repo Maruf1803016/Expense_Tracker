@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
@@ -39,6 +40,22 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  String _greetingForHour(int hour) {
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  String _initialsFor(String? name) {
+    final parts = (name ?? '')
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'ME';
+    return parts.take(2).map((part) => part[0]).join().toUpperCase();
+  }
+
   void _openAddExpense() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AddExpensePage()),
@@ -60,12 +77,71 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final titles = ['Expenses', 'Summary', 'Insights', 'Categories', 'Settings'];
+    final user = context.watch<AuthProvider>().user;
+    final displayName = user?.displayName?.trim();
+    final hasDisplayName = displayName != null && displayName.isNotEmpty;
+    final isDashboard = _currentIndex == 0;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[_currentIndex]),
+        toolbarHeight: isDashboard ? 76 : kToolbarHeight,
+        centerTitle: !isDashboard,
+        title: isDashboard
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _greetingForHour(DateTime.now().hour),
+                    style: GoogleFonts.inter(
+                      color: AppTheme.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasDisplayName ? displayName! : 'Your finances',
+                    style: GoogleFonts.fraunces(
+                      color: AppTheme.textDark,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              )
+            : Text(titles[_currentIndex]),
         actions: [
-          if (_currentIndex == 0)
+          if (isDashboard) ...[
+            IconButton(
+              tooltip: 'Notifications',
+              icon: const Icon(Icons.notifications_none_rounded),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Notifications are coming soon.')),
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: AppTheme.ink,
+                foregroundImage: user?.photoUrl?.isNotEmpty == true
+                    ? NetworkImage(user!.photoUrl!)
+                    : null,
+                child: Text(
+                  _initialsFor(displayName),
+                  style: GoogleFonts.spaceGrotesk(
+                    color: AppTheme.goldSoft,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (isDashboard)
             IconButton(
               icon: const Icon(Icons.search_rounded),
               onPressed: () {
