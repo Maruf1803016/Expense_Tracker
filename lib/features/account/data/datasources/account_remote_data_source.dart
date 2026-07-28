@@ -88,10 +88,27 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
     }
   }
 
+  Future<void> _commitInChunks(List<void Function(WriteBatch)> writes) async {
+    const chunkSize = 450;
+    for (var i = 0; i < writes.length; i += chunkSize) {
+      final batch = firestore.batch();
+      final chunk = writes.sublist(i, i + chunkSize > writes.length ? writes.length : i + chunkSize);
+      for (final write in chunk) {
+        write(batch);
+      }
+      await batch.commit().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const ServerException(
+          'Request timed out. Please check your connection and try again.',
+        ),
+      );
+    }
+  }
+
   @override
   Future<void> deleteAccountAndReassign(String id, String fallbackAccountId) async {
     try {
-      final batch = firestore.batch();
+      final writes = <void Function(WriteBatch)>[];
 
       // Fetch all expenses linked to the deleted account
       final expensesSnapshot = await _expenseCollection
@@ -100,18 +117,13 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
           .timeout(const Duration(seconds: 15));
 
       for (var doc in expensesSnapshot.docs) {
-        batch.update(doc.reference, {'accountId': fallbackAccountId});
+        writes.add((batch) => batch.update(doc.reference, {'accountId': fallbackAccountId}));
       }
 
       // Delete the account document
-      batch.delete(_accountCollection.doc(id));
+      writes.add((batch) => batch.delete(_accountCollection.doc(id)));
 
-      await batch.commit().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _commitInChunks(writes);
     } catch (e) {
       throw ServerException('Failed to delete account with reassignment: $e');
     }
@@ -138,7 +150,7 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
       final isMigrated = userData?['accountsMigrated'] as bool? ?? false;
       if (isMigrated) return;
 
-      final batch = firestore.batch();
+      final writes = <void Function(WriteBatch)>[];
 
       // Create default account doc
       final defaultAccountRef = _accountCollection.doc();
@@ -154,26 +166,21 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
         createdAt: DateTime.now(),
       );
 
-      batch.set(defaultAccountRef, defaultAccount.toMap());
+      writes.add((batch) => batch.set(defaultAccountRef, defaultAccount.toMap()));
 
       // Fetch all user expenses
       final expensesSnapshot = await _expenseCollection.get().timeout(const Duration(seconds: 15));
       for (var doc in expensesSnapshot.docs) {
         final expenseData = doc.data() as Map<String, dynamic>?;
         if (expenseData == null || expenseData['accountId'] == null) {
-          batch.update(doc.reference, {'accountId': defaultAccountId});
+          writes.add((batch) => batch.update(doc.reference, {'accountId': defaultAccountId}));
         }
       }
 
       // Mark user as migrated
-      batch.set(_userDoc, {'accountsMigrated': true}, SetOptions(merge: true));
+      writes.add((batch) => batch.set(_userDoc, {'accountsMigrated': true}, SetOptions(merge: true)));
 
-      await batch.commit().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _commitInChunks(writes);
     } catch (e) {
       throw ServerException('Failed to run account migration: $e');
     }
