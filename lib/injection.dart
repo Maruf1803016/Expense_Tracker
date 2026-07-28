@@ -88,6 +88,13 @@ import 'package:expense_tracker/features/plan/data/repositories/plan_repository_
 import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 
+// --- Recurring Income ---
+import 'package:expense_tracker/features/recurring_income/data/datasources/recurring_income_remote_data_source.dart';
+import 'package:expense_tracker/features/recurring_income/data/repositories/recurring_income_repository_impl.dart';
+import 'package:expense_tracker/features/recurring_income/domain/repositories/recurring_income_repository.dart';
+import 'package:expense_tracker/features/recurring_income/domain/usecases/recurring_income_usecases.dart';
+import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -215,5 +222,21 @@ Future<void> initDependencies() async {
     updateAccountUseCase: sl(),
     deleteAccountAndReassignUseCase: sl(),
     runAccountMigration: sl(),
+  ));
+
+  // --- Recurring Income ---
+  sl.registerLazySingleton<RecurringIncomeRemoteDataSource>(() => RecurringIncomeRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<RecurringIncomeRepository>(() => RecurringIncomeRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => GetRecurringIncomeSourcesUseCase(sl()));
+  sl.registerLazySingleton(() => AddRecurringIncomeSourceUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateRecurringIncomeSourceUseCase(sl()));
+  sl.registerLazySingleton(() => DeleteRecurringIncomeSourceUseCase(sl()));
+  sl.registerLazySingleton(() => MarkRecurringIncomeReceivedUseCase(recurringRepository: sl(), expenseRepository: sl()));
+  sl.registerLazySingleton(() => RecurringIncomeProvider(
+    getRecurringSources: sl(),
+    addRecurringSource: sl(),
+    updateRecurringSource: sl(),
+    deleteRecurringSource: sl(),
+    markReceived: sl(),
   ));
 }

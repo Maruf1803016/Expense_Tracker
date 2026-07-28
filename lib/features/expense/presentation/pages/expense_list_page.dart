@@ -15,6 +15,9 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
+import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
+import 'package:expense_tracker/features/recurring_income/presentation/widgets/edit_recurring_income_sheet.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
@@ -70,11 +73,18 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       return true;
     }).toList();
 
+    final recurringSources = context.watch<RecurringIncomeProvider>().sources;
+    final showUpcoming = provider.selectedFilter == ExpenseFilter.income && recurringSources.isNotEmpty;
+
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
         _buildSearchAndFilters(context, provider),
         const SizedBox(height: 16),
+        if (showUpcoming) ...[
+          _buildUpcomingIncomeSection(context, recurringSources),
+          const SizedBox(height: 16),
+        ],
         Expanded(
           child: _buildBody(context, provider, filteredExpenses),
         ),
@@ -602,6 +612,156 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     } else {
       return DateFormat('EEEE, MMM d').format(date).toUpperCase();
     }
+  }
+
+  Widget _buildUpcomingIncomeSection(BuildContext context, List<RecurringIncomeSource> sources) {
+    if (sources.isEmpty) return const SizedBox.shrink();
+
+    final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12.0),
+            child: Text(
+              'UPCOMING INCOME',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.muted,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          ...sources.map((source) => _buildUpcomingIncomeCard(context, source, currencySymbol)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUpcomingIncomeCard(BuildContext context, RecurringIncomeSource source, String currencySymbol) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final due = DateTime(source.nextDueDate.year, source.nextDueDate.month, source.nextDueDate.day);
+    final daysDiff = due.difference(today).inDays;
+
+    final String badgeText;
+    final Color badgeColor;
+    final Color textColor;
+
+    if (daysDiff < 0) {
+      badgeText = 'OVERDUE';
+      badgeColor = AppTheme.brick.withOpacity(0.15);
+      textColor = AppTheme.brick;
+    } else if (daysDiff <= 7) {
+      badgeText = daysDiff == 0 ? 'DUE TODAY' : 'DUE IN $daysDiff DAYS';
+      badgeColor = AppTheme.gold.withOpacity(0.15);
+      textColor = AppTheme.gold;
+    } else {
+      badgeText = 'PENDING';
+      badgeColor = AppTheme.muted.withOpacity(0.15);
+      textColor = AppTheme.muted;
+    }
+
+    final formattedAmount = CurrencyFormatter.format(source.expectedAmount, symbol: currencySymbol);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.line),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            builder: (context) => EditRecurringIncomeSheet(source: source),
+          );
+        },
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                source.name,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                badgeText,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(
+            '${source.frequency.toUpperCase()} • $formattedAmount',
+            style: GoogleFonts.inter(
+              color: AppTheme.muted,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        trailing: ElevatedButton(
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await context.read<RecurringIncomeProvider>().markAsReceived(source);
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Income marked as received successfully'),
+                  backgroundColor: AppTheme.emerald,
+                ),
+              );
+            } catch (e) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Error: $e'),
+                  backgroundColor: AppTheme.brick,
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald.withOpacity(0.15),
+            foregroundColor: AppTheme.emerald,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            minimumSize: Size.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text(
+            'Receive',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

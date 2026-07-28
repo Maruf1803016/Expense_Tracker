@@ -14,6 +14,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +55,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => sl<AccountProvider>()..init(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => sl<RecurringIncomeProvider>(),
         ),
       ],
       child: const App(),

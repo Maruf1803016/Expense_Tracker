@@ -13,6 +13,8 @@ import 'package:expense_tracker/features/category/presentation/providers/categor
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
+import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
 
 enum TransactionMode {
   expense,
@@ -55,6 +57,49 @@ class _AddExpensePageState extends State<AddExpensePage> {
   DateTime _planStartDate = DateTime.now();
   DateTime _planEndDate = DateTime.now().add(const Duration(days: 30));
   bool _isSaving = false;
+
+  bool _isRecurring = false;
+  String _recurringFrequency = 'monthly';
+  DateTime _recurringNextDueDate = DateTime.now().add(const Duration(days: 30));
+
+  void _updateDefaultNextDueDate() {
+    final now = DateTime.now();
+    switch (_recurringFrequency) {
+      case 'weekly':
+        _recurringNextDueDate = now.add(const Duration(days: 7));
+        break;
+      case 'biweekly':
+        _recurringNextDueDate = now.add(const Duration(days: 14));
+        break;
+      case 'monthly':
+        int nextYear = now.year;
+        int nextMonth = now.month + 1;
+        if (nextMonth > 12) {
+          nextMonth = 1;
+          nextYear += 1;
+        }
+        int nextDay = now.day;
+        int daysInNextMonth = _getDaysInMonth(nextYear, nextMonth);
+        if (nextDay > daysInNextMonth) {
+          nextDay = daysInNextMonth;
+        }
+        _recurringNextDueDate = DateTime(nextYear, nextMonth, nextDay, now.hour, now.minute, now.second);
+        break;
+    }
+  }
+
+  int _getDaysInMonth(int year, int month) {
+    if (month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) {
+      return 31;
+    }
+    if (month == 4 || month == 6 || month == 9 || month == 11) {
+      return 30;
+    }
+    if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+      return 29;
+    }
+    return 28;
+  }
 
   @override
   void initState() {
@@ -181,6 +226,23 @@ class _AddExpensePageState extends State<AddExpensePage> {
           );
         } else {
           await provider.addExpense(expense);
+          
+          if (_mode == TransactionMode.income && _isRecurring) {
+            final recurringProvider = context.read<RecurringIncomeProvider>();
+            final source = RecurringIncomeSource(
+              id: const Uuid().v4(),
+              name: expense.title,
+              expectedAmount: expense.amount,
+              frequency: _recurringFrequency,
+              nextDueDate: _recurringNextDueDate,
+              status: 'pending',
+              categoryId: expense.categoryId,
+              accountId: expense.accountId,
+              createdAt: DateTime.now(),
+            );
+            await recurringProvider.addSource(source);
+          }
+
           messenger.showSnackBar(
             const SnackBar(
               content: Text('Transaction saved'),
@@ -547,6 +609,64 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       });
                     },
                   ),
+                if (_mode == TransactionMode.income && widget.expenseToEdit == null) ...[
+                  const SizedBox(height: 16),
+                  SwitchListTile.adaptive(
+                    title: Text(
+                      'Recurring income',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Automatically track this income frequency',
+                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12),
+                    ),
+                    value: _isRecurring,
+                    activeColor: AppTheme.emerald,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) {
+                      setState(() {
+                        _isRecurring = val;
+                        if (_isRecurring) {
+                          _updateDefaultNextDueDate();
+                        }
+                      });
+                    },
+                  ),
+                  if (_isRecurring) ...[
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('Frequency'),
+                    DropdownButtonFormField<String>(
+                      value: _recurringFrequency,
+                      dropdownColor: AppTheme.paperCard,
+                      style: GoogleFonts.inter(color: AppTheme.textDark),
+                      decoration: const InputDecoration(
+                        hintText: 'Select Frequency',
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                        DropdownMenuItem(value: 'biweekly', child: Text('Biweekly')),
+                        DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() {
+                            _recurringFrequency = val;
+                            _updateDefaultNextDueDate();
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildSectionLabel('Next Due Date'),
+                    _buildDateTile(_recurringNextDueDate, (date) {
+                      setState(() {
+                        _recurringNextDueDate = date;
+                      });
+                    }),
+                  ],
                 ],
               ],
               const SizedBox(height: 40),
