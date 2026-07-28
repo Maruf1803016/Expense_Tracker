@@ -150,23 +150,32 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
       final isMigrated = userData?['accountsMigrated'] as bool? ?? false;
       if (isMigrated) return;
 
+      // Find-or-create: reuse an existing default account if a prior partial run already made one.
+      final existingDefault = await _accountCollection
+          .where('isDefault', isEqualTo: true)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 15));
+
+      final String defaultAccountId;
       final writes = <void Function(WriteBatch)>[];
 
-      // Create default account doc
-      final defaultAccountRef = _accountCollection.doc();
-      final defaultAccountId = defaultAccountRef.id;
-
-      final defaultAccount = AccountModel(
-        id: defaultAccountId,
-        name: 'Main Account',
-        icon: Icons.account_balance_wallet_outlined,
-        color: const Color(0xFF12141A),
-        initialBalance: 0.0,
-        isDefault: true,
-        createdAt: DateTime.now(),
-      );
-
-      writes.add((batch) => batch.set(defaultAccountRef, defaultAccount.toMap()));
+      if (existingDefault.docs.isNotEmpty) {
+        defaultAccountId = existingDefault.docs.first.id;
+      } else {
+        final defaultAccountRef = _accountCollection.doc();
+        defaultAccountId = defaultAccountRef.id;
+        final defaultAccount = AccountModel(
+          id: defaultAccountId,
+          name: 'Main Account',
+          icon: Icons.account_balance_wallet_outlined,
+          color: const Color(0xFF12141A),
+          initialBalance: 0.0,
+          isDefault: true,
+          createdAt: DateTime.now(),
+        );
+        writes.add((batch) => batch.set(defaultAccountRef, defaultAccount.toMap()));
+      }
 
       // Fetch all user expenses
       final expensesSnapshot = await _expenseCollection.get().timeout(const Duration(seconds: 15));
