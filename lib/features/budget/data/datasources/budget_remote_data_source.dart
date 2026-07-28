@@ -6,8 +6,6 @@ import 'package:expense_tracker/features/budget/data/models/budget_model.dart';
 abstract class BudgetRemoteDataSource {
   Stream<List<BudgetModel>> getBudgets(int month, int year);
   Future<void> setBudget(BudgetModel budget);
-  Stream<double> getGlobalMonthlyBudget();
-  Future<void> setGlobalMonthlyBudget(double amount);
 }
 
 class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
@@ -58,26 +56,4 @@ class BudgetRemoteDataSourceImpl implements BudgetRemoteDataSource {
     }
   }
 
-  @override
-  Stream<double> getGlobalMonthlyBudget() {
-    return _userDoc.snapshots().map((doc) {
-      if (!doc.exists) return 0.0;
-      final data = doc.data() as Map<String, dynamic>;
-      return (data['monthlyBudget'] as num?)?.toDouble() ?? 0.0;
-    });
-  }
-
-  @override
-  Future<void> setGlobalMonthlyBudget(double amount) async {
-    try {
-      await _userDoc.set({'monthlyBudget': amount}, SetOptions(merge: true)).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
-    } catch (e) {
-      throw ServerException('Failed to set global budget: $e');
-    }
-  }
 }

@@ -46,8 +46,6 @@ import 'package:expense_tracker/features/budget/data/repositories/budget_reposit
 import 'package:expense_tracker/features/budget/domain/repositories/budget_repository.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/get_budget_status.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/set_budget.dart';
-import 'package:expense_tracker/features/budget/domain/usecases/get_global_budget.dart';
-import 'package:expense_tracker/features/budget/domain/usecases/set_global_budget.dart';
 
 // --- Analytics & Intelligence Core ---
 import 'package:expense_tracker/features/analysis/domain/logic/expense_aggregator.dart';
@@ -141,8 +139,6 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => GetMonthlySummaryUseCase(expenseRepository: sl(), categoryRepository: sl(), analysisService: sl()));
 
   sl.registerLazySingleton(() => SetBudgetUseCase(repository: sl()));
-  sl.registerLazySingleton(() => GetGlobalBudgetUseCase(repository: sl()));
-  sl.registerLazySingleton(() => SetGlobalBudgetUseCase(repository: sl()));
   sl.registerLazySingleton(() => GetBudgetStatusStreamUseCase(categoryRepository: sl(), expenseRepository: sl(), budgetRepository: sl(), analysisService: sl()));
 
   sl.registerLazySingleton(() => GetMonthlyExportDataUseCase(getSummary: sl(), getBudgets: sl(), getExpenses: sl()));
@@ -178,8 +174,6 @@ Future<void> initDependencies() async {
     updateCategory: sl(),
     setBudget: sl(),
     getBudgetStatus: sl(),
-    getGlobalBudget: sl(),
-    setGlobalBudget: sl(),
     getRecycleBinExpensesStream: sl(),
     restoreExpense: sl(),
     deleteForever: sl(),

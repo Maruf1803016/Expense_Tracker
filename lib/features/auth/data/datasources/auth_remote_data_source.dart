@@ -60,7 +60,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'createdAt': FieldValue.serverTimestamp(),
         'displayName': '',
         'photoUrl': '',
-        'monthlyBudget': 0.0,
       });
 
       return credential.user!;

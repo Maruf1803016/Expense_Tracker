@@ -5,8 +5,6 @@ import '../../../../core/error/exceptions.dart';
 abstract class SettingsRemoteDataSource {
   Future<String> getCurrency();
   Future<void> updateCurrency(String currencyCode);
-  Future<double> getBudget();
-  Future<void> updateBudget(double budget);
 }
 
 class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
@@ -34,23 +32,6 @@ class SettingsRemoteDataSourceImpl implements SettingsRemoteDataSource {
   @override
   Future<void> updateCurrency(String currencyCode) async {
     await _userDoc.set({'currency': currencyCode}, SetOptions(merge: true)).timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => throw const ServerException(
-        'Request timed out. Please check your connection and try again.',
-      ),
-    );
-  }
-
-  @override
-  Future<double> getBudget() async {
-    final doc = await _userDoc.get();
-    if (!doc.exists) return 0.0;
-    return ((doc.data() as Map<String, dynamic>?)?['monthlyBudget'] as num?)?.toDouble() ?? 0.0;
-  }
-
-  @override
-  Future<void> updateBudget(double budget) async {
-    await _userDoc.set({'monthlyBudget': budget}, SetOptions(merge: true)).timeout(
       const Duration(seconds: 15),
       onTimeout: () => throw const ServerException(
         'Request timed out. Please check your connection and try again.',

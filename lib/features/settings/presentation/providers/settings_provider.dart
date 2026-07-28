@@ -30,7 +30,6 @@ class SettingsProvider with ChangeNotifier {
     
     try {
       final currency = await repository.getCurrency();
-      await repository.getBudget(); // ignore budget value
       
       _selectedCurrency = currency;
       CurrencyFormatter.setSymbol(currentSymbol);

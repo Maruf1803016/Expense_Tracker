@@ -21,8 +21,6 @@ import 'package:expense_tracker/features/budget/domain/entities/budget.dart';
 import 'package:expense_tracker/features/budget/domain/entities/category_budget_status.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/get_budget_status.dart';
 import 'package:expense_tracker/features/budget/domain/usecases/set_budget.dart';
-import 'package:expense_tracker/features/budget/domain/usecases/get_global_budget.dart';
-import 'package:expense_tracker/features/budget/domain/usecases/set_global_budget.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/get_recycle_bin_expenses.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/restore_expense.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
@@ -48,9 +46,6 @@ class ExpenseProvider with ChangeNotifier {
   final UpdateCategoryUseCase _updateCategory;
   final SetBudgetUseCase _setBudget;
   final GetBudgetStatusStreamUseCase _getBudgetStatus;
-  
-  final GetGlobalBudgetUseCase _getGlobalBudget;
-  final SetGlobalBudgetUseCase _setGlobalBudget;
 
   final GetRecycleBinExpensesStreamUseCase _getRecycleBinExpensesStream;
   final RestoreExpenseUseCase _restoreExpense;
@@ -70,8 +65,6 @@ class ExpenseProvider with ChangeNotifier {
     required UpdateCategoryUseCase updateCategory,
     required SetBudgetUseCase setBudget,
     required GetBudgetStatusStreamUseCase getBudgetStatus,
-    required GetGlobalBudgetUseCase getGlobalBudget,
-    required SetGlobalBudgetUseCase setGlobalBudget,
     required GetRecycleBinExpensesStreamUseCase getRecycleBinExpensesStream,
     required RestoreExpenseUseCase restoreExpense,
     required DeleteForeverUseCase deleteForever,
@@ -88,8 +81,6 @@ class ExpenseProvider with ChangeNotifier {
         _updateCategory = updateCategory,
         _setBudget = setBudget,
         _getBudgetStatus = getBudgetStatus,
-        _getGlobalBudget = getGlobalBudget,
-        _setGlobalBudget = setGlobalBudget,
         _getRecycleBinExpensesStream = getRecycleBinExpensesStream,
         _restoreExpense = restoreExpense,
         _deleteForever = deleteForever,
@@ -149,9 +140,6 @@ class ExpenseProvider with ChangeNotifier {
     return rolledUp.values.toList();
   }
 
-  double _monthlyBudget = 0.0;
-  double get monthlyBudget => _monthlyBudget;
-
   DateTime _selectedMonth = DateTime.now();
   DateTime get selectedMonth => _selectedMonth;
 
@@ -169,7 +157,6 @@ class ExpenseProvider with ChangeNotifier {
   StreamSubscription? _recycleBinSubscription;
   StreamSubscription? _summarySubscription;
   StreamSubscription? _budgetSubscription;
-  StreamSubscription? _globalBudgetSubscription;
 
   static const List<Color> pieColors = [
     Color(0xFFFF6B6B), Color(0xFF4ECDC4), Color(0xFFFFE66D),
@@ -393,13 +380,6 @@ class ExpenseProvider with ChangeNotifier {
 
       _updateSummarySubscription();
       _updateBudgetSubscription();
-
-      _globalBudgetSubscription?.cancel();
-      _globalBudgetSubscription = _getGlobalBudget().listen((data) {
-        if (_monthlyBudget == data) return;
-        _monthlyBudget = data;
-        notifyListeners();
-      });
     } catch (e) {
       _isLoading = false;
       _isInitialized = true;
@@ -415,12 +395,10 @@ class ExpenseProvider with ChangeNotifier {
     _recycleBinSubscription?.cancel();
     _summarySubscription?.cancel();
     _budgetSubscription?.cancel();
-    _globalBudgetSubscription?.cancel();
     
     _categories = [];
     _expenses = [];
     _recycleBinExpenses = [];
-    _monthlyBudget = 0.0;
     _summary = MonthlySummary.empty();
     _budgetStatuses = [];
     _errorMessage = null;
@@ -495,10 +473,6 @@ class ExpenseProvider with ChangeNotifier {
     await _setBudget(budget);
   }
 
-  Future<void> setGlobalBudget(double amount) async {
-    await _setGlobalBudget(amount);
-  }
-
   void _updateSummarySubscription() {
     _summarySubscription?.cancel();
     _summarySubscription = _getMonthlySummary(_selectedMonth.month, _selectedMonth.year).listen((data) {
@@ -544,7 +518,6 @@ class ExpenseProvider with ChangeNotifier {
     _recycleBinSubscription?.cancel();
     _summarySubscription?.cancel();
     _budgetSubscription?.cancel();
-    _globalBudgetSubscription?.cancel();
     super.dispose();
   }
 }
