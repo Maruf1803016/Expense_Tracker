@@ -18,6 +18,7 @@ void main() {
           date: now,
           note: 'Freeland salary',
           type: CategoryType.income,
+          accountId: 'acc_1',
         ),
         Expense(
           id: '2',
@@ -27,6 +28,7 @@ void main() {
           date: now,
           note: 'Dinner',
           type: CategoryType.expense,
+          accountId: 'acc_1',
         ),
       ];
 

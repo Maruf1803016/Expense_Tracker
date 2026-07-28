@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
-import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 
 class ExpenseModel extends Expense {
   const ExpenseModel({
@@ -12,6 +11,7 @@ class ExpenseModel extends Expense {
     required super.categoryId,
     required super.date,
     required super.note,
+    required super.accountId,
     super.type,
     super.isDeleted,
     super.deletedAt,
@@ -28,6 +28,7 @@ class ExpenseModel extends Expense {
       categoryId: map['categoryId'] ?? '',
       date: (map['date'] as Timestamp).toDate(),
       note: map['note'] ?? '',
+      accountId: map['accountId'] ?? '',
       type: map['type'] == 'income' ? CategoryType.income : CategoryType.expense,
       isDeleted: map['isDeleted'] ?? false,
       deletedAt: map['deletedAt'] != null ? (map['deletedAt'] as Timestamp).toDate() : null,
@@ -50,6 +51,7 @@ class ExpenseModel extends Expense {
       'subCategory': subCategory,
       'subCategoryIcon': subCategoryIcon,
       'planId': planId,
+      'accountId': accountId,
     };
   }
 
@@ -61,6 +63,7 @@ class ExpenseModel extends Expense {
       categoryId: expense.categoryId,
       date: expense.date,
       note: expense.note,
+      accountId: expense.accountId,
       type: expense.type,
       isDeleted: expense.isDeleted,
       deletedAt: expense.deletedAt,

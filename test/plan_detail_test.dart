@@ -27,6 +27,7 @@ void main() {
           date: now,
           note: 'Buffet',
           planId: 'goal_wedding_123',
+          accountId: 'acc_1',
         ),
         Expense(
           id: 'exp_2',
@@ -36,6 +37,7 @@ void main() {
           date: now,
           note: 'Car rental',
           planId: 'goal_wedding_123',
+          accountId: 'acc_1',
         ),
       ];
 

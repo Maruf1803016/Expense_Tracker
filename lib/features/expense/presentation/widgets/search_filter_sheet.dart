@@ -4,7 +4,7 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 import 'package:expense_tracker/features/expense/domain/logic/expense_query_engine.dart';
-import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
 class SearchFilterSheet extends StatefulWidget {
   const SearchFilterSheet({super.key});
@@ -15,6 +15,7 @@ class SearchFilterSheet extends StatefulWidget {
 
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
   late List<String> _tempCategories;
+  late List<String> _tempAccounts;
   ExpenseSortType? _tempSort;
   DateTime? _tempStart;
   DateTime? _tempEnd;
@@ -24,6 +25,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
     super.initState();
     final provider = context.read<ExpenseSearchProvider>();
     _tempCategories = List.from(provider.selectedCategoryIds);
+    _tempAccounts = List.from(provider.selectedAccountIds);
     _tempSort = provider.sortType;
     _tempStart = provider.startDate;
     _tempEnd = provider.endDate;
@@ -33,6 +35,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
     final expenseProvider = context.read<ExpenseProvider>();
     context.read<ExpenseSearchProvider>().updateFilters(
       categoryIds: _tempCategories,
+      accountIds: _tempAccounts,
       sortType: _tempSort,
       startDate: _tempStart,
       endDate: _tempEnd,
@@ -45,6 +48,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
   @override
   Widget build(BuildContext context) {
     final categories = context.watch<ExpenseProvider>().categories;
+    final accounts = context.watch<AccountProvider>().accounts;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -72,6 +76,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
           ),
           const SizedBox(height: 24),
 
+          // Categories Filter Section
           const Text('Categories', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 12),
           SizedBox(
@@ -93,6 +98,40 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                           _tempCategories.add(category.id);
                         } else {
                           _tempCategories.remove(category.id);
+                        }
+                      });
+                    },
+                    selectedColor: AppTheme.emeraldGreen.withOpacity(0.2),
+                    checkmarkColor: AppTheme.emeraldGreen,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Accounts Filter Section
+          const Text('Accounts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: accounts.length,
+              itemBuilder: (context, index) {
+                final account = accounts[index];
+                final isSelected = _tempAccounts.contains(account.id);
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: FilterChip(
+                    label: Text(account.name),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _tempAccounts.add(account.id);
+                        } else {
+                          _tempAccounts.remove(account.id);
                         }
                       });
                     },

@@ -11,6 +11,17 @@ import 'package:expense_tracker/features/auth/domain/usecases/update_profile.dar
 import 'package:expense_tracker/features/auth/domain/usecases/change_password.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 
+// --- Account ---
+import 'package:expense_tracker/features/account/data/datasources/account_remote_data_source.dart';
+import 'package:expense_tracker/features/account/data/repositories/account_repository_impl.dart';
+import 'package:expense_tracker/features/account/domain/repositories/account_repository.dart';
+import 'package:expense_tracker/features/account/domain/usecases/add_account.dart';
+import 'package:expense_tracker/features/account/domain/usecases/delete_account_and_reassign.dart';
+import 'package:expense_tracker/features/account/domain/usecases/get_accounts.dart';
+import 'package:expense_tracker/features/account/domain/usecases/update_account.dart';
+import 'package:expense_tracker/features/account/domain/usecases/run_migration.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+
 // --- Category ---
 import 'package:expense_tracker/features/category/data/datasources/category_remote_data_source.dart';
 import 'package:expense_tracker/features/category/data/repositories/category_repository_impl.dart';
@@ -163,7 +174,6 @@ Future<void> initDependencies() async {
   ));
   sl.registerLazySingleton(() => ExpenseProvider(
     getCategoriesStream: sl(),
-    seedCategories: sl(),
     getExpensesStream: sl(),
     addExpense: sl(),
     updateExpense: sl(),
@@ -178,6 +188,7 @@ Future<void> initDependencies() async {
     restoreExpense: sl(),
     deleteForever: sl(),
     emptyRecycleBin: sl(),
+    runAccountMigration: sl(),
   ));
   sl.registerLazySingleton(() => ExportProvider(getExportData: sl(), exportService: sl()));
   sl.registerLazySingleton(() => FinancialInsightsProvider(getFinancialInsights: sl()));
@@ -189,4 +200,20 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<PlanRemoteDataSource>(() => PlanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
   sl.registerLazySingleton<PlanRepository>(() => PlanRepositoryImpl(remoteDataSource: sl()));
   sl.registerLazySingleton(() => PlanProvider(repository: sl()));
+
+  // --- Account ---
+  sl.registerLazySingleton<AccountRemoteDataSource>(() => AccountRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<AccountRepository>(() => AccountRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => GetAccountsUseCase(repository: sl()));
+  sl.registerLazySingleton(() => AddAccountUseCase(repository: sl()));
+  sl.registerLazySingleton(() => UpdateAccountUseCase(repository: sl()));
+  sl.registerLazySingleton(() => DeleteAccountAndReassignUseCase(repository: sl()));
+  sl.registerLazySingleton(() => RunAccountMigrationUseCase(repository: sl()));
+  sl.registerLazySingleton(() => AccountProvider(
+    getAccounts: sl(),
+    addAccountUseCase: sl(),
+    updateAccountUseCase: sl(),
+    deleteAccountAndReassignUseCase: sl(),
+    runAccountMigration: sl(),
+  ));
 }

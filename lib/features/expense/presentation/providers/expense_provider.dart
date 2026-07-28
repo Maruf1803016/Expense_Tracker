@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
-import 'package:expense_tracker/core/usecases/usecase.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/category/domain/usecases/get_categories.dart';
-import 'package:expense_tracker/features/category/domain/usecases/seed_categories.dart';
 import 'package:expense_tracker/features/category/domain/usecases/add_category.dart';
 import 'package:expense_tracker/features/category/domain/usecases/delete_category.dart';
 import 'package:expense_tracker/features/category/domain/usecases/update_category.dart';
@@ -25,6 +23,7 @@ import 'package:expense_tracker/features/expense/domain/usecases/get_recycle_bin
 import 'package:expense_tracker/features/expense/domain/usecases/restore_expense.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/empty_recycle_bin.dart';
+import 'package:expense_tracker/features/account/domain/usecases/run_migration.dart';
 
 enum ExpenseFilter {
   all,
@@ -35,7 +34,6 @@ enum ExpenseFilter {
 
 class ExpenseProvider with ChangeNotifier {
   final GetCategoriesStreamUseCase _getCategoriesStream;
-  final SeedCategoriesUseCase _seedCategories;
   final GetExpensesStreamUseCase _getExpensesStream;
   final AddExpenseUseCase _addExpense;
   final UpdateExpenseUseCase _updateExpense;
@@ -51,10 +49,10 @@ class ExpenseProvider with ChangeNotifier {
   final RestoreExpenseUseCase _restoreExpense;
   final DeleteForeverUseCase _deleteForever;
   final EmptyRecycleBinUseCase _emptyRecycleBin;
+  final RunAccountMigrationUseCase _runAccountMigration;
 
   ExpenseProvider({
     required GetCategoriesStreamUseCase getCategoriesStream,
-    required SeedCategoriesUseCase seedCategories,
     required GetExpensesStreamUseCase getExpensesStream,
     required AddExpenseUseCase addExpense,
     required UpdateExpenseUseCase updateExpense,
@@ -69,8 +67,8 @@ class ExpenseProvider with ChangeNotifier {
     required RestoreExpenseUseCase restoreExpense,
     required DeleteForeverUseCase deleteForever,
     required EmptyRecycleBinUseCase emptyRecycleBin,
+    required RunAccountMigrationUseCase runAccountMigration,
   })  : _getCategoriesStream = getCategoriesStream,
-        _seedCategories = seedCategories,
         _getExpensesStream = getExpensesStream,
         _addExpense = addExpense,
         _updateExpense = updateExpense,
@@ -84,7 +82,8 @@ class ExpenseProvider with ChangeNotifier {
         _getRecycleBinExpensesStream = getRecycleBinExpensesStream,
         _restoreExpense = restoreExpense,
         _deleteForever = deleteForever,
-        _emptyRecycleBin = emptyRecycleBin;
+        _emptyRecycleBin = emptyRecycleBin,
+        _runAccountMigration = runAccountMigration;
 
   List<Category> _categories = [];
   List<Category> get categories => _categories;
@@ -324,6 +323,7 @@ class ExpenseProvider with ChangeNotifier {
     debugPrint('🚀 ExpenseProvider: Starting initialization (force: $force)...');
 
     try {
+      await _runAccountMigration();
       _categoriesSubscription?.cancel();
       _categoriesSubscription = _getCategoriesStream().listen(
         (data) {
@@ -425,6 +425,7 @@ class ExpenseProvider with ChangeNotifier {
         date: exp.date,
         note: exp.note,
         type: exp.type,
+        accountId: exp.accountId,
         subCategory: exp.subCategory,
         subCategoryIcon: exp.subCategoryIcon,
         planId: null,

@@ -15,6 +15,7 @@ class Expense extends Equatable {
   final String? subCategory;
   final String? subCategoryIcon;
   final String? planId;
+  final String accountId;
 
   const Expense({
     required this.id,
@@ -23,6 +24,7 @@ class Expense extends Equatable {
     required this.categoryId,
     required this.date,
     required this.note,
+    required this.accountId,
     this.type = CategoryType.expense,
     this.isDeleted = false,
     this.deletedAt,
@@ -32,5 +34,5 @@ class Expense extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, title, amount, categoryId, date, note, type, isDeleted, deletedAt, subCategory, subCategoryIcon, planId];
+  List<Object?> get props => [id, title, amount, categoryId, date, note, type, isDeleted, deletedAt, subCategory, subCategoryIcon, planId, accountId];
 }

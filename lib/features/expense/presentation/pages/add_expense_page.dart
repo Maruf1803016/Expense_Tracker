@@ -12,6 +12,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
 enum TransactionMode {
   expense,
@@ -48,6 +49,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late DateTime _selectedDate;
   TransactionMode _mode = TransactionMode.expense;
   String? _selectedPlanId;
+  String? _selectedAccountId;
 
   // Plan Mode specific fields
   DateTime _planStartDate = DateTime.now();
@@ -71,6 +73,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
     _selectedPlanId = widget.preselectedPlanId ?? widget.expenseToEdit?.planId;
+    _selectedAccountId = widget.expenseToEdit?.accountId;
 
     if (widget.preselectedPlanMode) {
       _mode = TransactionMode.plan;
@@ -158,6 +161,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
           categoryId: _selectedCategoryId!,
           date: _selectedDate,
           note: _noteController.text.trim(),
+          accountId: _selectedAccountId!,
           subCategory: _subCategoryController.text.trim().isEmpty
               ? null
               : _subCategoryController.text.trim(),
@@ -257,6 +261,23 @@ class _AddExpensePageState extends State<AddExpensePage> {
     final categories = categoryProvider.categories;
     final planProvider = context.watch<PlanProvider>();
     final plans = planProvider.plans.where((p) => !p.isArchived).toList();
+    final accountProvider = context.watch<AccountProvider>();
+    final accounts = accountProvider.accounts;
+
+    if (_selectedAccountId == null && accounts.isNotEmpty) {
+      if (widget.expenseToEdit != null) {
+        _selectedAccountId = widget.expenseToEdit!.accountId;
+      } else if (accounts.length == 1) {
+        _selectedAccountId = accounts.first.id;
+      }
+    }
+
+    final hasSelected = accounts.any((a) => a.id == _selectedAccountId);
+    if (_selectedAccountId != null && !hasSelected && accounts.isNotEmpty) {
+      _selectedAccountId = accounts.any((a) => a.isDefault) 
+          ? accounts.firstWhere((a) => a.isDefault).id 
+          : accounts.first.id;
+    }
     
     final isIncomeMode = _mode == TransactionMode.income;
     final currentCategoryType = isIncomeMode ? CategoryType.income : CategoryType.expense;
@@ -430,6 +451,35 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                   const SizedBox(height: 20),
                 ],
+
+                _buildSectionLabel('Account'),
+                DropdownButtonFormField<String>(
+                  value: _selectedAccountId,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'Select Account',
+                  ),
+                  items: accounts.map((acc) {
+                    return DropdownMenuItem<String>(
+                      value: acc.id,
+                      child: Row(
+                        children: [
+                          Icon(acc.icon, color: acc.color, size: 18),
+                          const SizedBox(width: 8),
+                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedAccountId = val;
+                    });
+                  },
+                  validator: (val) => val == null || val.isEmpty ? 'Please select an account' : null,
+                ),
+                const SizedBox(height: 16),
 
                 _buildSectionLabel('Sub-category (Optional)'),
                 TextFormField(

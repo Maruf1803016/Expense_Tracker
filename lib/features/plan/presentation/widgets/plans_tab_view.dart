@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 import 'package:uuid/uuid.dart';
-import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
@@ -15,6 +14,7 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
 class PlansTabView extends StatefulWidget {
   const PlansTabView({super.key});
@@ -772,6 +772,10 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
         ? 'Deposit to ${widget.plan.title}'
         : 'Withdrawal from ${widget.plan.title}';
 
+    final accountProvider = context.read<AccountProvider>();
+    final defaultAccount = accountProvider.accounts.firstWhere((a) => a.isDefault, orElse: () => accountProvider.accounts.first);
+    final defaultAccountId = defaultAccount.id;
+
     final tx = Expense(
       id: const Uuid().v4(),
       title: txTitle,
@@ -781,6 +785,7 @@ class _DepositWithdrawModalState extends State<_DepositWithdrawModal> {
       note: widget.isDeposit ? 'Goal deposit' : 'Goal withdrawal',
       type: widget.isDeposit ? CategoryType.expense : CategoryType.income,
       planId: widget.plan.id,
+      accountId: defaultAccountId,
     );
 
     Navigator.pop(context);

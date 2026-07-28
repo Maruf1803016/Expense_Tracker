@@ -15,6 +15,7 @@ class ExpenseSearchProvider with ChangeNotifier {
   // -- Search State --
   String _query = '';
   List<String> _selectedCategoryIds = [];
+  List<String> _selectedAccountIds = [];
   DateTime? _startDate;
   DateTime? _endDate;
   double? _minAmount;
@@ -32,6 +33,7 @@ class ExpenseSearchProvider with ChangeNotifier {
   // -- Getters --
   String get query => _query;
   List<String> get selectedCategoryIds => _selectedCategoryIds;
+  List<String> get selectedAccountIds => _selectedAccountIds;
   DateTime? get startDate => _startDate;
   DateTime? get endDate => _endDate;
   double? get minAmount => _minAmount;
@@ -47,6 +49,7 @@ class ExpenseSearchProvider with ChangeNotifier {
 
   void updateFilters({
     List<String>? categoryIds,
+    List<String>? accountIds,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -56,6 +59,7 @@ class ExpenseSearchProvider with ChangeNotifier {
     required List<Category> allCategories,
   }) {
     if (categoryIds != null) _selectedCategoryIds = categoryIds;
+    if (accountIds != null) _selectedAccountIds = accountIds;
     if (startDate != null) _startDate = startDate;
     if (endDate != null) _endDate = endDate;
     if (minAmount != null) _minAmount = minAmount;
@@ -68,6 +72,7 @@ class ExpenseSearchProvider with ChangeNotifier {
   void clearFilters(List<Expense> allExpenses, List<Category> allCategories) {
     _query = '';
     _selectedCategoryIds = [];
+    _selectedAccountIds = [];
     _startDate = null;
     _endDate = null;
     _minAmount = null;
@@ -92,6 +97,7 @@ class ExpenseSearchProvider with ChangeNotifier {
       allCategories: allCategories,
       query: _query,
       categoryIds: _selectedCategoryIds,
+      accountIds: _selectedAccountIds,
       startDate: _startDate,
       endDate: _endDate,
       minAmount: _minAmount,
@@ -107,6 +113,7 @@ class ExpenseSearchProvider with ChangeNotifier {
   void clear() {
     _query = '';
     _selectedCategoryIds = [];
+    _selectedAccountIds = [];
     _startDate = null;
     _endDate = null;
     _minAmount = null;

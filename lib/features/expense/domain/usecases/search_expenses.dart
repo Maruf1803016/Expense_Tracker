@@ -7,6 +7,7 @@ class SearchExpensesParams {
   final List<Category> allCategories;
   final String? query;
   final List<String>? categoryIds;
+  final List<String>? accountIds;
   final DateTime? startDate;
   final DateTime? endDate;
   final double? minAmount;
@@ -18,6 +19,7 @@ class SearchExpensesParams {
     required this.allCategories,
     this.query,
     this.categoryIds,
+    this.accountIds,
     this.startDate,
     this.endDate,
     this.minAmount,
@@ -39,6 +41,7 @@ class SearchExpensesUseCase {
       allCategories: params.allCategories,
       query: params.query,
       categoryIds: params.categoryIds,
+      accountIds: params.accountIds,
       startDate: params.startDate,
       endDate: params.endDate,
       minAmount: params.minAmount,

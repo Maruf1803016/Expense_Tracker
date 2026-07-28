@@ -8,6 +8,7 @@ import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/recycle_bin_page.dart';
 import 'package:expense_tracker/features/auth/presentation/pages/profile_page.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/features/account/presentation/pages/accounts_management_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -80,6 +81,18 @@ class SettingsPage extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emeraldGreen),
                   ),
                 ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.account_balance_outlined),
+                title: const Text('Manage Accounts'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AccountsManagementPage()),
+                  );
+                },
               ),
               const Divider(height: 1),
               ListTile(

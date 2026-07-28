@@ -12,6 +12,7 @@ class ExpenseQueryEngine {
     List<Expense> expenses, {
     String? query,
     List<String>? categoryIds,
+    List<String>? accountIds,
     DateTime? startDate,
     DateTime? endDate,
     double? minAmount,
@@ -41,6 +42,11 @@ class ExpenseQueryEngine {
 
       // Category Filter
       if (categoryIds != null && categoryIds.isNotEmpty && !categoryIds.contains(e.categoryId)) {
+        return false;
+      }
+
+      // Account Filter
+      if (accountIds != null && accountIds.isNotEmpty && !accountIds.contains(e.accountId)) {
         return false;
       }
 

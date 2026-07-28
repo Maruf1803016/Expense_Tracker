@@ -4,7 +4,9 @@ import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
 class ExpenseListItem extends StatelessWidget {
   final Expense expense;
@@ -23,6 +25,10 @@ class ExpenseListItem extends StatelessWidget {
     final isIncome = category.type == CategoryType.income;
     final displayColor = isIncome ? AppTheme.incomeColor : AppTheme.expenseColor;
     final isPlanLinked = expense.planId != null;
+    final accounts = context.watch<AccountProvider>().accounts;
+    final account = accounts.any((a) => a.id == expense.accountId) 
+        ? accounts.firstWhere((a) => a.id == expense.accountId) 
+        : null;
 
     return Card(
       elevation: 0,
@@ -91,6 +97,25 @@ class ExpenseListItem extends StatelessWidget {
                                 Flexible(
                                   child: Text(
                                     expense.subCategory!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white.withOpacity(0.5),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              if (account != null) ...[
+                                const SizedBox(width: 4),
+                                Text(
+                                  '•',
+                                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    account.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
