@@ -666,7 +666,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       textColor = AppTheme.muted;
     }
 
-    final formattedAmount = CurrencyFormatter.format(source.expectedAmount, symbol: currencySymbol);
+    final formattedAmount = CurrencyFormatter.format(source.expectedAmount);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

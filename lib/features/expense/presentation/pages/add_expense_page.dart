@@ -609,6 +609,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       });
                     },
                   ),
+                ],
                 if (_mode == TransactionMode.income && widget.expenseToEdit == null) ...[
                   const SizedBox(height: 16),
                   SwitchListTile.adaptive(
