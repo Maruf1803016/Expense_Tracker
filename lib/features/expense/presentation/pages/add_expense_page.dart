@@ -783,6 +783,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ],
         ),
       ),
+    );
+  }
+
   Widget _buildSubCategorySection(BuildContext context, Category category) {
     final catColor = AppTheme.getCategoryColor(category.id, category.name);
     
