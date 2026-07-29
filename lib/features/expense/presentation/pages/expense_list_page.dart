@@ -901,7 +901,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                               account.name,
                               style: GoogleFonts.inter(
                                 fontSize: 11,
-                                fontWeight: FontWeight.medium,
+                                fontWeight: FontWeight.w500,
                                 color: AppTheme.textDark,
                               ),
                             ),
