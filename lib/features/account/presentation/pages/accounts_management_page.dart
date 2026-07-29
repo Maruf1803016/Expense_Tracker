@@ -54,7 +54,7 @@ class AccountsManagementPage extends StatelessWidget {
                   separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final account = accounts[index];
-                    final balance = _calculateAccountBalance(account, expenseProvider.expenses);
+                    final balance = Account.calculateBalance(account, expenseProvider.expenses);
 
                     return Container(
                       decoration: BoxDecoration(
@@ -188,21 +188,6 @@ class AccountsManagementPage extends StatelessWidget {
       ),
     );
   }
-
-  double _calculateAccountBalance(Account account, List<Expense> expenses) {
-    double balance = account.initialBalance;
-    for (var expense in expenses) {
-      if (expense.accountId == account.id && !expense.isDeleted) {
-        if (expense.type == CategoryType.income) {
-          balance += expense.amount;
-        } else {
-          balance -= expense.amount;
-        }
-      }
-    }
-    return balance;
-  }
-
   void _showAddEditAccountSheet(BuildContext context, AccountProvider provider, Account? account) {
     showModalBottomSheet(
       context: context,

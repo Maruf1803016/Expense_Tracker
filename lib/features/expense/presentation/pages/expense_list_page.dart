@@ -18,6 +18,9 @@ import 'package:expense_tracker/features/settings/presentation/providers/setting
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/widgets/edit_recurring_transaction_sheet.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
+import 'package:expense_tracker/features/account/presentation/pages/accounts_management_page.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
@@ -83,6 +86,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
+        _buildNetWorthCard(context, provider),
         _buildSearchAndFilters(context, provider),
         const SizedBox(height: 16),
         if (showUpcomingIncome) ...[
@@ -781,6 +785,143 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNetWorthCard(BuildContext context, ExpenseProvider expenseProvider) {
+    final accountProvider = context.watch<AccountProvider>();
+    final accounts = accountProvider.accounts;
+    
+    // Sum of all accounts balance
+    double netWorth = 0.0;
+    final List<MapEntry<Account, double>> accountBalances = [];
+    
+    for (final account in accounts) {
+      final balance = Account.calculateBalance(account, expenseProvider.expenses);
+      netWorth += balance;
+      accountBalances.add(MapEntry(account, balance));
+    }
+    
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.line),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AccountsManagementPage()),
+          );
+        },
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'NET WORTH',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.muted,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        'Manage',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.gold,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 14,
+                        color: AppTheme.gold,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                CurrencyFormatter.format(netWorth),
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              if (accountBalances.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: accountBalances.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final entry = accountBalances[index];
+                      final account = entry.key;
+                      final balance = entry.value;
+                      final isNegative = balance < 0;
+                      
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.paper,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              account.icon,
+                              color: account.color,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              account.name,
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.medium,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              CurrencyFormatter.format(balance),
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isNegative ? AppTheme.brick : AppTheme.emerald,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),

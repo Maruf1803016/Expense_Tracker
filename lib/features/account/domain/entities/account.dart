@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
+import 'package:expense_tracker/features/category/domain/entities/category.dart';
 
 class Account extends Equatable {
   final String id;
@@ -19,6 +21,16 @@ class Account extends Equatable {
     required this.isDefault,
     required this.createdAt,
   });
+
+  static double calculateBalance(Account account, List<Expense> expenses) {
+    double balance = account.initialBalance;
+    for (var expense in expenses) {
+      if (expense.accountId == account.id && !expense.isDeleted) {
+        balance += expense.type == CategoryType.income ? expense.amount : -expense.amount;
+      }
+    }
+    return balance;
+  }
 
   @override
   List<Object?> get props => [id, name, icon, color, initialBalance, isDefault, createdAt];
