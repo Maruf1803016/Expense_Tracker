@@ -127,16 +127,18 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
     if (filteredExpenses.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.search_off_rounded, size: 64, color: AppTheme.muted),
-            SizedBox(height: 16),
-            Text(
-              'No results found',
-              style: TextStyle(color: AppTheme.muted, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.search_off_rounded, size: 64, color: AppTheme.muted),
+              SizedBox(height: 16),
+              Text(
+                'No results found',
+                style: TextStyle(color: AppTheme.muted, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -206,32 +208,34 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppTheme.gold.withOpacity(0.05),
-              shape: BoxShape.circle,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.gold.withOpacity(0.05),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.receipt_long_outlined, size: 64, color: AppTheme.gold),
             ),
-            child: const Icon(Icons.receipt_long_outlined, size: 64, color: AppTheme.gold),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'No Transactions Yet',
-            style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 40.0),
-            child: Text(
-              'Add transactions using the floating action button at the bottom.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.muted),
+            const SizedBox(height: 24),
+            Text(
+              'No Transactions Yet',
+              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40.0),
+              child: Text(
+                'Add transactions using the floating action button at the bottom.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppTheme.muted),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
