@@ -15,6 +15,8 @@ import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
 import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
+import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 enum TransactionMode {
   expense,
@@ -45,7 +47,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _titleController;
   late TextEditingController _amountController;
   late TextEditingController _noteController;
-  late TextEditingController _subCategoryController;
+  String? _selectedSubCategoryName;
+  String? _selectedSubCategoryIconName;
   
   String? _selectedCategoryId;
   late DateTime _selectedDate;
@@ -111,9 +114,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
     );
-    _subCategoryController = TextEditingController(
-      text: widget.expenseToEdit?.subCategory ?? '',
-    );
+    _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
+    _selectedSubCategoryIconName = widget.expenseToEdit?.subCategoryIcon;
     
     _selectedCategoryId = widget.preselectedCategoryId ?? widget.expenseToEdit?.categoryId;
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
@@ -136,7 +138,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _titleController.dispose();
     _amountController.dispose();
     _noteController.dispose();
-    _subCategoryController.dispose();
     super.dispose();
   }
 
@@ -207,9 +208,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
           date: _selectedDate,
           note: _noteController.text.trim(),
           accountId: _selectedAccountId!,
-          subCategory: _subCategoryController.text.trim().isEmpty
-              ? null
-              : _subCategoryController.text.trim(),
+          subCategory: _mode == TransactionMode.income ? null : _selectedSubCategoryName,
+          subCategoryIcon: _mode == TransactionMode.income ? null : _selectedSubCategoryIconName,
           type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
           planId: _selectedPlanId,
         );
@@ -349,6 +349,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
+    Category? selectedCategory;
+    try {
+      if (_selectedCategoryId != null && categories.isNotEmpty) {
+        selectedCategory = categories.firstWhere((c) => c.id == _selectedCategoryId);
+      }
+    } catch (_) {}
+
     final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
     final displayColor = _mode == TransactionMode.expense 
         ? AppTheme.brick 
@@ -468,8 +475,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       mainAxisSpacing: 10,
                       childAspectRatio: 0.9,
                     ),
-                    itemCount: filteredCategories.length,
+                    itemCount: filteredCategories.length + 1,
                     itemBuilder: (context, idx) {
+                      if (idx == filteredCategories.length) {
+                        return _buildAddCategoryTile(context, currentCategoryType);
+                      }
+                      
                       final category = filteredCategories[idx];
                       final isSelected = _selectedCategoryId == category.id;
                       final catColor = AppTheme.getCategoryColor(category.id, category.name);
@@ -477,6 +488,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         onTap: () {
                           setState(() {
                             _selectedCategoryId = category.id;
+                            _selectedSubCategoryName = null;
+                            _selectedSubCategoryIconName = null;
                           });
                         },
                         borderRadius: BorderRadius.circular(16),
@@ -512,6 +525,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  if (_mode == TransactionMode.expense && selectedCategory != null) ...[
+                    _buildSubCategorySection(context, selectedCategory),
+                    const SizedBox(height: 20),
+                  ],
                 ],
 
                 _buildSectionLabel('Account'),
@@ -540,16 +557,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     });
                   },
                   validator: (val) => val == null || val.isEmpty ? 'Please select an account' : null,
-                ),
-                const SizedBox(height: 16),
-
-                _buildSectionLabel('Sub-category (Optional)'),
-                TextFormField(
-                  controller: _subCategoryController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Coffee, Bus fare',
-                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -776,6 +783,278 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ],
         ),
       ),
+  Widget _buildSubCategorySection(BuildContext context, Category category) {
+    final catColor = AppTheme.getCategoryColor(category.id, category.name);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('Sub-category (Optional)'),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 44,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              ...category.subCategories.map((sub) {
+                final isSelected = _selectedSubCategoryName == sub.name;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          _selectedSubCategoryName = null;
+                          _selectedSubCategoryIconName = null;
+                        } else {
+                          _selectedSubCategoryName = sub.name;
+                          _selectedSubCategoryIconName = IconUtils.getIconName(sub.icon);
+                        }
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? catColor.withOpacity(0.15) : AppTheme.paper2,
+                        border: Border.all(
+                          color: isSelected ? catColor : AppTheme.line,
+                          width: isSelected ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            sub.icon,
+                            size: 14,
+                            color: isSelected ? catColor : AppTheme.muted,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            sub.name,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? AppTheme.textDark : AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              
+              // Trailing "+" chip
+              InkWell(
+                onTap: () => _showAddSubCategoryDialog(context, category),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.paper2,
+                    border: Border.all(color: AppTheme.line, width: 1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add, size: 14, color: AppTheme.muted),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Add',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: AppTheme.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddCategoryTile(BuildContext context, CategoryType type) {
+    return InkWell(
+      onTap: () {
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (context) => CreateCategorySheet(
+            categoryProvider: context.read<CategoryProvider>(),
+            type: type,
+            onSave: (newCategoryId) {
+              setState(() {
+                _selectedCategoryId = newCategoryId;
+                _selectedSubCategoryName = null;
+                _selectedSubCategoryIconName = null;
+              });
+            },
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.paper2,
+          border: Border.all(
+            color: AppTheme.line,
+            width: 1,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add, color: AppTheme.muted, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              'Add Category',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: AppTheme.muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddSubCategoryDialog(BuildContext context, Category category) {
+    final nameController = TextEditingController();
+    String? selectedIconName = IconUtils.availableIconNames.first;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.paperCard,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text(
+                'New Sub-category',
+                style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Sub-category Name',
+                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      style: GoogleFonts.inter(color: AppTheme.textDark),
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. Coffee, Uber',
+                      ),
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Select Icon',
+                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 150,
+                      width: 300,
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                        itemCount: IconUtils.availableIconNames.length,
+                        itemBuilder: (context, index) {
+                          final name = IconUtils.availableIconNames[index];
+                          final icon = IconUtils.getIcon(name);
+                          final isSelected = selectedIconName == name;
+                          final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                          return InkWell(
+                            onTap: () => setDialogState(() => selectedIconName = name),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? catColor.withOpacity(0.15) : AppTheme.paper2,
+                                border: Border.all(
+                                  color: isSelected ? catColor : AppTheme.line,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(icon, color: isSelected ? catColor : AppTheme.muted, size: 20),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+                ),
+                ElevatedButton(
+                  onPressed: nameController.text.trim().isEmpty || selectedIconName == null
+                      ? null
+                      : () async {
+                          final subName = nameController.text.trim();
+                          final subIcon = IconUtils.getIcon(selectedIconName);
+                          final newSub = SubCategory(name: subName, icon: subIcon);
+
+                          final updatedSubs = List<SubCategory>.from(category.subCategories)..add(newSub);
+                          final updatedCategory = Category(
+                            id: category.id,
+                            name: category.name,
+                            type: category.type,
+                            icon: category.icon,
+                            subCategories: updatedSubs,
+                          );
+
+                          try {
+                            await context.read<CategoryProvider>().update(updatedCategory);
+                            
+                            setState(() {
+                              _selectedSubCategoryName = subName;
+                              _selectedSubCategoryIconName = selectedIconName;
+                            });
+
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error adding subcategory: $e')),
+                              );
+                            }
+                          }
+                        },
+                  child: Text('Save', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
