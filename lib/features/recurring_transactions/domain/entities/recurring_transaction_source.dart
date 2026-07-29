@@ -1,23 +1,25 @@
 import 'package:equatable/equatable.dart';
 
-class RecurringIncomeSource extends Equatable {
+class RecurringTransactionSource extends Equatable {
   final String id;
   final String name;
   final double expectedAmount;
   final String frequency; // 'weekly' | 'biweekly' | 'monthly'
   final DateTime nextDueDate;
-  final String status; // 'pending' | 'received'
+  final String status; // 'pending' | 'received' | 'paid'
+  final String type; // 'income' | 'expense'
   final String? categoryId;
   final String? accountId;
   final DateTime createdAt;
 
-  const RecurringIncomeSource({
+  const RecurringTransactionSource({
     required this.id,
     required this.name,
     required this.expectedAmount,
     required this.frequency,
     required this.nextDueDate,
     required this.status,
+    required this.type,
     this.categoryId,
     this.accountId,
     required this.createdAt,
@@ -31,6 +33,7 @@ class RecurringIncomeSource extends Equatable {
         frequency,
         nextDueDate,
         status,
+        type,
         categoryId,
         accountId,
         createdAt,

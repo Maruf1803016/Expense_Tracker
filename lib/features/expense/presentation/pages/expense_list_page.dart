@@ -15,9 +15,9 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
-import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
-import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
-import 'package:expense_tracker/features/recurring_income/presentation/widgets/edit_recurring_income_sheet.dart';
+import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
+import 'package:expense_tracker/features/recurring_transactions/presentation/widgets/edit_recurring_transaction_sheet.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
@@ -73,16 +73,24 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       return true;
     }).toList();
 
-    final recurringSources = context.watch<RecurringIncomeProvider>().sources;
-    final showUpcoming = provider.selectedFilter == ExpenseFilter.income && recurringSources.isNotEmpty;
+    final recurringSources = context.watch<RecurringTransactionProvider>().sources;
+    final incomeSources = recurringSources.where((s) => s.type == 'income').toList();
+    final expenseSources = recurringSources.where((s) => s.type == 'expense').toList();
+
+    final showUpcomingIncome = (provider.selectedFilter == ExpenseFilter.income || provider.selectedFilter == ExpenseFilter.all) && incomeSources.isNotEmpty;
+    final showUpcomingBills = (provider.selectedFilter == ExpenseFilter.expense || provider.selectedFilter == ExpenseFilter.all) && expenseSources.isNotEmpty;
 
     return Column(
       children: [
         _buildBalanceSummary(context, provider),
         _buildSearchAndFilters(context, provider),
         const SizedBox(height: 16),
-        if (showUpcoming) ...[
-          _buildUpcomingIncomeSection(context, recurringSources),
+        if (showUpcomingIncome) ...[
+          _buildUpcomingSection(context, incomeSources, isIncome: true),
+          const SizedBox(height: 16),
+        ],
+        if (showUpcomingBills) ...[
+          _buildUpcomingSection(context, expenseSources, isIncome: false),
           const SizedBox(height: 16),
         ],
         Expanded(
@@ -618,7 +626,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     }
   }
 
-  Widget _buildUpcomingIncomeSection(BuildContext context, List<RecurringIncomeSource> sources) {
+  Widget _buildUpcomingSection(BuildContext context, List<RecurringTransactionSource> sources, {required bool isIncome}) {
     if (sources.isEmpty) return const SizedBox.shrink();
 
     final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
@@ -631,7 +639,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12.0),
             child: Text(
-              'UPCOMING INCOME',
+              isIncome ? 'UPCOMING INCOME' : 'UPCOMING BILLS',
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
@@ -640,13 +648,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               ),
             ),
           ),
-          ...sources.map((source) => _buildUpcomingIncomeCard(context, source, currencySymbol)),
+          ...sources.map((source) => _buildUpcomingCard(context, source, currencySymbol, isIncome: isIncome)),
         ],
       ),
     );
   }
 
-  Widget _buildUpcomingIncomeCard(BuildContext context, RecurringIncomeSource source, String currencySymbol) {
+  Widget _buildUpcomingCard(BuildContext context, RecurringTransactionSource source, String currencySymbol, {required bool isIncome}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final due = DateTime(source.nextDueDate.year, source.nextDueDate.month, source.nextDueDate.day);
@@ -685,7 +693,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           showModalBottomSheet(
             context: context,
             isScrollControlled: true,
-            builder: (context) => EditRecurringIncomeSheet(source: source),
+            builder: (context) => EditRecurringTransactionSheet(source: source),
           );
         },
         title: Row(
@@ -718,11 +726,22 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 4.0),
-          child: Text(
-            '${source.frequency.toUpperCase()} • $formattedAmount',
-            style: GoogleFonts.inter(
-              color: AppTheme.muted,
-              fontSize: 12,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${source.frequency.toUpperCase()} • ',
+                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12),
+                ),
+                TextSpan(
+                  text: formattedAmount,
+                  style: GoogleFonts.inter(
+                    color: isIncome ? AppTheme.emerald : AppTheme.textDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -730,10 +749,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           onPressed: () async {
             final messenger = ScaffoldMessenger.of(context);
             try {
-              await context.read<RecurringIncomeProvider>().markAsReceived(source);
+              await context.read<RecurringTransactionProvider>().markAsComplete(source);
               messenger.showSnackBar(
-                const SnackBar(
-                  content: Text('Income marked as received successfully'),
+                SnackBar(
+                  content: Text(isIncome ? 'Income marked as received successfully' : 'Bill marked as paid successfully'),
                   backgroundColor: AppTheme.emerald,
                 ),
               );
@@ -747,8 +766,8 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             }
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.emerald.withOpacity(0.15),
-            foregroundColor: AppTheme.emerald,
+            backgroundColor: (isIncome ? AppTheme.emerald : AppTheme.textDark).withOpacity(0.15),
+            foregroundColor: isIncome ? AppTheme.emerald : AppTheme.textDark,
             elevation: 0,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             minimumSize: Size.zero,
@@ -757,7 +776,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             ),
           ),
           child: Text(
-            'Receive',
+            isIncome ? 'Mark as Received' : 'Mark as Paid',
             style: GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.bold,

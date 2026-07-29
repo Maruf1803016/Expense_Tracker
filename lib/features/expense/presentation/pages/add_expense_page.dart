@@ -13,8 +13,8 @@ import 'package:expense_tracker/features/category/presentation/providers/categor
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
-import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
-import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
+import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 
@@ -227,15 +227,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
         } else {
           await provider.addExpense(expense);
           
-          if (_mode == TransactionMode.income && _isRecurring) {
-            final recurringProvider = context.read<RecurringIncomeProvider>();
-            final source = RecurringIncomeSource(
+          if ((_mode == TransactionMode.income || _mode == TransactionMode.expense) && _isRecurring) {
+            final recurringProvider = context.read<RecurringTransactionProvider>();
+            final source = RecurringTransactionSource(
               id: const Uuid().v4(),
               name: expense.title,
               expectedAmount: expense.amount,
               frequency: _recurringFrequency,
               nextDueDate: _recurringNextDueDate,
               status: 'pending',
+              type: _mode == TransactionMode.income ? 'income' : 'expense',
               categoryId: expense.categoryId,
               accountId: expense.accountId,
               createdAt: DateTime.now(),
@@ -617,22 +618,22 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     },
                   ),
                 ],
-                if (_mode == TransactionMode.income && widget.expenseToEdit == null) ...[
+                if ((_mode == TransactionMode.income || _mode == TransactionMode.expense) && widget.expenseToEdit == null) ...[
                   const SizedBox(height: 16),
                   SwitchListTile.adaptive(
                     title: Text(
-                      'Recurring income',
+                      'Make this recurring',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textDark,
                       ),
                     ),
                     subtitle: Text(
-                      'Automatically track this income frequency',
+                      'Automatically track this transaction schedule',
                       style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12),
                     ),
                     value: _isRecurring,
-                    activeColor: AppTheme.emerald,
+                    activeColor: _mode == TransactionMode.income ? AppTheme.emerald : AppTheme.gold,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) {
                       setState(() {

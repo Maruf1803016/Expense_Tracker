@@ -2,75 +2,76 @@ import 'package:uuid/uuid.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/expense/domain/repositories/expense_repository.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
-import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
-import 'package:expense_tracker/features/recurring_income/domain/repositories/recurring_income_repository.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/repositories/recurring_transaction_repository.dart';
 
-class GetRecurringIncomeSourcesUseCase {
-  final RecurringIncomeRepository repository;
+class GetRecurringTransactionSourcesUseCase {
+  final RecurringTransactionRepository repository;
 
-  GetRecurringIncomeSourcesUseCase(this.repository);
+  GetRecurringTransactionSourcesUseCase(this.repository);
 
-  Stream<List<RecurringIncomeSource>> call() {
-    return repository.getRecurringIncomeSourcesStream();
+  Stream<List<RecurringTransactionSource>> call() {
+    return repository.getRecurringTransactionSourcesStream();
   }
 }
 
-class AddRecurringIncomeSourceUseCase {
-  final RecurringIncomeRepository repository;
+class AddRecurringTransactionSourceUseCase {
+  final RecurringTransactionRepository repository;
 
-  AddRecurringIncomeSourceUseCase(this.repository);
+  AddRecurringTransactionSourceUseCase(this.repository);
 
-  Future<void> call(RecurringIncomeSource source) {
-    return repository.addRecurringIncomeSource(source);
+  Future<void> call(RecurringTransactionSource source) {
+    return repository.addRecurringTransactionSource(source);
   }
 }
 
-class UpdateRecurringIncomeSourceUseCase {
-  final RecurringIncomeRepository repository;
+class UpdateRecurringTransactionSourceUseCase {
+  final RecurringTransactionRepository repository;
 
-  UpdateRecurringIncomeSourceUseCase(this.repository);
+  UpdateRecurringTransactionSourceUseCase(this.repository);
 
-  Future<void> call(RecurringIncomeSource source) {
-    return repository.updateRecurringIncomeSource(source);
+  Future<void> call(RecurringTransactionSource source) {
+    return repository.updateRecurringTransactionSource(source);
   }
 }
 
-class DeleteRecurringIncomeSourceUseCase {
-  final RecurringIncomeRepository repository;
+class DeleteRecurringTransactionSourceUseCase {
+  final RecurringTransactionRepository repository;
 
-  DeleteRecurringIncomeSourceUseCase(this.repository);
+  DeleteRecurringTransactionSourceUseCase(this.repository);
 
   Future<void> call(String id) {
-    return repository.deleteRecurringIncomeSource(id);
+    return repository.deleteRecurringTransactionSource(id);
   }
 }
 
-class MarkRecurringIncomeReceivedUseCase {
-  final RecurringIncomeRepository recurringRepository;
+class MarkRecurringTransactionCompleteUseCase {
+  final RecurringTransactionRepository recurringRepository;
   final ExpenseRepository expenseRepository;
 
-  MarkRecurringIncomeReceivedUseCase({
+  MarkRecurringTransactionCompleteUseCase({
     required this.recurringRepository,
     required this.expenseRepository,
   });
 
-  Future<void> call(RecurringIncomeSource source) async {
+  Future<void> call(RecurringTransactionSource source) async {
     // 1. Calculate next due date using correct calendar arithmetic
     final nextDate = _advanceDueDate(source.nextDueDate, source.frequency);
-    final updatedSource = RecurringIncomeSource(
+    final updatedSource = RecurringTransactionSource(
       id: source.id,
       name: source.name,
       expectedAmount: source.expectedAmount,
       frequency: source.frequency,
       nextDueDate: nextDate,
       status: 'pending',
+      type: source.type,
       categoryId: source.categoryId,
       accountId: source.accountId,
       createdAt: source.createdAt,
     );
 
-    // 2. Update recurring income source first (to prevent silent duplicate creation on retry if transaction write fails)
-    await recurringRepository.updateRecurringIncomeSource(updatedSource);
+    // 2. Update recurring source first (to prevent silent duplicate creation on retry if transaction write fails)
+    await recurringRepository.updateRecurringTransactionSource(updatedSource);
 
     // 3. Create the transaction
     final newTransaction = Expense(
@@ -79,9 +80,9 @@ class MarkRecurringIncomeReceivedUseCase {
       amount: source.expectedAmount,
       categoryId: source.categoryId ?? '',
       date: DateTime.now(),
-      note: 'Received recurring income',
+      note: source.type == 'income' ? 'Received recurring income' : 'Paid recurring bill',
       accountId: source.accountId ?? '',
-      type: CategoryType.income,
+      type: source.type == 'income' ? CategoryType.income : CategoryType.expense,
     );
     await expenseRepository.addExpense(newTransaction);
   }
@@ -107,8 +108,8 @@ class MarkRecurringIncomeReceivedUseCase {
         return DateTime(nextYear, nextMonth, nextDay, date.hour, date.minute, date.second);
       default:
         return date;
+      }
     }
-  }
 
   int _getDaysInMonth(int year, int month) {
     if (month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) {

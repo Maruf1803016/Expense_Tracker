@@ -5,19 +5,19 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
-import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
-import 'package:expense_tracker/features/recurring_income/presentation/providers/recurring_income_provider.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
+import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 
-class EditRecurringIncomeSheet extends StatefulWidget {
-  final RecurringIncomeSource source;
+class EditRecurringTransactionSheet extends StatefulWidget {
+  final RecurringTransactionSource source;
 
-  const EditRecurringIncomeSheet({super.key, required this.source});
+  const EditRecurringTransactionSheet({super.key, required this.source});
 
   @override
-  State<EditRecurringIncomeSheet> createState() => _EditRecurringIncomeSheetState();
+  State<EditRecurringTransactionSheet> createState() => _EditRecurringTransactionSheetState();
 }
 
-class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
+class _EditRecurringTransactionSheetState extends State<EditRecurringTransactionSheet> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _amountController;
@@ -66,19 +66,20 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final updated = RecurringIncomeSource(
+      final updated = RecurringTransactionSource(
         id: widget.source.id,
         name: _nameController.text.trim(),
         expectedAmount: double.parse(_amountController.text.trim()),
         frequency: _frequency,
         nextDueDate: _nextDueDate,
         status: widget.source.status,
+        type: widget.source.type,
         categoryId: _selectedCategoryId,
         accountId: _selectedAccountId,
         createdAt: widget.source.createdAt,
       );
 
-      await context.read<RecurringIncomeProvider>().updateSource(updated);
+      await context.read<RecurringTransactionProvider>().updateSource(updated);
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Recurring source updated'),
@@ -123,7 +124,7 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
     if (confirmed == true && mounted) {
       final messenger = ScaffoldMessenger.of(context);
       try {
-        await context.read<RecurringIncomeProvider>().deleteSource(widget.source.id);
+        await context.read<RecurringTransactionProvider>().deleteSource(widget.source.id);
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Recurring source removed'),
@@ -145,10 +146,13 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
   @override
   Widget build(BuildContext context) {
     final expenseProvider = context.watch<ExpenseProvider>();
+    final targetType = widget.source.type == 'income' ? CategoryType.income : CategoryType.expense;
     final categories = expenseProvider.categories
-        .where((c) => c.type == CategoryType.income && c.id != 'other')
+        .where((c) => c.type == targetType && (targetType != CategoryType.income || c.id != 'other'))
         .toList();
     final accounts = context.watch<AccountProvider>().accounts;
+
+    final isIncome = widget.source.type == 'income';
 
     return Container(
       padding: EdgeInsets.only(
@@ -172,7 +176,7 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Edit Recurring Income',
+                    isIncome ? 'Edit Recurring Income' : 'Edit Recurring Bill',
                     style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                   ),
                   IconButton(
@@ -187,7 +191,7 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
               TextFormField(
                 controller: _nameController,
                 style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(hintText: 'e.g. Monthly Salary'),
+                decoration: InputDecoration(hintText: isIncome ? 'e.g. Monthly Salary' : 'e.g. Rent, Netflix'),
                 validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
@@ -241,7 +245,7 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
               ),
               const SizedBox(height: 16),
 
-              _buildLabel('Income Category'),
+              _buildLabel(isIncome ? 'Income Category' : 'Expense Category'),
               DropdownButtonFormField<String>(
                 value: _selectedCategoryId,
                 dropdownColor: AppTheme.paperCard,
@@ -257,7 +261,7 @@ class _EditRecurringIncomeSheetState extends State<EditRecurringIncomeSheet> {
               ),
               const SizedBox(height: 16),
 
-              _buildLabel('Deposit Account'),
+              _buildLabel(isIncome ? 'Deposit Account' : 'Payment Account'),
               DropdownButtonFormField<String>(
                 value: _selectedAccountId,
                 dropdownColor: AppTheme.paperCard,

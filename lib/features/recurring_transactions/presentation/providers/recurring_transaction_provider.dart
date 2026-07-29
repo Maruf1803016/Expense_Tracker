@@ -1,17 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:expense_tracker/features/recurring_income/domain/entities/recurring_income_source.dart';
-import 'package:expense_tracker/features/recurring_income/domain/usecases/recurring_income_usecases.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
+import 'package:expense_tracker/features/recurring_transactions/domain/usecases/recurring_transaction_usecases.dart';
 
-class RecurringIncomeProvider with ChangeNotifier {
-  final GetRecurringIncomeSourcesUseCase _getRecurringSources;
-  final AddRecurringIncomeSourceUseCase _addRecurringSource;
-  final UpdateRecurringIncomeSourceUseCase _updateRecurringSource;
-  final DeleteRecurringIncomeSourceUseCase _deleteRecurringSource;
-  final MarkRecurringIncomeReceivedUseCase _markReceived;
+class RecurringTransactionProvider with ChangeNotifier {
+  final GetRecurringTransactionSourcesUseCase _getRecurringSources;
+  final AddRecurringTransactionSourceUseCase _addRecurringSource;
+  final UpdateRecurringTransactionSourceUseCase _updateRecurringSource;
+  final DeleteRecurringTransactionSourceUseCase _deleteRecurringSource;
+  final MarkRecurringTransactionCompleteUseCase _markComplete;
 
-  List<RecurringIncomeSource> _sources = [];
-  List<RecurringIncomeSource> get sources => _sources;
+  List<RecurringTransactionSource> _sources = [];
+  List<RecurringTransactionSource> get sources => _sources;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
@@ -19,19 +19,21 @@ class RecurringIncomeProvider with ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  StreamSubscription<List<RecurringIncomeSource>>? _subscription;
+  StreamSubscription<List<RecurringTransactionSource>>? _subscription;
 
-  RecurringIncomeProvider({
-    required GetRecurringIncomeSourcesUseCase getRecurringSources,
-    required AddRecurringIncomeSourceUseCase addRecurringSource,
-    required UpdateRecurringIncomeSourceUseCase updateRecurringSource,
-    required DeleteRecurringIncomeSourceUseCase deleteRecurringSource,
-    required MarkRecurringIncomeReceivedUseCase markReceived,
+  RecurringTransactionProvider({
+    required GetRecurringTransactionSourcesUseCase getRecurringSources,
+    required AddRecurringTransactionSourceUseCase addRecurringSource,
+    required UpdateRecurringTransactionSourceUseCase updateRecurringSource,
+    required DeleteRecurringTransactionSourceUseCase deleteRecurringSource,
+    required MarkRecurringTransactionCompleteUseCase markComplete,
   })  : _getRecurringSources = getRecurringSources,
         _addRecurringSource = addRecurringSource,
         _updateRecurringSource = updateRecurringSource,
         _deleteRecurringSource = deleteRecurringSource,
-        _markReceived = markReceived {
+        _markComplete = markComplete;
+
+  void init() {
     _subscribe();
   }
 
@@ -56,7 +58,7 @@ class RecurringIncomeProvider with ChangeNotifier {
     );
   }
 
-  Future<void> addSource(RecurringIncomeSource source) async {
+  Future<void> addSource(RecurringTransactionSource source) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -72,7 +74,7 @@ class RecurringIncomeProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateSource(RecurringIncomeSource source) async {
+  Future<void> updateSource(RecurringTransactionSource source) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -104,12 +106,12 @@ class RecurringIncomeProvider with ChangeNotifier {
     }
   }
 
-  Future<void> markAsReceived(RecurringIncomeSource source) async {
+  Future<void> markAsComplete(RecurringTransactionSource source) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
     try {
-      await _markReceived(source);
+      await _markComplete(source);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
