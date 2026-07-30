@@ -76,10 +76,12 @@ class AccountsManagementPage extends StatelessWidget {
                                   color: account.color.withOpacity(0.15),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
-                                  account.icon,
-                                  color: account.color,
-                                  size: 20,
+                                child: Center(
+                                  child: IconUtils.buildIcon(
+                                    IconUtils.getIconName(account.icon),
+                                    color: account.color,
+                                    size: 20,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 16),
@@ -347,6 +349,36 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
     }
   }
 
+  Widget _buildPresetChip({
+    required String label,
+    required String iconName,
+    required Color color,
+  }) {
+    return ActionChip(
+      avatar: IconUtils.buildIcon(iconName, color: color, size: 14),
+      label: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: AppTheme.textDark,
+        ),
+      ),
+      backgroundColor: AppTheme.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppTheme.line),
+      ),
+      onPressed: () {
+        setState(() {
+          _nameController.text = label;
+          _selectedIconName = iconName;
+          _selectedColor = color;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -383,6 +415,52 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                 ],
               ),
               const SizedBox(height: 20),
+
+              // Quick-start presets (Only for Add flow)
+              if (!isEdit) ...[
+                Text(
+                  'Presets',
+                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildPresetChip(
+                        label: 'Cash',
+                        iconName: 'cash',
+                        color: AppTheme.categoryPalette[5],
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
+                        label: 'Visa',
+                        iconName: 'visa',
+                        color: AppTheme.categoryPalette[1],
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
+                        label: 'Mastercard',
+                        iconName: 'mastercard',
+                        color: AppTheme.categoryPalette[4],
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
+                        label: 'Credit Card',
+                        iconName: 'cards',
+                        color: AppTheme.categoryPalette[0],
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPresetChip(
+                        label: 'Savings',
+                        iconName: 'shield_card',
+                        color: AppTheme.categoryPalette[3],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // Name
               Text(
@@ -491,10 +569,12 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(
-                          icon,
-                          color: isSelected ? _selectedColor : AppTheme.textDark,
-                          size: 20,
+                        child: Center(
+                          child: IconUtils.buildIcon(
+                            name,
+                            color: isSelected ? _selectedColor : AppTheme.textDark,
+                            size: 20,
+                          ),
                         ),
                       ),
                     );

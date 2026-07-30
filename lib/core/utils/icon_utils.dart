@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
 class IconUtils {
+  static const Map<String, String> assetIconMap = {
+    'visa': 'assets/icons/visa.png',
+    'mastercard': 'assets/icons/mastercard.png',
+    'credit_text': 'assets/icons/credit_text.png',
+    'cards': 'assets/icons/cards.png',
+    'shield_card': 'assets/icons/shield_card.png',
+  };
+
   static const Map<String, IconData> iconMap = {
     'restaurant': Icons.restaurant,
     'favorite': Icons.favorite,
@@ -50,6 +58,13 @@ class IconUtils {
     'rent': Icons.apartment,
     'maintenance': Icons.build,
     'furniture': Icons.chair,
+    'cash': Icons.payments,
+    'payments': Icons.payments,
+    'visa': IconData(0xE001, fontFamily: 'CustomIconDummy'),
+    'mastercard': IconData(0xE002, fontFamily: 'CustomIconDummy'),
+    'credit_text': IconData(0xE003, fontFamily: 'CustomIconDummy'),
+    'cards': IconData(0xE004, fontFamily: 'CustomIconDummy'),
+    'shield_card': IconData(0xE005, fontFamily: 'CustomIconDummy'),
   };
 
   static IconData getIcon(String? iconName) {
@@ -58,7 +73,7 @@ class IconUtils {
 
   static String getIconName(IconData icon) {
     for (var entry in iconMap.entries) {
-      if (entry.value == icon) {
+      if (entry.value.codePoint == icon.codePoint && entry.value.fontFamily == icon.fontFamily) {
         return entry.key;
       }
     }
@@ -66,4 +81,16 @@ class IconUtils {
   }
 
   static List<String> get availableIconNames => iconMap.keys.toList();
+
+  static Widget buildIcon(String iconName, {Color? color, double size = 24}) {
+    if (assetIconMap.containsKey(iconName)) {
+      return Image.asset(
+        assetIconMap[iconName]!,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+      );
+    }
+    return Icon(getIcon(iconName), color: color, size: size);
+  }
 }

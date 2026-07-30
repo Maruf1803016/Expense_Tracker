@@ -54,7 +54,7 @@ void main() async {
           create: (_) => sl<PlanProvider>(),
         ),
         ChangeNotifierProvider(
-          create: (_) => sl<AccountProvider>()..init(),
+          create: (_) => sl<AccountProvider>(),
         ),
         ChangeNotifierProvider(
           create: (_) => sl<RecurringTransactionProvider>(),

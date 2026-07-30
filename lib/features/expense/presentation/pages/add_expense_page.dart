@@ -545,7 +545,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       value: acc.id,
                       child: Row(
                         children: [
-                          Icon(acc.icon, color: acc.color, size: 18),
+                          IconUtils.buildIcon(
+                            IconUtils.getIconName(acc.icon),
+                            color: acc.color,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
                         ],

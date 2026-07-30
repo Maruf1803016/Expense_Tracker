@@ -40,25 +40,33 @@ class AccountProvider with ChangeNotifier {
     try {
       // Run the Firestore migration first
       await runAccountMigration();
-
-      _accountsSubscription?.cancel();
-      _accountsSubscription = getAccounts().listen(
-        (list) {
-          _accounts = List<Account>.from(list);
-          _isLoading = false;
-          notifyListeners();
-        },
-        onError: (e) {
-          _errorMessage = e.toString();
-          _isLoading = false;
-          notifyListeners();
-        },
-      );
     } catch (e) {
+      // Migration failure shouldn't block the user from seeing/using existing accounts.
       _errorMessage = e.toString();
-      _isLoading = false;
-      notifyListeners();
     }
+
+    _accountsSubscription?.cancel();
+    _accountsSubscription = getAccounts().listen(
+      (list) {
+        _accounts = List<Account>.from(list);
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        _errorMessage = e.toString();
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  void clear() {
+    _accountsSubscription?.cancel();
+    _accountsSubscription = null;
+    _accounts = [];
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
   }
 
   Future<void> add(Account account) async {

@@ -122,6 +122,15 @@ class RecurringTransactionProvider with ChangeNotifier {
     }
   }
 
+  void clear() {
+    _subscription?.cancel();
+    _subscription = null;
+    _sources = [];
+    _isLoading = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _subscription?.cancel();

@@ -7,6 +7,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class EditRecurringTransactionSheet extends StatefulWidget {
   final RecurringTransactionSource source;
@@ -272,7 +273,11 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
                     value: acc.id,
                     child: Row(
                       children: [
-                        Icon(acc.icon, color: acc.color, size: 18),
+                        IconUtils.buildIcon(
+                          IconUtils.getIconName(acc.icon),
+                          color: acc.color,
+                          size: 18,
+                        ),
                         const SizedBox(width: 8),
                         Text(acc.name),
                       ],

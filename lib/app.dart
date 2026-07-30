@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/features/auth/presentation/pages/login_page.dart';
 import 'package:expense_tracker/features/auth/presentation/pages/register_page.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
@@ -98,6 +100,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
           context.read<SmartAlertsProvider>().clear();
           context.read<ExpenseSearchProvider>().clear();
           context.read<ExportProvider>().reset();
+          context.read<AccountProvider>().clear();
+          context.read<RecurringTransactionProvider>().clear();
         });
         _lastUserId = null;
       }
@@ -129,6 +133,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         context.read<CategoryProvider>().init();
         context.read<PlanProvider>().init();
         context.read<SettingsProvider>().loadSettings();
+        context.read<AccountProvider>().init();
+        context.read<RecurringTransactionProvider>().init();
       });
     }
 

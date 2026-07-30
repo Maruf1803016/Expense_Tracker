@@ -891,8 +891,8 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              account.icon,
+                            IconUtils.buildIcon(
+                              IconUtils.getIconName(account.icon),
                               color: account.color,
                               size: 14,
                             ),
