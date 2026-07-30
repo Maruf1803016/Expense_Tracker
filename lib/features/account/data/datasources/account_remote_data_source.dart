@@ -37,6 +37,10 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
     return _userDoc.collection('expenses');
   }
 
+  CollectionReference get _recurringCollection {
+    return _userDoc.collection('recurringIncomeSources');
+  }
+
   @override
   Stream<List<AccountModel>> getAccounts() {
     return _accountCollection.orderBy('createdAt', descending: false).snapshots().map((snapshot) {
@@ -117,6 +121,16 @@ class AccountRemoteDataSourceImpl implements AccountRemoteDataSource {
           .timeout(const Duration(seconds: 15));
 
       for (var doc in expensesSnapshot.docs) {
+        writes.add((batch) => batch.update(doc.reference, {'accountId': fallbackAccountId}));
+      }
+
+      // Fetch all recurring sources linked to the deleted account
+      final recurringSnapshot = await _recurringCollection
+          .where('accountId', isEqualTo: id)
+          .get()
+          .timeout(const Duration(seconds: 15));
+
+      for (var doc in recurringSnapshot.docs) {
         writes.add((batch) => batch.update(doc.reference, {'accountId': fallbackAccountId}));
       }
 

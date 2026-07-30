@@ -534,7 +534,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
                 _buildSectionLabel('Account'),
                 DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
+                  value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
                   dropdownColor: AppTheme.paperCard,
                   style: GoogleFonts.inter(color: AppTheme.textDark),
                   decoration: const InputDecoration(
@@ -593,7 +593,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 if (plans.isNotEmpty) ...[
                   _buildSectionLabel('Link to Goal (Optional)'),
                   DropdownButtonFormField<String>(
-                    value: _selectedPlanId,
+                    value: (plans.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
                     dropdownColor: AppTheme.paperCard,
                     style: GoogleFonts.inter(color: AppTheme.textDark),
                     decoration: const InputDecoration(

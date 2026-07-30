@@ -263,7 +263,7 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
 
               _buildLabel(isIncome ? 'Deposit Account' : 'Payment Account'),
               DropdownButtonFormField<String>(
-                value: _selectedAccountId,
+                value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
                 dropdownColor: AppTheme.paperCard,
                 style: GoogleFonts.inter(color: AppTheme.textDark),
                 decoration: const InputDecoration(hintText: 'Select Account'),
