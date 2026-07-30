@@ -13,7 +13,6 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
-import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
 class PlansTabView extends StatefulWidget {
@@ -152,20 +151,7 @@ class _PlansTabViewState extends State<PlansTabView> {
       children: [
         Scaffold(
           backgroundColor: Colors.transparent,
-          floatingActionButton: Padding(
-            padding: const EdgeInsets.only(bottom: 16.0, right: 8.0),
-            child: FloatingActionButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AddExpensePage(preselectedPlanMode: true),
-                  ),
-                );
-              },
-              backgroundColor: AppTheme.ink,
-              child: const Icon(Icons.add, color: AppTheme.goldSoft),
-            ),
-          ),
+
           body: planProvider.isLoading
               ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
               : Column(
@@ -235,13 +221,29 @@ class _PlansTabViewState extends State<PlansTabView> {
                                                       ),
                                                     ),
                                                   ),
-                                                  Text(
-                                                    percentUsed >= 1.0 ? 'Completed' : '${(percentUsed * 100).toStringAsFixed(0)}%',
-                                                    style: GoogleFonts.spaceGrotesk(
-                                                      color: progressColor,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 13,
-                                                    ),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        percentUsed >= 1.0 ? 'Completed' : '${(percentUsed * 100).toStringAsFixed(0)}%',
+                                                        style: GoogleFonts.spaceGrotesk(
+                                                          color: progressColor,
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      IconButton(
+                                                        constraints: const BoxConstraints(),
+                                                        padding: EdgeInsets.zero,
+                                                        icon: const Icon(
+                                                          Icons.delete_outline_rounded,
+                                                          size: 18,
+                                                          color: AppTheme.brick,
+                                                        ),
+                                                        onPressed: () => _showDeleteGoalDialog(context, plan),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),

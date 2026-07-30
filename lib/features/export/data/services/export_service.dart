@@ -6,53 +6,51 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../domain/entities/export_data.dart';
+import '../../../../features/category/domain/entities/category.dart';
 
 abstract class ExportService {
   /// Generates a CSV file for the provided data.
-  Future<File> generateCSV(MonthlyExportData data);
+  Future<File> generateCSV(
+    MonthlyExportData data, {
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
+  });
 
   /// Generates a PDF report for the provided data.
-  Future<File> generatePDF(MonthlyExportData data);
+  Future<File> generatePDF(
+    MonthlyExportData data, {
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
+    required Map<String, double> accountBalances,
+  });
 }
 
 class ExportServiceImpl implements ExportService {
   @override
-  Future<File> generateCSV(MonthlyExportData data) async {
+  Future<File> generateCSV(
+    MonthlyExportData data, {
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
+  }) async {
     List<List<dynamic>> rows = [];
 
-    // --- Section 1: Expenses ---
-    rows.add(['--- EXPENSES ---']);
-    rows.add(['Date', 'Category', 'Amount', 'Note']);
+    // Header row
+    rows.add(['Date', 'Title', 'Category', 'Subcategory', 'Account', 'Type', 'Amount', 'Note']);
+
     for (var expense in data.expenses) {
+      final categoryName = categoryNames[expense.categoryId] ?? expense.categoryId;
+      final accountName = accountNames[expense.accountId] ?? expense.accountId;
+      final typeStr = expense.type == CategoryType.income ? 'Income' : 'Expense';
+      
       rows.add([
         DateFormatter.format(expense.date),
-        // We'd ideally have category name here; since we only have IDs in entity, 
-        // the UseCase should ideally have resolved names.
-        // For now, using ID as per entity.
-        expense.categoryId, 
+        expense.title,
+        categoryName,
+        expense.subCategory ?? '',
+        accountName,
+        typeStr,
         expense.amount,
         expense.note,
-      ]);
-    }
-    rows.add([]); // empty line
-
-    // --- Section 2: Summary ---
-    rows.add(['--- SUMMARY ---']);
-    rows.add(['Metric', 'Amount']);
-    rows.add(['Total Income', data.summary.totalIncome]);
-    rows.add(['Total Expenses', data.summary.totalExpense]);
-    rows.add(['Net Balance', data.summary.netBalance]);
-    rows.add([]);
-
-    // --- Section 3: Category Breakdown & Budgets ---
-    rows.add(['--- BUDGETS & BREAKDOWN ---']);
-    rows.add(['Category', 'Spent', 'Budget Limit', 'Remaining']);
-    for (var status in data.budgetStatuses) {
-      rows.add([
-        status.categoryName,
-        status.spent,
-        status.limit,
-        status.remaining,
       ]);
     }
 
@@ -64,9 +62,18 @@ class ExportServiceImpl implements ExportService {
   }
 
   @override
-  Future<File> generatePDF(MonthlyExportData data) async {
+  Future<File> generatePDF(
+    MonthlyExportData data, {
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
+    required Map<String, double> accountBalances,
+  }) async {
     final pdf = pw.Document();
     final monthName = DateFormatter.monthYear(DateTime(data.year, data.month));
+
+    // Sort category breakdown High to Low
+    final sortedBreakdown = data.summary.categoryBreakdown.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     pdf.addPage(
       pw.MultiPage(
@@ -104,38 +111,70 @@ class ExportServiceImpl implements ExportService {
               ],
             ),
           ),
-          pw.SizedBox(height: 30),
+          pw.SizedBox(height: 20),
 
-          // Budget Section
-          pw.Text('Budget Status', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          // Account Balances Section
+          pw.Text('Account Balances', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
             headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
             cellAlignment: pw.Alignment.centerLeft,
-            headers: ['Category', 'Spent', 'Limit', 'Status'],
-            data: data.budgetStatuses.map((s) => [
-              s.categoryName,
-              CurrencyFormatter.format(s.spent),
-              s.limit > 0 ? CurrencyFormatter.format(s.limit) : 'N/A',
-              s.isExceeded ? 'EXCEEDED' : '${(s.percentageUsed * 100).toStringAsFixed(0)}%',
-            ]).toList(),
+            headers: ['Account Name', 'Current Balance'],
+            data: accountBalances.entries.map((entry) {
+              final accountName = accountNames[entry.key] ?? entry.key;
+              return [
+                accountName,
+                CurrencyFormatter.format(entry.value),
+              ];
+            }).toList(),
           ),
-          pw.SizedBox(height: 30),
+          pw.SizedBox(height: 20),
 
-          // Expenses Section
-          pw.Text('Detailed Expenses', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          // Category Breakdown Section
+          if (sortedBreakdown.isNotEmpty) ...[
+            pw.Text('Category Breakdown (Spending)', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
+              cellAlignment: pw.Alignment.centerLeft,
+              headers: ['Category', 'Spent Amount', 'Percentage'],
+              data: sortedBreakdown.map((entry) {
+                final categoryName = categoryNames[entry.key] ?? entry.key;
+                final percentage = data.summary.totalExpense > 0 
+                    ? (entry.value / data.summary.totalExpense) * 100 
+                    : 0.0;
+                return [
+                  categoryName,
+                  CurrencyFormatter.format(entry.value),
+                  '${percentage.toStringAsFixed(1)}%',
+                ];
+              }).toList(),
+            ),
+            pw.SizedBox(height: 20),
+          ],
+
+          // Detailed Transactions Section
+          pw.Text('Detailed Transactions', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 10),
           pw.TableHelper.fromTextArray(
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             cellHeight: 25,
-            headers: ['Date', 'Category ID', 'Amount', 'Note'],
-            data: data.expenses.map((e) => [
-              DateFormatter.format(e.date),
-              e.categoryId,
-              CurrencyFormatter.format(e.amount),
-              e.note,
-            ]).toList(),
+            headers: ['Date', 'Title', 'Category', 'Account', 'Amount', 'Type'],
+            data: data.expenses.map((e) {
+              final categoryName = categoryNames[e.categoryId] ?? e.categoryId;
+              final accountName = accountNames[e.accountId] ?? e.accountId;
+              final typeStr = e.type == CategoryType.income ? 'Income' : 'Expense';
+              return [
+                DateFormatter.format(e.date),
+                e.title,
+                categoryName,
+                accountName,
+                CurrencyFormatter.format(e.amount),
+                typeStr,
+              ];
+            }).toList(),
           ),
         ],
       ),

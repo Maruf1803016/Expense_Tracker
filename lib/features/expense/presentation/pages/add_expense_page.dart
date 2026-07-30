@@ -13,6 +13,7 @@ import 'package:expense_tracker/features/category/presentation/providers/categor
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
@@ -560,7 +561,71 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ],
                 ],
 
-                _buildSectionLabel('Account'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _buildSectionLabel('Account'),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: GestureDetector(
+                        onTap: () async {
+                          final accountProvider = context.read<AccountProvider>();
+                          Account? foundCash;
+                          for (final a in accountProvider.accounts) {
+                            if (a.name.toLowerCase() == 'cash') {
+                              foundCash = a;
+                              break;
+                            }
+                          }
+                          if (foundCash != null) {
+                            setState(() {
+                              _selectedAccountId = foundCash!.id;
+                            });
+                          } else {
+                            final cashIcon = IconUtils.getIcon('cash');
+                            final newCashAccount = Account(
+                              id: const Uuid().v4(),
+                              name: 'Cash',
+                              icon: cashIcon,
+                              color: AppTheme.categoryPalette[5],
+                              initialBalance: 0.0,
+                              isDefault: false,
+                              createdAt: DateTime.now(),
+                            );
+                            await accountProvider.add(newCashAccount);
+                            setState(() {
+                              _selectedAccountId = newCashAccount.id;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.paper,
+                            border: Border.all(color: AppTheme.line),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(IconUtils.getIcon('cash'), size: 12, color: AppTheme.muted),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Cash',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 DropdownButtonFormField<String>(
                   value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
                   dropdownColor: AppTheme.paperCard,
@@ -749,6 +814,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
           setState(() {
             _mode = mode;
             _selectedCategoryId = null;
+            _selectedSubCategoryName = null;
+            _selectedSubCategoryIconName = null;
           });
         },
         child: Container(

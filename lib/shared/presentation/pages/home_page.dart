@@ -3,16 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_list_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/monthly_summary_page.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:expense_tracker/features/analytics/presentation/pages/insights_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
-import 'package:expense_tracker/core/theme/app_theme.dart';
-import 'package:expense_tracker/features/expense/presentation/pages/expense_search_page.dart';
-import 'package:expense_tracker/features/expense/presentation/widgets/expense_search_delegate.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
+import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 
@@ -62,17 +59,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _logout() async {
-    final auth = context.read<AuthProvider>();
-    final expense = context.read<ExpenseProvider>();
-    final category = context.read<CategoryProvider>();
-    final plan = context.read<PlanProvider>();
-    
-    expense.clear();
-    category.clear();
-    plan.clear();
-    await auth.signOut();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +87,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasDisplayName ? displayName! : 'Your finances',
+                    hasDisplayName ? displayName : 'Your finances',
                     style: GoogleFonts.fraunces(
                       color: AppTheme.textDark,
                       fontSize: 21,
@@ -113,6 +99,11 @@ class _HomePageState extends State<HomePage> {
             : Text(titles[_currentIndex]),
         actions: [
           if (isDashboard) ...[
+            IconButton(
+              tooltip: 'Add Transaction',
+              icon: const Icon(Icons.add_rounded),
+              onPressed: _openAddExpense,
+            ),
             IconButton(
               tooltip: 'Notifications',
               icon: const Icon(Icons.notifications_none_rounded),
@@ -141,28 +132,23 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ],
-          if (isDashboard)
+          if (_currentIndex == 2) ...[
             IconButton(
-              icon: const Icon(Icons.search_rounded),
+              tooltip: 'Add Goal',
+              icon: const Icon(Icons.add_rounded),
               onPressed: () {
-                showSearch(
-                  context: context,
-                  delegate: ExpenseSearchDelegate(),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AddExpensePage(preselectedPlanMode: true),
+                  ),
                 );
               },
             ),
+          ],
         ],
       ),
       body: _pages[_currentIndex],
-      floatingActionButton: _currentIndex == 0 
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: FloatingActionButton(
-                onPressed: _openAddExpense,
-                child: const Icon(Icons.add),
-              ),
-            )
-          : null,
+
       bottomNavigationBar: NavigationBar(
         backgroundColor: AppTheme.paperCard,
         indicatorColor: AppTheme.line,

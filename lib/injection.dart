@@ -43,13 +43,11 @@ import 'package:expense_tracker/features/expense/domain/usecases/get_expenses.da
 import 'package:expense_tracker/features/expense/domain/usecases/get_monthly_summary.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/update_expense.dart';
 import 'package:expense_tracker/features/expense/domain/Logic/expense_query_engine.dart';
-import 'package:expense_tracker/features/expense/domain/usecases/search_expenses.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/get_recycle_bin_expenses.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/restore_expense.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/empty_recycle_bin.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 
 // --- Budget ---
 import 'package:expense_tracker/features/budget/data/datasources/budget_remote_data_source.dart';
@@ -153,7 +151,6 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => RestoreExpenseUseCase(repository: sl()));
   sl.registerLazySingleton(() => DeleteForeverUseCase(repository: sl()));
   sl.registerLazySingleton(() => EmptyRecycleBinUseCase(repository: sl()));
-  sl.registerLazySingleton(() => SearchExpensesUseCase(queryEngine: sl()));
   sl.registerLazySingleton(() => GetMonthlySummaryUseCase(expenseRepository: sl(), categoryRepository: sl(), analysisService: sl()));
 
   sl.registerLazySingleton(() => SetBudgetUseCase(repository: sl()));
@@ -200,7 +197,6 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => ExportProvider(getExportData: sl(), exportService: sl()));
   sl.registerLazySingleton(() => FinancialInsightsProvider(getFinancialInsights: sl()));
   sl.registerLazySingleton(() => SmartAlertsProvider(getSmartAlerts: sl()));
-  sl.registerLazySingleton(() => ExpenseSearchProvider(searchExpenses: sl()));
   sl.registerLazySingleton(() => SettingsProvider(repository: sl()));
   
   // --- Plan ---

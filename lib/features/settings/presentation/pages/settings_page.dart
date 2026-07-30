@@ -9,6 +9,11 @@ import 'package:expense_tracker/features/settings/presentation/pages/recycle_bin
 import 'package:expense_tracker/features/auth/presentation/pages/profile_page.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/account/presentation/pages/accounts_management_page.dart';
+import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -126,33 +131,46 @@ class SettingsPage extends StatelessWidget {
         // 3. Data Section
         _buildSectionHeader('Data'),
         Card(
-          child: ListTile(
-            leading: const Icon(Icons.delete_outline_rounded),
-            title: const Text('Recycle Bin'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (expenseProvider.recycleBinExpenses.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.expenseColor,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${expenseProvider.recycleBinExpenses.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                const Icon(Icons.chevron_right),
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RecycleBinPage()),
-              );
-            },
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: const Text('Recycle Bin'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (expenseProvider.recycleBinExpenses.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.expenseColor,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${expenseProvider.recycleBinExpenses.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    const Icon(Icons.chevron_right),
+                  ],
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RecycleBinPage()),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: const Text('Export Data (CSV / PDF)'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  _showExportSheet(context);
+                },
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
@@ -206,5 +224,269 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  void _showExportSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const ExportBottomSheet();
+      },
+    );
+  }
+}
 
+class ExportBottomSheet extends StatefulWidget {
+  const ExportBottomSheet({super.key});
+
+  @override
+  State<ExportBottomSheet> createState() => _ExportBottomSheetState();
+}
+
+class _ExportBottomSheetState extends State<ExportBottomSheet> {
+  late int _selectedMonth;
+  late int _selectedYear;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final years = List.generate(6, (i) => now.year - i);
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      decoration: const BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Export Reports',
+                style: GoogleFonts.fraunces(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          Text(
+            'Select Month & Year',
+            style: GoogleFonts.inter(
+              color: AppTheme.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _selectedMonth,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  items: List.generate(12, (index) {
+                    return DropdownMenuItem(
+                      value: index + 1,
+                      child: Text(months[index]),
+                    );
+                  }),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedMonth = val);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _selectedYear,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  items: years.map((y) {
+                    return DropdownMenuItem(
+                      value: y,
+                      child: Text(y.toString()),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _selectedYear = val);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          if (_isLoading)
+            const Center(child: CircularProgressIndicator(color: AppTheme.gold))
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.gold,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    label: Text('Export CSV', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    onPressed: () => _triggerExport(context, ExportFormat.csv),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.ink,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                    label: Text('Export PDF', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    onPressed: () => _triggerExport(context, ExportFormat.pdf),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppTheme.line),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _triggerExport3Months(context),
+              child: Text(
+                'Export Last 3 Months (CSV)',
+                style: GoogleFonts.inter(color: AppTheme.textDark, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _triggerExport(BuildContext context, ExportFormat format) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _isLoading = true);
+    try {
+      final exportProv = context.read<ExportProvider>();
+      final categoryProvider = context.read<CategoryProvider>();
+      final accountProvider = context.read<AccountProvider>();
+      final expenseProvider = context.read<ExpenseProvider>();
+
+      final categoryNames = {for (var c in categoryProvider.categories) c.id: c.name};
+      final accountNames = {for (var a in accountProvider.accounts) a.id: a.name};
+      final accountBalances = {
+        for (var a in accountProvider.accounts)
+          a.id: Account.calculateBalance(a, expenseProvider.expenses)
+      };
+
+      await exportProv.exportMonth(
+        month: _selectedMonth,
+        year: _selectedYear,
+        format: format,
+        categoryNames: categoryNames,
+        accountNames: accountNames,
+        accountBalances: accountBalances,
+      );
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${format == ExportFormat.csv ? "CSV" : "PDF"} Export Shared Successfully'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+        navigator.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to export: $e'),
+            backgroundColor: AppTheme.brick,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _triggerExport3Months(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    setState(() => _isLoading = true);
+    try {
+      final exportProv = context.read<ExportProvider>();
+      final categoryProvider = context.read<CategoryProvider>();
+      final accountProvider = context.read<AccountProvider>();
+
+      final categoryNames = {for (var c in categoryProvider.categories) c.id: c.name};
+      final accountNames = {for (var a in accountProvider.accounts) a.id: a.name};
+
+      await exportProv.exportLast3Months(
+        currentMonth: DateTime.now(),
+        format: ExportFormat.csv,
+        categoryNames: categoryNames,
+        accountNames: accountNames,
+      );
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Last 3 Months Export Shared Successfully'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+        navigator.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('Failed to export: $e'),
+            backgroundColor: AppTheme.brick,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 }

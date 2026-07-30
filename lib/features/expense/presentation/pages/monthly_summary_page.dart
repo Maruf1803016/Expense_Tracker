@@ -9,15 +9,26 @@ import 'package:expense_tracker/features/export/presentation/providers/export_pr
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/income_expense_bar_chart.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
-import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/domain/entities/monthly_summary.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
 
   void _showExportOptions(BuildContext context, ExpenseProvider expenseProvider, ExportProvider exportProvider) {
     final selectedDate = expenseProvider.selectedMonth;
+    final categoryProvider = context.read<CategoryProvider>();
+    final accountProvider = context.read<AccountProvider>();
+
+    final categoryNames = {for (var c in categoryProvider.categories) c.id: c.name};
+    final accountNames = {for (var a in accountProvider.accounts) a.id: a.name};
+    final accountBalances = {
+      for (var a in accountProvider.accounts)
+        a.id: Account.calculateBalance(a, expenseProvider.expenses)
+    };
 
     showModalBottomSheet(
       context: context,
@@ -51,6 +62,9 @@ class MonthlySummaryPage extends StatelessWidget {
                     month: selectedDate.month,
                     year: selectedDate.year,
                     format: ExportFormat.csv,
+                    categoryNames: categoryNames,
+                    accountNames: accountNames,
+                    accountBalances: accountBalances,
                   );
                 },
               ),
@@ -63,6 +77,9 @@ class MonthlySummaryPage extends StatelessWidget {
                     month: selectedDate.month,
                     year: selectedDate.year,
                     format: ExportFormat.pdf,
+                    categoryNames: categoryNames,
+                    accountNames: accountNames,
+                    accountBalances: accountBalances,
                   );
                 },
               ),
@@ -72,13 +89,15 @@ class MonthlySummaryPage extends StatelessWidget {
               _buildOptionHeader('Bulk Export'),
               ListTile(
                 leading: const Icon(Icons.history_rounded, color: AppTheme.gold),
-                title: Text('Last 3 Months (PDFs)', style: GoogleFonts.inter(color: AppTheme.textDark)),
+                title: Text('Last 3 Months (CSVs)', style: GoogleFonts.inter(color: AppTheme.textDark)),
                 subtitle: Text('Package of reports for recent history', style: GoogleFonts.inter(color: AppTheme.muted)),
                 onTap: () async {
                   Navigator.pop(context);
                   await exportProvider.exportLast3Months(
                     currentMonth: selectedDate,
-                    format: ExportFormat.pdf,
+                    format: ExportFormat.csv,
+                    categoryNames: categoryNames,
+                    accountNames: accountNames,
                   );
                 },
               ),

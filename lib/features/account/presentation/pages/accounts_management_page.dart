@@ -122,9 +122,9 @@ class AccountsManagementPage extends StatelessWidget {
                                     const SizedBox(height: 4),
                                     Text(
                                       [
-                                        account.isDefault ? 'Primary Account' : 'Custom Account',
                                         if (account.holderName != null && account.holderName!.isNotEmpty) account.holderName!,
                                         if (account.accountNumber != null && account.accountNumber!.isNotEmpty) Account.getMaskedAccountNumber(account.accountNumber),
+                                        account.isDefault ? 'Primary Account' : 'Custom Account',
                                       ].join(' • '),
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
@@ -256,6 +256,49 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
 
   void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
+
+    final name = _nameController.text.trim();
+    final isDuplicate = widget.accountProvider.accounts.any(
+      (a) => a.name.toLowerCase() == name.toLowerCase() && (!isEdit || a.id != widget.account!.id),
+    );
+
+    if (isDuplicate) {
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.paperCard,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: AppTheme.line),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Duplicate Name',
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          ),
+          content: Text(
+            'You already have an account named "$name" — are you sure?',
+            style: GoogleFonts.inter(color: AppTheme.textDark),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.gold,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Yes', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
     setState(() => _isSaving = true);
 
     final holderNameVal = _holderNameController.text.trim();
@@ -304,66 +347,85 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
   }
 
   void _onDelete() async {
-    if (widget.account == null || widget.account!.isDefault) return;
+    debugPrint('[AddEditAccountSheet] _onDelete called, accountName=${widget.account?.name}, isDefault=${widget.account?.isDefault}');
+    try {
+      if (widget.account == null || widget.account!.isDefault) {
+        debugPrint('[AddEditAccountSheet] Blocked: null or default account');
+        return;
+      }
 
-    final defaultAccount = widget.accountProvider.accounts.firstWhere((a) => a.isDefault);
-    final expenseProvider = context.read<ExpenseProvider>();
-    final transactionCount = expenseProvider.expenses
-        .where((e) => e.accountId == widget.account!.id && !e.isDeleted)
-        .length;
+      final defaultAccounts = widget.accountProvider.accounts.where((a) => a.isDefault).toList();
+      if (defaultAccounts.isEmpty) {
+        debugPrint('[AddEditAccountSheet] Blocked: No default account found to reassign to!');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Error: No default account found to reassign transactions to.'), backgroundColor: AppTheme.brick),
+          );
+        }
+        return;
+      }
+      final defaultAccount = defaultAccounts.first;
+      final expenseProvider = context.read<ExpenseProvider>();
+      final transactionCount = expenseProvider.expenses
+          .where((e) => e.accountId == widget.account!.id && !e.isDeleted)
+          .length;
 
-    bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.line),
-        ),
-        title: Text(
-          'Delete Account',
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
-        ),
-        content: Text(
-          transactionCount > 0
-              ? '$transactionCount transactions are tagged to this account. Deleting it will move them to ${defaultAccount.name}. This can\'t be undone.'
-              : 'Are you sure you want to delete this account? This cannot be undone.',
-          style: GoogleFonts.inter(color: AppTheme.textDark),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+      debugPrint('[AddEditAccountSheet] Showing delete confirmation dialog. Transaction count: $transactionCount');
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.paperCard,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: AppTheme.line),
+            borderRadius: BorderRadius.circular(16),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brick,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: Text(
+            'Delete Account',
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          ),
+          content: Text(
+            transactionCount > 0
+                ? '$transactionCount transactions are tagged to this account. Deleting it will move them to ${defaultAccount.name}. This can\'t be undone.'
+                : 'Are you sure you want to delete this account? This cannot be undone.',
+            style: GoogleFonts.inter(color: AppTheme.textDark),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.brick,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
 
-    if (confirm == true) {
-      setState(() => _isSaving = true);
-      try {
+      debugPrint('[AddEditAccountSheet] Dialog result: $confirm');
+      if (confirm == true) {
+        setState(() => _isSaving = true);
+        debugPrint('[AddEditAccountSheet] Calling accountProvider.delete');
         await widget.accountProvider.delete(widget.account!.id, defaultAccount.id);
+        debugPrint('[AddEditAccountSheet] Delete succeeded');
         // Refresh expense list to reflect the reassigned accounts
         await expenseProvider.init(force: true);
         if (mounted) {
           Navigator.pop(context); // Close sheet
         }
-      } catch (e) {
-        setState(() => _isSaving = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.brick),
-          );
-        }
+      }
+    } catch (e, stack) {
+      debugPrint('[AddEditAccountSheet] Delete failed with exception: $e\n$stack');
+      setState(() => _isSaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.brick),
+        );
       }
     }
   }

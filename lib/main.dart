@@ -10,7 +10,6 @@ import 'package:expense_tracker/features/auth/presentation/providers/auth_provid
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
-import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
@@ -43,9 +42,6 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => sl<SmartAlertsProvider>(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => sl<ExpenseSearchProvider>(),
         ),
         ChangeNotifierProvider(
           create: (_) => sl<SettingsProvider>()..loadSettings(),

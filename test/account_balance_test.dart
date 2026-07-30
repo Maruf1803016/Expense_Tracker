@@ -75,5 +75,27 @@ void main() {
       expect(Account.getMaskedAccountNumber('123'), '•••• 123');
       expect(Account.getMaskedAccountNumber('1234567890123456'), '•••• 3456');
     });
+
+    test('should format subtitle fields with priority order', () {
+      final account = Account(
+        id: 'acc1',
+        name: 'Savings',
+        icon: Icons.account_balance,
+        color: Colors.blue,
+        initialBalance: 1000.0,
+        isDefault: false,
+        createdAt: DateTime.now(),
+        holderName: 'Maruf',
+        accountNumber: '1234567890124821',
+      );
+
+      final subtitleTokens = [
+        if (account.holderName != null && account.holderName!.isNotEmpty) account.holderName!,
+        if (account.accountNumber != null && account.accountNumber!.isNotEmpty) Account.getMaskedAccountNumber(account.accountNumber),
+        account.isDefault ? 'Primary Account' : 'Custom Account',
+      ];
+
+      expect(subtitleTokens.join(' • '), 'Maruf • •••• 4821 • Custom Account');
+    });
   });
 }

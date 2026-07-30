@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
@@ -10,7 +11,6 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
-import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/shared/presentation/pages/home_page.dart';
 import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.dart';
@@ -98,7 +98,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
           context.read<ExpenseProvider>().clear();
           context.read<FinancialInsightsProvider>().clear();
           context.read<SmartAlertsProvider>().clear();
-          context.read<ExpenseSearchProvider>().clear();
           context.read<ExportProvider>().reset();
           context.read<AccountProvider>().clear();
           context.read<RecurringTransactionProvider>().clear();
@@ -128,13 +127,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
     if (authProvider.user?.id != _lastUserId) {
       _lastUserId = authProvider.user?.id;
       // Initialize data for the new user context
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         context.read<ExpenseProvider>().init();
         context.read<CategoryProvider>().init();
         context.read<PlanProvider>().init();
         context.read<SettingsProvider>().loadSettings();
         context.read<AccountProvider>().init();
         context.read<RecurringTransactionProvider>().init();
+
+        // 🧹 Auto-cleanup "weeding" plan/goal if it exists
+        try {
+          final userId = authProvider.user?.id;
+          if (userId != null) {
+            final firestore = FirebaseFirestore.instance;
+            final plansSnapshot = await firestore
+                .collection('users')
+                .doc(userId)
+                .collection('plans')
+                .where('title', isEqualTo: 'weeding')
+                .get();
+            for (var doc in plansSnapshot.docs) {
+              debugPrint('[System] Auto-deleting corrupted weeding plan: ${doc.id}');
+              await doc.reference.delete();
+            }
+          }
+        } catch (e) {
+          debugPrint('[System] Failed to auto-delete weeding plan: $e');
+        }
       });
     }
 

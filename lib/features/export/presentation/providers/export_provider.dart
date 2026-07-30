@@ -33,6 +33,9 @@ class ExportProvider with ChangeNotifier {
     required int month,
     required int year,
     required ExportFormat format,
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
+    required Map<String, double> accountBalances,
   }) async {
     _setLoading(true);
     _clearError();
@@ -41,8 +44,13 @@ class ExportProvider with ChangeNotifier {
       final data = await _getExportData(month, year);
       
       final file = format == ExportFormat.csv
-          ? await _exportService.generateCSV(data)
-          : await _exportService.generatePDF(data);
+          ? await _exportService.generateCSV(data, categoryNames: categoryNames, accountNames: accountNames)
+          : await _exportService.generatePDF(
+              data,
+              categoryNames: categoryNames,
+              accountNames: accountNames,
+              accountBalances: accountBalances,
+            );
 
       await Share.shareXFiles(
         [XFile(file.path)],
@@ -61,6 +69,8 @@ class ExportProvider with ChangeNotifier {
   Future<void> exportLast3Months({
     required DateTime currentMonth,
     required ExportFormat format,
+    required Map<String, String> categoryNames,
+    required Map<String, String> accountNames,
   }) async {
     _setLoading(true);
     _clearError();
@@ -71,8 +81,13 @@ class ExportProvider with ChangeNotifier {
         final date = DateTime(currentMonth.year, currentMonth.month - i);
         final data = await _getExportData(date.month, date.year);
         final file = format == ExportFormat.csv
-            ? await _exportService.generateCSV(data)
-            : await _exportService.generatePDF(data);
+            ? await _exportService.generateCSV(data, categoryNames: categoryNames, accountNames: accountNames)
+            : await _exportService.generatePDF(
+                data,
+                categoryNames: categoryNames,
+                accountNames: accountNames,
+                accountBalances: const {},
+              );
         files.add(XFile(file.path));
       }
 
