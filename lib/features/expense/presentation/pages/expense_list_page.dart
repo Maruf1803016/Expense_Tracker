@@ -898,7 +898,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              account.name,
+                              '${account.name}${account.accountNumber != null && account.accountNumber!.isNotEmpty ? ' (${Account.getMaskedAccountNumber(account.accountNumber)})' : ''}',
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,

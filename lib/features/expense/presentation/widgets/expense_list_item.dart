@@ -7,6 +7,7 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
 
 class ExpenseListItem extends StatelessWidget {
   final Expense expense;
@@ -115,7 +116,7 @@ class ExpenseListItem extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    account.name,
+                                    '${account.name}${account.accountNumber != null && account.accountNumber!.isNotEmpty ? ' (${Account.getMaskedAccountNumber(account.accountNumber)})' : ''}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(

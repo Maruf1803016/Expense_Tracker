@@ -5,6 +5,7 @@ import 'package:expense_tracker/features/expense/presentation/providers/expense_
 import 'package:expense_tracker/features/expense/presentation/providers/expense_search_provider.dart';
 import 'package:expense_tracker/features/expense/domain/logic/expense_query_engine.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
 
 class SearchFilterSheet extends StatefulWidget {
   const SearchFilterSheet({super.key});
@@ -124,7 +125,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
                   child: FilterChip(
-                    label: Text(account.name),
+                    label: Text('${account.name}${account.accountNumber != null && account.accountNumber!.isNotEmpty ? ' (${Account.getMaskedAccountNumber(account.accountNumber)})' : ''}'),
                     selected: isSelected,
                     onSelected: (selected) {
                       setState(() {

@@ -121,7 +121,11 @@ class AccountsManagementPage extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      account.isDefault ? 'Primary Account' : 'Custom Account',
+                                      [
+                                        account.isDefault ? 'Primary Account' : 'Custom Account',
+                                        if (account.holderName != null && account.holderName!.isNotEmpty) account.holderName!,
+                                        if (account.accountNumber != null && account.accountNumber!.isNotEmpty) Account.getMaskedAccountNumber(account.accountNumber),
+                                      ].join(' • '),
                                       style: GoogleFonts.inter(
                                         fontSize: 12,
                                         color: AppTheme.muted,
@@ -218,6 +222,8 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
+  final _holderNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
   String? _selectedIconName;
   Color? _selectedColor;
   bool _isSaving = false;
@@ -231,6 +237,8 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
       _nameController.text = widget.account!.name;
       _selectedIconName = IconUtils.getIconName(widget.account!.icon);
       _selectedColor = widget.account!.color;
+      _holderNameController.text = widget.account!.holderName ?? '';
+      _accountNumberController.text = widget.account!.accountNumber ?? '';
     } else {
       _selectedIconName = IconUtils.availableIconNames.first;
       _selectedColor = AppTheme.categoryPalette.first;
@@ -241,12 +249,19 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
+    _holderNameController.dispose();
+    _accountNumberController.dispose();
     super.dispose();
   }
 
   void _onSave() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
+
+    final holderNameVal = _holderNameController.text.trim();
+    final accountNumberVal = _accountNumberController.text.trim();
+    final holderName = holderNameVal.isNotEmpty ? holderNameVal : null;
+    final accountNumber = accountNumberVal.isNotEmpty ? accountNumberVal : null;
 
     try {
       if (isEdit) {
@@ -258,6 +273,8 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
           initialBalance: widget.account!.initialBalance,
           isDefault: widget.account!.isDefault,
           createdAt: widget.account!.createdAt,
+          holderName: holderName,
+          accountNumber: accountNumber,
         );
         await widget.accountProvider.update(updatedAccount);
       } else {
@@ -270,6 +287,8 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
           initialBalance: initialBal,
           isDefault: false,
           createdAt: DateTime.now(),
+          holderName: holderName,
+          accountNumber: accountNumber,
         );
         await widget.accountProvider.add(newAccount);
       }
@@ -538,47 +557,33 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               ),
               const SizedBox(height: 20),
 
-              // Icon Picker
+              // Account Holder Name
               Text(
-                'Account Icon',
+                'Account Holder Name (Optional)',
                 style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 120,
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 6,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                  ),
-                  itemCount: IconUtils.availableIconNames.length,
-                  itemBuilder: (context, index) {
-                    final name = IconUtils.availableIconNames[index];
-                    final icon = IconUtils.getIcon(name);
-                    final isSelected = _selectedIconName == name;
-                    return InkWell(
-                      onTap: () => setState(() => _selectedIconName = name),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected ? _selectedColor!.withOpacity(0.15) : AppTheme.paper,
-                          border: Border.all(
-                            color: isSelected ? _selectedColor! : AppTheme.line,
-                            width: isSelected ? 2 : 1,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: IconUtils.buildIcon(
-                            name,
-                            color: isSelected ? _selectedColor : AppTheme.textDark,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _holderNameController,
+                style: GoogleFonts.inter(color: AppTheme.textDark),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. John Doe',
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Account Number
+              Text(
+                'Account Number (Optional)',
+                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _accountNumberController,
+                style: GoogleFonts.inter(color: AppTheme.textDark),
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Last 4 or full 16 digits',
                 ),
               ),
               const SizedBox(height: 24),

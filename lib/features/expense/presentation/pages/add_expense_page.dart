@@ -133,6 +133,30 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
   }
 
+  bool _accountDefaultApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_accountDefaultApplied) {
+      final accounts = context.watch<AccountProvider>().accounts;
+      if (accounts.isNotEmpty) {
+        setState(() {
+          if (_selectedAccountId == null) {
+            _selectedAccountId = widget.expenseToEdit?.accountId ?? (accounts.length == 1 ? accounts.first.id : null);
+          }
+          final hasSelected = accounts.any((a) => a.id == _selectedAccountId);
+          if (_selectedAccountId != null && !hasSelected) {
+            _selectedAccountId = accounts.any((a) => a.isDefault) 
+                ? accounts.firstWhere((a) => a.isDefault).id 
+                : accounts.first.id;
+          }
+          _accountDefaultApplied = true;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -156,13 +180,20 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   Future<void> _saveExpense() async {
-    if (_isSaving) return;
-
-    if (!_formKey.currentState!.validate()) {
+    debugPrint('[AddExpensePage] _saveExpense() called');
+    if (_isSaving) {
+      debugPrint('[AddExpensePage] _isSaving is true, aborting duplicate save');
       return;
     }
 
+    if (!_formKey.currentState!.validate()) {
+      debugPrint('[AddExpensePage] Form validation failed');
+      return;
+    }
+    debugPrint('[AddExpensePage] Form validation succeeded');
+
     if (_mode != TransactionMode.plan && _selectedCategoryId == null) {
+      debugPrint('[AddExpensePage] Category not selected in standard mode');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a category')),
       );
@@ -176,6 +207,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      debugPrint('[AddExpensePage] Saving with mode: $_mode');
       if (_mode == TransactionMode.plan) {
         final planId = const Uuid().v4();
         final plan = Plan(
@@ -190,7 +222,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
         );
 
         final planProvider = context.read<PlanProvider>();
+        debugPrint('[AddExpensePage] Calling planProvider.addPlanWithExpenses');
         await planProvider.addPlanWithExpenses(plan, []);
+        debugPrint('[AddExpensePage] planProvider.addPlanWithExpenses completed successfully');
         
         messenger.showSnackBar(
           const SnackBar(
@@ -216,7 +250,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
         final provider = context.read<ExpenseProvider>();
         if (widget.expenseToEdit != null) {
+          debugPrint('[AddExpensePage] Calling provider.updateExpense');
           await provider.updateExpense(expense);
+          debugPrint('[AddExpensePage] provider.updateExpense completed successfully');
           messenger.showSnackBar(
             const SnackBar(
               content: Text('Transaction updated'),
@@ -225,7 +261,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
             ),
           );
         } else {
+          debugPrint('[AddExpensePage] Calling provider.addExpense');
           await provider.addExpense(expense);
+          debugPrint('[AddExpensePage] provider.addExpense completed successfully');
           
           if ((_mode == TransactionMode.income || _mode == TransactionMode.expense) && _isRecurring) {
             final recurringProvider = context.read<RecurringTransactionProvider>();
@@ -241,7 +279,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
               accountId: expense.accountId,
               createdAt: DateTime.now(),
             );
+            debugPrint('[AddExpensePage] Calling recurringProvider.addSource');
             await recurringProvider.addSource(source);
+            debugPrint('[AddExpensePage] recurringProvider.addSource completed successfully');
           }
 
           messenger.showSnackBar(
@@ -254,10 +294,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
         }
       }
       
+      debugPrint('[AddExpensePage] Reached end of try block, calling Navigator.pop');
       if (mounted) {
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('[AddExpensePage] Save failed with exception: $e');
+      debugPrint('[AddExpensePage] Stacktrace: $stack');
       messenger.showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
@@ -327,21 +370,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
     final accountProvider = context.watch<AccountProvider>();
     final accounts = accountProvider.accounts;
 
-    if (_selectedAccountId == null && accounts.isNotEmpty) {
-      if (widget.expenseToEdit != null) {
-        _selectedAccountId = widget.expenseToEdit!.accountId;
-      } else if (accounts.length == 1) {
-        _selectedAccountId = accounts.first.id;
-      }
-    }
-
-    final hasSelected = accounts.any((a) => a.id == _selectedAccountId);
-    if (_selectedAccountId != null && !hasSelected && accounts.isNotEmpty) {
-      _selectedAccountId = accounts.any((a) => a.isDefault) 
-          ? accounts.firstWhere((a) => a.isDefault).id 
-          : accounts.first.id;
-    }
-    
     final isIncomeMode = _mode == TransactionMode.income;
     final currentCategoryType = isIncomeMode ? CategoryType.income : CategoryType.expense;
 

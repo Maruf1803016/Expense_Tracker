@@ -11,6 +11,8 @@ class Account extends Equatable {
   final double initialBalance;
   final bool isDefault;
   final DateTime createdAt;
+  final String? holderName;
+  final String? accountNumber;
 
   const Account({
     required this.id,
@@ -20,6 +22,8 @@ class Account extends Equatable {
     required this.initialBalance,
     required this.isDefault,
     required this.createdAt,
+    this.holderName,
+    this.accountNumber,
   });
 
   static double calculateBalance(Account account, List<Expense> expenses) {
@@ -32,6 +36,25 @@ class Account extends Equatable {
     return balance;
   }
 
+  static String getMaskedAccountNumber(String? accountNumber) {
+    if (accountNumber == null || accountNumber.isEmpty) return '';
+    final clean = accountNumber.trim();
+    if (clean.length > 4) {
+      return '•••• ${clean.substring(clean.length - 4)}';
+    }
+    return '•••• $clean';
+  }
+
   @override
-  List<Object?> get props => [id, name, icon, color, initialBalance, isDefault, createdAt];
+  List<Object?> get props => [
+        id,
+        name,
+        icon,
+        color,
+        initialBalance,
+        isDefault,
+        createdAt,
+        holderName,
+        accountNumber,
+      ];
 }

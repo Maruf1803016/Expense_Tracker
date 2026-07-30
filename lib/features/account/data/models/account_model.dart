@@ -12,6 +12,8 @@ class AccountModel extends Account {
     required super.initialBalance,
     required super.isDefault,
     required super.createdAt,
+    super.holderName,
+    super.accountNumber,
   });
 
   factory AccountModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -23,6 +25,8 @@ class AccountModel extends Account {
       initialBalance: (map['initialBalance'] as num?)?.toDouble() ?? 0.0,
       isDefault: map['isDefault'] as bool? ?? false,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      holderName: map['holderName'] as String?,
+      accountNumber: map['accountNumber'] as String?,
     );
   }
 
@@ -34,6 +38,8 @@ class AccountModel extends Account {
       'initialBalance': initialBalance,
       'isDefault': isDefault,
       'createdAt': createdAt,
+      'holderName': holderName,
+      'accountNumber': accountNumber,
     };
   }
 
@@ -46,6 +52,8 @@ class AccountModel extends Account {
       initialBalance: account.initialBalance,
       isDefault: account.isDefault,
       createdAt: account.createdAt,
+      holderName: account.holderName,
+      accountNumber: account.accountNumber,
     );
   }
 }

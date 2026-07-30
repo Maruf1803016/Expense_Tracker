@@ -67,4 +67,13 @@ void main() {
       expect(balance, 1350.0);
     });
   });
+
+  group('Account new fields and masking', () {
+    test('should mask account number correctly', () {
+      expect(Account.getMaskedAccountNumber(null), '');
+      expect(Account.getMaskedAccountNumber(''), '');
+      expect(Account.getMaskedAccountNumber('123'), '•••• 123');
+      expect(Account.getMaskedAccountNumber('1234567890123456'), '•••• 3456');
+    });
+  });
 }
