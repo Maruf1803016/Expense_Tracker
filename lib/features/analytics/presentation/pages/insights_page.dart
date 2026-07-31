@@ -9,7 +9,6 @@ import 'package:expense_tracker/features/analytics/presentation/providers/financ
 import 'package:expense_tracker/features/analytics/presentation/widgets/trend_line_chart.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/alerts/domain/entities/smart_alert.dart';
-import 'package:expense_tracker/features/plan/presentation/widgets/plans_tab_view.dart';
 
 class InsightsPage extends StatefulWidget {
   const InsightsPage({super.key});
@@ -31,33 +30,9 @@ class _InsightsPageState extends State<InsightsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: AppTheme.paper,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            color: AppTheme.paper,
-            child: TabBar(
-              tabs: [
-                Tab(child: Text('Analytics', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
-                Tab(child: Text('Goals', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
-              ],
-              indicatorColor: AppTheme.ink,
-              labelColor: AppTheme.ink,
-              unselectedLabelColor: AppTheme.muted,
-              dividerColor: AppTheme.line,
-            ),
-          ),
-        ),
-        body: TabBarView(
-          children: [
-            _buildAnalyticsContent(context),
-            const PlansTabView(),
-          ],
-        ),
-      ),
+    return Scaffold(
+      backgroundColor: AppTheme.paper,
+      body: _buildAnalyticsContent(context),
     );
   }
 

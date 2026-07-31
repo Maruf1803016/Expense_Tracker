@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
-import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/expense_list_page.dart';
-import 'package:expense_tracker/features/expense/presentation/pages/monthly_summary_page.dart';
-import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:expense_tracker/features/analytics/presentation/pages/insights_page.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
-import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/widgets/plans_tab_view.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,9 +21,8 @@ class _HomePageState extends State<HomePage> {
 
   final List<Widget> _pages = const [
     ExpenseListPage(),
-    MonthlySummaryPage(),
     InsightsPage(),
-    CategoryManagementPage(),
+    PlansTabView(),
     SettingsPage(),
   ];
 
@@ -60,9 +55,39 @@ class _HomePageState extends State<HomePage> {
   }
 
 
+  Widget _buildNavItem(int index, IconData outlineIcon, IconData solidIcon, String label) {
+    final isSelected = _currentIndex == index;
+    final color = isSelected ? AppTheme.ink : AppTheme.muted;
+    
+    return Expanded(
+      child: InkWell(
+        onTap: () => _onTabTapped(index),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? solidIcon : outlineIcon,
+              color: color,
+              size: 22,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                color: color,
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final titles = ['Expenses', 'Summary', 'Insights', 'Categories', 'Settings'];
+    final titles = ['Expenses', 'Insights', 'Goals', 'Settings'];
     final user = context.watch<AuthProvider>().user;
     final displayName = user?.displayName?.trim();
     final hasDisplayName = displayName != null && displayName.isNotEmpty;
@@ -99,11 +124,6 @@ class _HomePageState extends State<HomePage> {
             : Text(titles[_currentIndex]),
         actions: [
           if (isDashboard) ...[
-            IconButton(
-              tooltip: 'Add Transaction',
-              icon: const Icon(Icons.add_rounded),
-              onPressed: _openAddExpense,
-            ),
             IconButton(
               tooltip: 'Notifications',
               icon: const Icon(Icons.notifications_none_rounded),
@@ -149,38 +169,56 @@ class _HomePageState extends State<HomePage> {
       ),
       body: _pages[_currentIndex],
 
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: AppTheme.paperCard,
-        indicatorColor: AppTheme.line,
-        selectedIndex: _currentIndex,
-        onDestinationSelected: _onTabTapped,
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined, color: _currentIndex == 0 ? AppTheme.ink : AppTheme.muted),
-            selectedIcon: const Icon(Icons.receipt_long, color: AppTheme.ink),
-            label: 'Expenses',
+      bottomNavigationBar: Container(
+        height: 68 + MediaQuery.of(context).padding.bottom,
+        decoration: BoxDecoration(
+          color: AppTheme.paperCard,
+          border: const Border(
+            top: BorderSide(color: AppTheme.line),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined, color: _currentIndex == 1 ? AppTheme.ink : AppTheme.muted),
-            selectedIcon: const Icon(Icons.bar_chart, color: AppTheme.ink),
-            label: 'Summary',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined, color: _currentIndex == 2 ? AppTheme.ink : AppTheme.muted),
-            selectedIcon: const Icon(Icons.insights, color: AppTheme.ink),
-            label: 'Insights',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.category_outlined, color: _currentIndex == 3 ? AppTheme.ink : AppTheme.muted),
-            selectedIcon: const Icon(Icons.category, color: AppTheme.ink),
-            label: 'Categories',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined, color: _currentIndex == 4 ? AppTheme.ink : AppTheme.muted),
-            selectedIcon: const Icon(Icons.settings, color: AppTheme.ink),
-            label: 'Settings',
-          ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        child: Row(
+          children: [
+            _buildNavItem(0, Icons.receipt_long_outlined, Icons.receipt_long, 'Expenses'),
+            _buildNavItem(1, Icons.insights_outlined, Icons.insights, 'Insights'),
+            Expanded(
+              child: GestureDetector(
+                onTap: _openAddExpense,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.ink,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: AppTheme.goldSoft,
+                      size: 28,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Goals'),
+            _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings'),
+          ],
+        ),
       ),
     );
   }

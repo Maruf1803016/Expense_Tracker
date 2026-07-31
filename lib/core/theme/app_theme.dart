@@ -15,8 +15,8 @@ class AppTheme {
   static const Color goldSoft = Color(0xFFE7D9AE);   // light gold, used on dark ink surfaces
   static const Color goldLine = Color(0x59B08D3F);   // hairline pattern on balance card, ~35% opacity
   static const Color textDark = Color(0xFF1B1D22);   // primary text on light backgrounds
-  static const Color muted = Color(0xFF767061);      // secondary/muted text
-  static const Color line = Color(0x171B1D22);       // hairline borders, ~9% opacity
+  static const Color muted = Color(0xFF5A5548);      // secondary/muted text, darkened to satisfy WCAG AA contrast (was 767061)
+  static const Color line = Color(0x291B1D22);       // hairline borders, increased from ~9% to ~16% opacity (was 171B1D22)
   static const Color emerald = Color(0xFF1E6F55);    // income / positive
   static const Color brick = Color(0xFFA23B3B);      // expense / negative / over-budget
 

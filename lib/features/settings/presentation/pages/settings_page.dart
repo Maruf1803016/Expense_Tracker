@@ -13,6 +13,7 @@ import 'package:expense_tracker/features/export/presentation/providers/export_pr
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
+import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -96,6 +97,18 @@ class SettingsPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const AccountsManagementPage()),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('Manage Categories'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CategoryManagementPage()),
                   );
                 },
               ),
