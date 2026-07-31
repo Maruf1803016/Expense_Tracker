@@ -44,6 +44,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   Widget build(BuildContext context) {
     final provider = context.watch<ExpenseProvider>();
     final settingsProvider = context.watch<SettingsProvider>();
+    final accountProvider = context.watch<AccountProvider>();
     final expenses = provider.expenses;
 
     final filteredExpenses = expenses.where((e) {
@@ -65,7 +66,24 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       if (!matchesTab) return false;
 
       if (_searchQuery.isNotEmpty) {
-        final matchesQuery = e.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        final query = _searchQuery.toLowerCase();
+        final title = e.title.toLowerCase();
+        final note = e.note.toLowerCase();
+        
+        final category = provider.getCategoryById(e.categoryId);
+        final categoryName = category.name.toLowerCase();
+        
+        final subCategoryName = (e.subCategory ?? '').toLowerCase();
+        
+        final matchedAccounts = accountProvider.accounts.where((a) => a.id == e.accountId);
+        final accountName = (matchedAccounts.isNotEmpty ? matchedAccounts.first.name : '').toLowerCase();
+
+        final matchesQuery = title.contains(query) ||
+            note.contains(query) ||
+            categoryName.contains(query) ||
+            subCategoryName.contains(query) ||
+            accountName.contains(query);
+
         if (!matchesQuery) return false;
       }
 

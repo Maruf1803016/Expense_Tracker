@@ -55,8 +55,8 @@ class SettingsPage extends StatelessWidget {
         ),
         const SizedBox(height: 24),
 
-        // 2. Preferences Section
-        _buildSectionHeader('Preferences'),
+        // 2. Money Section
+        _buildSectionHeader('Money'),
         Card(
           child: Column(
             children: [
