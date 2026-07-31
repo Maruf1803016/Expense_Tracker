@@ -1,0 +1,4 @@
+Date,Title,Category,Subcategory,Account,Type,Amount,Note
+"Jul 01, 2026",Salary,Salary Category,,Checking,Income,5000.0,monthly salary
+"Jul 02, 2026",Rent,Housing,,Checking,Expense,1200.0,apartment rent
+"Jul 03, 2026",Groceries,Food,,Credit Card,Expense,800.0,weekly food shopping
