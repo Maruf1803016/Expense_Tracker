@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Expenses', 'Insights', 'Goals', 'Settings'];
+    final titles = ['Expenses', 'Stats', 'Goals & Plans', 'Settings'];
     final user = context.watch<AuthProvider>().user;
     final displayName = user?.displayName?.trim();
     final hasDisplayName = displayName != null && displayName.isNotEmpty;
@@ -188,7 +188,7 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           children: [
             _buildNavItem(0, Icons.receipt_long_outlined, Icons.receipt_long, 'Expenses'),
-            _buildNavItem(1, Icons.insights_outlined, Icons.insights, 'Insights'),
+            _buildNavItem(1, Icons.insights_outlined, Icons.insights, 'Stats'),
             Expanded(
               child: GestureDetector(
                 onTap: _openAddExpense,
@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Goals'),
+            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Goals & Plans'),
             _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings'),
           ],
         ),

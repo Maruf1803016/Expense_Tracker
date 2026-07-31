@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/core/error/exceptions.dart';
 import 'package:expense_tracker/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -59,15 +60,36 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
     });
   }
 
+  Future<T> _executeWithRetry<T>(Future<T> Function(Duration timeout) operation) async {
+    try {
+      return await operation(const Duration(seconds: 8));
+    } catch (e1) {
+      debugPrint('[ExpenseRemoteDataSource] First attempt failed: $e1. Retrying in 1 second...');
+      await Future.delayed(const Duration(seconds: 1));
+      try {
+        return await operation(const Duration(seconds: 8));
+      } catch (e2) {
+        if (e2 is TimeoutException) {
+          throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          );
+        }
+        rethrow;
+      }
+    }
+  }
+
   @override
   Future<void> addExpense(ExpenseModel expense) async {
     try {
-      await _expenseCollection.add(expense.toMap()).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return _expenseCollection.add(expense.toMap()).timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to add expense: $e');
     }
@@ -76,12 +98,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<void> updateExpense(ExpenseModel expense) async {
     try {
-      await _expenseCollection.doc(expense.id).update(expense.toMap()).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return _expenseCollection.doc(expense.id).update(expense.toMap()).timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to update expense: $e');
     }
@@ -90,15 +114,17 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<void> deleteExpense(String id) async {
     try {
-      await _expenseCollection.doc(id).update({
-        'isDeleted': true,
-        'deletedAt': FieldValue.serverTimestamp(),
-      }).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return _expenseCollection.doc(id).update({
+          'isDeleted': true,
+          'deletedAt': FieldValue.serverTimestamp(),
+        }).timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to soft delete expense: $e');
     }
@@ -107,15 +133,17 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<void> restoreExpense(String id) async {
     try {
-      await _expenseCollection.doc(id).update({
-        'isDeleted': false,
-        'deletedAt': null,
-      }).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return _expenseCollection.doc(id).update({
+          'isDeleted': false,
+          'deletedAt': null,
+        }).timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to restore expense: $e');
     }
@@ -124,12 +152,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
   @override
   Future<void> deleteForever(String id) async {
     try {
-      await _expenseCollection.doc(id).delete().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return _expenseCollection.doc(id).delete().timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to permanently delete expense: $e');
     }
@@ -143,12 +173,14 @@ class ExpenseRemoteDataSourceImpl implements ExpenseRemoteDataSource {
       for (var doc in snapshot.docs) {
         batch.delete(doc.reference);
       }
-      await batch.commit().timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => throw const ServerException(
-          'Request timed out. Please check your connection and try again.',
-        ),
-      );
+      await _executeWithRetry((timeout) {
+        return batch.commit().timeout(
+          timeout,
+          onTimeout: () => throw const ServerException(
+            'Request timed out. Please check your connection and try again.',
+          ),
+        );
+      });
     } catch (e) {
       throw ServerException('Failed to empty recycle bin: $e');
     }
