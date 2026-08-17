@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, CalendarDays, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Target, Landmark, Plane, Settings2, Home as HomeIcon, BarChart3, ChevronDown, Bell, WalletCards, CreditCard, FileDown, Check, X, Trash2, MoreHorizontal, Sparkles, PiggyBank, ArrowLeft, ChevronRight, FolderPlus, Compass, Receipt } from "lucide-react";
+import { Plus, Search, CalendarDays, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Target, Landmark, Plane, Settings2, Home as HomeIcon, BarChart3, ChevronDown, Bell, WalletCards, CreditCard, FileDown, Check, X, Trash2, MoreHorizontal, Sparkles, PiggyBank, ArrowLeft, ChevronRight, FolderPlus, Compass, Receipt, User, LogOut, ShieldCheck, Building2, Edit3 } from "lucide-react";
 
 type TransactionType = "expense" | "income" | "transfer";
 type IconKey = "food" | "income" | "travel" | "home" | "shopping" | "transfer";
 type Screen = "Overview" | "Insights" | "Horizon" | "Settings";
-type DraftKind = "transaction" | "goal" | "trip" | "category" | "subcategory" | null;
+type DraftKind = "transaction" | "goal" | "trip" | "category" | "subcategory" | "account" | "profile" | null;
 
-type Account = { id: string; name: string; kind: "asset" | "liability"; startingBalance: number; color: string };
+type Account = { id: string; name: string; kind: "asset" | "liability"; startingBalance: number; color: string; accountNumber?: string };
 type Category = { id: string; name: string; monthlyBudget: number; color: string; icon: IconKey; type: "expense" | "income"; parentId?: string };
 type Goal = { id: string; name: string; targetAmount: number; targetDate: string; icon: "goal" | "home" };
 type Trip = { id: string; name: string; dateRange: string; budget: number; color: string };
@@ -23,6 +23,8 @@ type Transaction = {
   icon: IconKey;
 };
 type Detail = { kind: "goal" | "trip"; id: string } | null;
+type TransactionDetail = Transaction | null;
+
 type TransactionDraft = {
   id?: string;
   merchantNote: string;
@@ -44,13 +46,12 @@ const activePeriod = "2026-08";
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
 const seedAccounts: Account[] = [
-  { id: "daily", name: "Daily account", kind: "asset", startingBalance: 4500, color: "#b78a3d" },
-  { id: "reserve", name: "Reserve", kind: "asset", startingBalance: 3200, color: "#607b69" },
-  { id: "credit", name: "Credit card · 2481", kind: "liability", startingBalance: 3200, color: "#b6785e" },
+  { id: "daily", name: "Daily account", kind: "asset", startingBalance: 4500, color: "#b78a3d", accountNumber: "··· 4092" },
+  { id: "reserve", name: "Reserve", kind: "asset", startingBalance: 3200, color: "#607b69", accountNumber: "··· 8110" },
+  { id: "credit", name: "Credit card · 2481", kind: "liability", startingBalance: 3200, color: "#b6785e", accountNumber: "··· 2481" },
 ];
 
 const seedCategories: Category[] = [
-  // Expense top-level
   { id: "food", name: "Food & Dining", monthlyBudget: 800, color: "#b78a3d", icon: "food", type: "expense" },
   { id: "food-groceries", name: "Groceries", monthlyBudget: 0, color: "#b78a3d", icon: "food", type: "expense", parentId: "food" },
   { id: "food-rest", name: "Restaurants & Cafes", monthlyBudget: 0, color: "#b78a3d", icon: "food", type: "expense", parentId: "food" },
@@ -65,7 +66,6 @@ const seedCategories: Category[] = [
   { id: "personal", name: "Personal", monthlyBudget: 400, color: "#92769b", icon: "shopping", type: "expense" },
   { id: "personal-shop", name: "Shopping & Books", monthlyBudget: 0, color: "#92769b", icon: "shopping", type: "expense", parentId: "personal" },
 
-  // Income flat
   { id: "income-salary", name: "Salary", monthlyBudget: 0, color: "#496d56", icon: "income", type: "income" },
   { id: "income-freelance", name: "Freelance income", monthlyBudget: 0, color: "#496d56", icon: "income", type: "income" },
   { id: "income-gifts", name: "Gifts & Dividends", monthlyBudget: 0, color: "#496d56", icon: "income", type: "income" },
@@ -161,23 +161,38 @@ export default function Home() {
   const [active, setActive] = useState<Screen>("Overview");
   const [horizon, setHorizon] = useState<"Goals" | "Plans">("Goals");
   const [detail, setDetail] = useState<Detail>(null);
+  const [transactionDetail, setTransactionDetail] = useState<TransactionDetail>(null);
   const [draft, setDraft] = useState<DraftKind>(null);
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  
   const [transactions, setTransactions] = useState(seedTransactions);
   const [categories, setCategories] = useState(seedCategories);
   const [goals, setGoals] = useState(seedGoals);
   const [trips, setTrips] = useState(seedTrips);
+  const [accounts, setAccounts] = useState(seedAccounts);
+
+  // Draft fields
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAmount, setDraftAmount] = useState("");
+  const [draftDate, setDraftDate] = useState("By Dec 2026");
   const [transactionDraft, setTransactionDraft] = useState<TransactionDraft>(blankTransactionDraft());
-  const [parentNameInput, setParentNameInput] = useState("");
-  const [parentBudgetInput, setParentBudgetInput] = useState("");
+  
+  // Category form inputs
+  const [catNameInput, setCatNameInput] = useState("");
+  const [catBudgetInput, setCatBudgetInput] = useState("");
+  const [catTypeInput, setCatTypeInput] = useState<"expense" | "income">("expense");
   const [parentTargetId, setParentTargetId] = useState("");
   const [subNameInput, setSubNameInput] = useState("");
 
-  const accountBalances = useMemo(() => seedAccounts.map((account) => ({ ...account, balance: accountBalance(account, transactions) })), [transactions]);
+  // Account form inputs
+  const [accNameInput, setAccNameInput] = useState("");
+  const [accKindInput, setAccKindInput] = useState<"asset" | "liability">("asset");
+  const [accBalanceInput, setAccBalanceInput] = useState("");
+  const [accNumberInput, setAccNumberInput] = useState("");
+
+  const accountBalances = useMemo(() => accounts.map((account) => ({ ...account, balance: accountBalance(account, transactions) })), [accounts, transactions]);
   const availableBalance = accountBalances.filter((account) => account.kind === "asset").reduce((sum, account) => sum + account.balance, 0);
   const netWorth = accountBalances.reduce((sum, account) => sum + (account.kind === "asset" ? account.balance : -account.balance), 0);
   const periodTransactions = useMemo(() => transactions.filter((transaction) => transaction.date.startsWith(activePeriod)), [transactions]);
@@ -187,7 +202,6 @@ export default function Home() {
     expense: sum.expense + (transaction.type === "expense" ? transaction.amount : 0),
   }), { income: 0, expense: 0 }), [periodTransactions]);
 
-  // Roll up spend by top-level category (includes its own direct spend + subcategories pointing to it)
   const categorySpent = useMemo(() => {
     const direct: Record<string, number> = {};
     periodTransactions.forEach((transaction) => {
@@ -219,7 +233,6 @@ export default function Home() {
       const targetCat = categories.find((c) => c.id === categoryFilterId);
       if (targetCat) {
         if (!targetCat.parentId) {
-          // Top-level filter includes subcategories
           const subIds = categories.filter((c) => c.parentId === targetCat.id).map((c) => c.id);
           matchesCategory = transaction.categoryId === targetCat.id || subIds.includes(transaction.categoryId ?? "");
         } else {
@@ -236,11 +249,17 @@ export default function Home() {
     setDraft(null);
     setDraftTitle("");
     setDraftAmount("");
+    setDraftDate("By Dec 2026");
     setTransactionDraft(blankTransactionDraft());
-    setParentNameInput("");
-    setParentBudgetInput("");
+    setCatNameInput("");
+    setCatBudgetInput("");
+    setCatTypeInput("expense");
     setParentTargetId("");
     setSubNameInput("");
+    setAccNameInput("");
+    setAccKindInput("asset");
+    setAccBalanceInput("");
+    setAccNumberInput("");
   }
 
   function openTransactionDraft(preset: Partial<TransactionDraft> = {}) {
@@ -249,18 +268,7 @@ export default function Home() {
   }
 
   function openTransactionEditor(transaction: Transaction) {
-    openTransactionDraft({
-      id: transaction.id,
-      merchantNote: transaction.merchantNote,
-      amount: String(transaction.amount),
-      type: transaction.type,
-      accountId: transaction.accountId,
-      destinationAccountId: transaction.destinationAccountId ?? "reserve",
-      categoryId: transaction.categoryId ?? "food-groceries",
-      goalId: transaction.tag?.goalId ?? "none",
-      tripId: transaction.tag?.tripId ?? "none",
-      date: transaction.date,
-    });
+    setTransactionDetail(transaction);
   }
 
   function saveDraft() {
@@ -283,37 +291,29 @@ export default function Home() {
       setTransactions((current) => transactionDraft.id ? current.map((item) => item.id === transactionDraft.id ? transaction : item) : [transaction, ...current]);
     } else if (draft === "goal") {
       const amount = Number(draftAmount) || 5000;
-      setGoals((current) => [...current, { id: `goal-${Date.now()}`, name: draftTitle.trim() || "New savings goal", targetAmount: amount, targetDate: "By Dec 2026", icon: "goal" }]);
+      const name = draftTitle.trim() || "New savings goal";
+      setGoals((current) => [...current, { id: `goal-${Date.now()}`, name, targetAmount: amount, targetDate: draftDate || "By Dec 2026", icon: "goal" }]);
       setHorizon("Goals"); setActive("Horizon");
     } else if (draft === "trip") {
       const amount = Number(draftAmount) || 1200;
-      setTrips((current) => [...current, { id: `trip-${Date.now()}`, name: draftTitle.trim() || "New trip plan", budget: amount, dateRange: "Dates to be set", color: "#c77c5f" }]);
+      const name = draftTitle.trim() || "New trip plan";
+      setTrips((current) => [...current, { id: `trip-${Date.now()}`, name, budget: amount, dateRange: draftDate || "Dates to be set", color: "#c77c5f" }]);
       setHorizon("Plans"); setActive("Horizon");
     } else if (draft === "category") {
-      const expenseTopCount = categories.filter((c) => c.type === "expense" && !c.parentId).length;
-      if (expenseTopCount >= 8) {
-        alert("Maximum 8 expense categories reached.");
-        return;
-      }
-      const name = parentNameInput.trim();
+      const name = catNameInput.trim();
       if (!name) return;
       const newCat: Category = {
         id: `cat-${Date.now()}`,
         name,
-        monthlyBudget: Number(parentBudgetInput) || 0,
-        color: "#83755c",
-        icon: "shopping",
-        type: "expense",
+        monthlyBudget: catTypeInput === "expense" ? Number(catBudgetInput) || 0 : 0,
+        color: catTypeInput === "expense" ? "#b78a3d" : "#496d56",
+        icon: catTypeInput === "expense" ? "shopping" : "income",
+        type: catTypeInput,
       };
       setCategories((current) => [...current, newCat]);
     } else if (draft === "subcategory") {
       const parent = categories.find((c) => c.id === parentTargetId);
       if (!parent) return;
-      const subs = categories.filter((c) => c.parentId === parent.id);
-      if (subs.length >= 4) {
-        alert("Maximum 4 subcategories allowed per category.");
-        return;
-      }
       const name = subNameInput.trim();
       if (!name) return;
       const subCat: Category = {
@@ -326,6 +326,19 @@ export default function Home() {
         parentId: parent.id,
       };
       setCategories((current) => [...current, subCat]);
+    } else if (draft === "account") {
+      const name = accNameInput.trim();
+      if (!name) return;
+      const balance = Number(accBalanceInput) || 0;
+      const newAcc: Account = {
+        id: `acc-${Date.now()}`,
+        name,
+        kind: accKindInput,
+        startingBalance: balance,
+        color: accKindInput === "asset" ? "#5a7a65" : "#b6785e",
+        accountNumber: accNumberInput.trim() || "··· 9921",
+      };
+      setAccounts((current) => [...current, newAcc]);
     }
     resetDraft();
   }
@@ -333,6 +346,7 @@ export default function Home() {
   function deleteDraftTransaction() {
     if (!transactionDraft.id) return;
     setTransactions((current) => current.filter((transaction) => transaction.id !== transactionDraft.id));
+    setTransactionDetail(null);
     resetDraft();
   }
 
@@ -357,17 +371,26 @@ export default function Home() {
         <nav className="rail-nav" aria-label="Primary navigation">
           {navItems.map(({ label, icon: Icon }) => <button key={label} className={`rail-item ${active === label ? "active" : ""}`} onClick={() => { setActive(label); setDetail(null); }}><Icon size={18} strokeWidth={1.8} /><span>{label}</span></button>)}
         </nav>
-        <div className="rail-bottom"><div className="month-card"><span className="eyebrow">August close</span><strong>16 days left</strong><p>{fmt.format(totals.expense)} is recorded against your category plans.</p></div><button className="rail-item" onClick={() => setActive("Settings")}><FileDown size={18} strokeWidth={1.8} /><span>Export ledger</span></button></div>
+        <div className="rail-bottom">
+          <div className="month-card"><span className="eyebrow">August close</span><strong>16 days left</strong><p>{fmt.format(totals.expense)} is recorded against your category plans.</p></div>
+          <button className="rail-item" onClick={() => setActive("Settings")}><FileDown size={18} strokeWidth={1.8} /><span>Export ledger</span></button>
+        </div>
       </aside>
 
       <main className="content">
-        <div className="topline"><div className="date-stamp"><CalendarDays size={13} /> Friday, 16 August 2026</div><div className="utility-actions"><button className="icon-button" aria-label="Notifications"><Bell size={17} strokeWidth={1.7} /></button><button className="profile-dot" aria-label="Open profile">MM</button></div></div>
+        <div className="topline">
+          <div className="date-stamp"><CalendarDays size={13} /> Friday, 16 August 2026</div>
+          <div className="utility-actions">
+            <button className="icon-button" aria-label="Notifications"><Bell size={17} strokeWidth={1.7} /></button>
+            <button className="profile-dot" onClick={() => setDraft("profile")} aria-label="Open profile modal">MM</button>
+          </div>
+        </div>
         <section className="page-enter" key={`${active}-${detail?.id ?? "root"}`}>
-          {active === "Overview" && <OverviewView balance={availableBalance} netWorth={netWorth} accounts={accountBalances} totals={totals} categories={categories} categorySpent={categorySpent} transactions={filteredTransactions} filter={filter} categoryFilterId={categoryFilterId} query={query} onFilter={setFilter} onQuery={setQuery} onClearCategory={() => setCategoryFilterId(null)} onOpenCategory={openCategory} onEdit={openTransactionEditor} />}
+          {active === "Overview" && <OverviewView balance={availableBalance} netWorth={netWorth} accounts={accountBalances} totals={totals} categories={categories} categorySpent={categorySpent} transactions={filteredTransactions} filter={filter} categoryFilterId={categoryFilterId} query={query} onFilter={setFilter} onQuery={setQuery} onClearCategory={() => setCategoryFilterId(null)} onOpenCategory={openCategory} onSelectTransaction={openTransactionEditor} />}
           {active === "Insights" && <InsightsView transactions={transactions} categories={categories} categorySpent={categorySpent} onOpenCategory={openCategory} />}
-          {active === "Horizon" && detail && <PlanDetailView detail={detail} goals={goals} trips={trips} goalProgress={goalProgress} tripSpend={tripSpend} transactions={transactions} categories={categories} accounts={seedAccounts} onBack={() => setDetail(null)} onEdit={openTransactionEditor} onAddGoalFunds={(goal) => openTransactionDraft({ type: "transfer", accountId: "daily", destinationAccountId: "reserve", goalId: goal.id, merchantNote: `Contribution to ${goal.name}` })} onLogTripExpense={(trip) => openTransactionDraft({ type: "expense", accountId: "daily", categoryId: "travel", tripId: trip.id, merchantNote: `${trip.name} expense` })} />}
+          {active === "Horizon" && detail && <PlanDetailView detail={detail} goals={goals} trips={trips} goalProgress={goalProgress} tripSpend={tripSpend} transactions={transactions} categories={categories} accounts={accounts} onBack={() => setDetail(null)} onSelectTransaction={openTransactionEditor} onAddGoalFunds={(goal) => openTransactionDraft({ type: "transfer", accountId: "daily", destinationAccountId: "reserve", goalId: goal.id, merchantNote: `Contribution to ${goal.name}` })} onLogTripExpense={(trip) => openTransactionDraft({ type: "expense", accountId: "daily", categoryId: "travel", tripId: trip.id, merchantNote: `${trip.name} expense` })} />}
           {active === "Horizon" && !detail && <HorizonView tab={horizon} onTab={setHorizon} goals={goals} trips={trips} goalProgress={goalProgress} tripSpend={tripSpend} onCreateGoal={() => setDraft("goal")} onCreateTrip={() => setDraft("trip")} onOpenGoal={(goal) => setDetail({ kind: "goal", id: goal.id })} onOpenTrip={(trip) => setDetail({ kind: "trip", id: trip.id })} />}
-          {active === "Settings" && <SettingsView accounts={accountBalances} categories={categories} subcategorySpent={subcategorySpent} onDeleteCategory={deleteCategory} onOpenAddCategory={() => setDraft("category")} onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }} />}
+          {active === "Settings" && <SettingsView accounts={accountBalances} categories={categories} subcategorySpent={subcategorySpent} onDeleteCategory={deleteCategory} onOpenAddCategory={() => setDraft("category")} onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }} onOpenAddAccount={() => setDraft("account")} />}
         </section>
       </main>
 
@@ -379,14 +402,70 @@ export default function Home() {
         <button className={`mobile-item ${active === "Settings" ? "active" : ""}`} onClick={() => { setActive("Settings"); setDetail(null); }}><Settings2 size={17} /><span>Settings</span></button>
       </nav>
 
-      {draft && <DraftPanel kind={draft} title={draftTitle} amount={draftAmount} transaction={transactionDraft} accounts={seedAccounts} categories={categories} goals={goals} trips={trips} parentName={parentNameInput} parentBudget={parentBudgetInput} parentTarget={parentTargetId} subName={subNameInput} onTitle={setDraftTitle} onAmount={setDraftAmount} onTransaction={setTransactionDraft} onParentName={setParentNameInput} onParentBudget={setParentBudgetInput} onParentTarget={setParentTargetId} onSubName={setSubNameInput} onClose={resetDraft} onSave={saveDraft} onDelete={deleteDraftTransaction} />}
+      {/* Transaction Detail & Edit Modal */}
+      {transactionDetail && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="Transaction detail" onMouseDown={() => setTransactionDetail(null)}>
+          <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top">
+              <div><div className="draft-kicker">Ledger entry</div><h2>{transactionDetail.merchantNote}</h2></div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="secondary-button" onClick={() => { const tr = transactionDetail; setTransactionDetail(null); openTransactionEditor(tr); }}><Edit3 size={14} /> Edit</button>
+                <button className="close-button" onClick={() => setTransactionDetail(null)} aria-label="Close"><X size={17} /></button>
+              </div>
+            </div>
+            <div className="detail-summary paper-card" style={{ marginTop: 14, marginBottom: 18 }}>
+              <div><span className="detail-label">Amount</span><strong className={transactionDetail.type === "income" ? "amount-income" : transactionDetail.type === "expense" ? "amount-expense" : "amount-transfer"}>{fmt.format(transactionDetail.amount)}</strong></div>
+              <div><span className="detail-label">Type</span><strong>{transactionDetail.type.toUpperCase()}</strong></div>
+              <div><span className="detail-label">Date</span><strong>{transactionDetail.date}</strong></div>
+            </div>
+            <div className="field-note" style={{ display: "grid", gap: 10 }}>
+              <div className="field-note-row"><span>Account</span><b>{accounts.find(a => a.id === transactionDetail.accountId)?.name ?? transactionDetail.accountId}</b></div>
+              {transactionDetail.destinationAccountId && <div className="field-note-row"><span>To account</span><b>{accounts.find(a => a.id === transactionDetail.destinationAccountId)?.name}</b></div>}
+              {transactionDetail.categoryId && <div className="field-note-row"><span>Category</span><b>{categories.find(c => c.id === transactionDetail.categoryId)?.name ?? transactionDetail.categoryId}</b></div>}
+              {transactionDetail.tag?.goalId && <div className="field-note-row"><span>Tagged goal</span><b>{goals.find(g => g.id === transactionDetail.tag?.goalId)?.name}</b></div>}
+              {transactionDetail.tag?.tripId && <div className="field-note-row"><span>Tagged trip</span><b>{trips.find(t => t.id === transactionDetail.tag?.tripId)?.name}</b></div>}
+            </div>
+            <div className="draft-actions" style={{ marginTop: 24 }}>
+              <button className="primary-button draft-submit" onClick={() => { const tr = transactionDetail; setTransactionDetail(null); openTransactionEditor(tr); }}>Modify entry</button>
+              <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {draft === "profile" && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
+          <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top"><div><div className="draft-kicker">Authenticated session</div><h2>My Profile</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "20px 0", padding: "18px", background: "#f8f4ec", borderRadius: 14, border: "1px solid #ded8ca" }}>
+              <div className="profile-dot" style={{ width: 52, height: 52, fontSize: 18 }}>MM</div>
+              <div><strong style={{ fontSize: 17, display: "block", fontFamily: "Space Grotesk, sans-serif" }}>Maruf Mahmud</strong><span style={{ color: "#777", fontSize: 13 }}>maruf.owner@expense-tracker.app</span></div>
+            </div>
+            <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+              <div className="field-note-row"><span>Subscription</span><b>Owner Tier (Active)</b></div>
+              <div className="field-note-row"><span>Security</span><b>Encrypted & User-Scoped</b></div>
+              <div className="field-note-row"><span>Storage</span><b>Firestore & Local Sync</b></div>
+            </div>
+            <div className="draft-actions">
+              <button className="primary-button draft-submit" onClick={resetDraft}><ShieldCheck size={16} /> Security & Privacy</button>
+              <button className="delete-button" onClick={() => { alert("Signed out of local demo session."); resetDraft(); }}><LogOut size={16} /> Sign out of session</button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* Standard Draft / Create Panel */}
+      {draft && draft !== "profile" && (
+        <DraftPanel kind={draft} title={draftTitle} amount={draftAmount} dateVal={draftDate} transaction={transactionDraft} accounts={accounts} categories={categories} goals={goals} trips={trips} catName={catNameInput} catBudget={catBudgetInput} catType={catTypeInput} parentTarget={parentTargetId} subName={subNameInput} accName={accNameInput} accKind={accKindInput} accBalance={accBalanceInput} accNumber={accNumberInput} onTitle={setDraftTitle} onAmount={setDraftAmount} onDate={setDraftDate} onTransaction={setTransactionDraft} onCatName={setCatNameInput} onCatBudget={setCatBudgetInput} onCatType={setCatTypeInput} onParentTarget={setParentTargetId} onSubName={setSubNameInput} onAccName={setAccNameInput} onAccKind={setAccKindInput} onAccBalance={setAccBalanceInput} onAccNumber={setAccNumberInput} onClose={resetDraft} onSave={saveDraft} onDelete={deleteDraftTransaction} />
+      )}
     </div>
   );
 }
 
-function OverviewView({ balance, netWorth, accounts, totals, categories, categorySpent, transactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onEdit }: {
+function OverviewView({ balance, netWorth, accounts, totals, categories, categorySpent, transactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction }: {
   balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
-  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onEdit: (transaction: Transaction) => void;
+  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void;
 }) {
   const savingsRate = totals.income ? Math.round(((totals.income - totals.expense) / totals.income) * 100) : 0;
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
@@ -395,19 +474,53 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, categor
 
   return <>
     <header className="page-header"><div><div className="page-kicker">Personal finance, considered</div><h1>Keep the whole picture<br />in view.</h1><p className="page-subtitle">A clear fieldbook for the money that moves your days.</p></div></header>
-    <div className="dashboard-grid"><div><section className="balance-card"><img className="balance-art" src={heroArt} alt="Editorial ledger still life" /><div className="balance-content"><div className="balance-label"><span /> Available balance</div><div className="balance-number">{fmt.format(balance)}</div><p className="balance-caption">Across your asset accounts, with liabilities held apart for a truthful net worth.</p><div className="balance-foot"><div><span>Income, August</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Expenses, August</span><strong>{fmt.format(totals.expense)}</strong></div></div></div></section><div className="summary-strip"><article className="mini-stat"><div className="stat-top">Inflow <span className="stat-icon up"><ArrowDownRight size={14} /></span></div><strong>{fmt.format(totals.income)}</strong><p>Derived from this month’s income</p></article><article className="mini-stat"><div className="stat-top">Outflow <span className="stat-icon down"><ArrowUpRight size={14} /></span></div><strong>{fmt.format(totals.expense)}</strong><p>Derived from recorded expenses</p></article><article className="mini-stat"><div className="stat-top">Savings rate <span className="stat-icon gold"><Target size={14} /></span></div><strong>{savingsRate}%</strong><p>Transfers stay neutral</p></article></div></div>
-      <aside className="paper-card side-summary"><div className="card-head"><h2>Net worth</h2><span className="text-link">Assets − debts</span></div><div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> calculated from accounts</span></div><div className="account-list">{accounts.map((account) => <div className={`account-row ${account.kind === "liability" ? "liability" : ""}`} key={account.id}><div className="account-left"><i className="account-dot" style={{ background: account.color }} />{account.name}</div><strong>{account.kind === "liability" ? `${fmt.format(account.balance)} owed` : fmt.format(account.balance)}</strong></div>)}</div></aside></div>
-    <div className="lower-grid"><section className="paper-card section-card"><div className="section-head"><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2><div className="filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item ? "active" : ""}`} onClick={() => onFilter(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selectedCategory && <button className="filter-note" onClick={onClearCategory}>Viewing {selectedCategory.name} <X size={12} /></button>}<div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search a merchant or category" /></div><div className="transaction-list">{transactions.length ? transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onEdit={onEdit} />) : <p className="budget-note">No entries match this view. Try another filter or clear the category context.</p>}</div></section>
-      <aside className="paper-card budget-card"><div className="section-head"><h2>Month in hand</h2><MoreHorizontal size={18} color="#8b8174" /></div><div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense").length} records</b></div></div><div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.expense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, (totals.expense / plannedBudget) * 100)}%` }} /></div></div><p className="budget-note">Every category total is calculated from this month’s tagged expense records.</p><div className="upcoming-list"><div className="upcoming-title">Category pulse</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span>{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div></aside></div>
+    <div className="dashboard-grid">
+      <div>
+        <section className="balance-card">
+          <img className="balance-art" src={heroArt} alt="Editorial ledger still life" />
+          <div className="balance-content">
+            <div className="balance-label"><span /> Available balance</div>
+            <div className="balance-number">{fmt.format(balance)}</div>
+            <p className="balance-caption">Across your asset accounts, with liabilities held apart for a truthful net worth.</p>
+            <div className="balance-foot"><div><span>Income, August</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Expenses, August</span><strong>{fmt.format(totals.expense)}</strong></div></div>
+          </div>
+        </section>
+        <div className="summary-strip">
+          <article className="mini-stat"><div className="stat-top">Inflow <span className="stat-icon up"><ArrowDownRight size={14} /></span></div><strong>{fmt.format(totals.income)}</strong><p>Derived from monthly income</p></article>
+          <article className="mini-stat"><div className="stat-top">Outflow <span className="stat-icon down"><ArrowUpRight size={14} /></span></div><strong>{fmt.format(totals.expense)}</strong><p>Derived from recorded expenses</p></article>
+          <article className="mini-stat"><div className="stat-top">Savings rate <span className="stat-icon gold"><Target size={14} /></span></div><strong>{savingsRate}%</strong><p>Transfers stay neutral</p></article>
+        </div>
+      </div>
+      <aside className="paper-card side-summary">
+        <div className="card-head"><h2>Net worth</h2><span className="text-link">Assets − debts</span></div>
+        <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> calculated from accounts</span></div>
+        <div className="account-list">{accounts.map((account) => <div className={`account-row ${account.kind === "liability" ? "liability" : ""}`} key={account.id}><div className="account-left"><i className="account-dot" style={{ background: account.color }} />{account.name} <small style={{ color: "#888", display: "block" }}>{account.accountNumber}</small></div><strong>{account.kind === "liability" ? `${fmt.format(account.balance)} owed` : fmt.format(account.balance)}</strong></div>)}</div>
+      </aside>
+    </div>
+    <div className="lower-grid">
+      <section className="paper-card section-card">
+        <div className="section-head"><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2><div className="filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item ? "active" : ""}`} onClick={() => onFilter(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>
+        {selectedCategory && <button className="filter-note" onClick={onClearCategory}>Viewing {selectedCategory.name} <X size={12} /></button>}
+        <div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search a merchant or category" /></div>
+        <div className="transaction-list">{transactions.length ? transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No entries match this view. Try another filter or clear the category context.</p>}</div>
+      </section>
+      <aside className="paper-card budget-card">
+        <div className="section-head"><h2>Month in hand</h2><MoreHorizontal size={18} color="#8b8174" /></div>
+        <div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense").length} records</b></div></div>
+        <div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.expense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, (totals.expense / plannedBudget) * 100)}%` }} /></div></div>
+        <p className="budget-note">Every category total is calculated from this month’s tagged expense records.</p>
+        <div className="upcoming-list"><div className="upcoming-title">Category pulse</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span>{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div>
+      </aside>
+    </div>
   </>;
 }
 
-function TransactionRow({ transaction, categories, onEdit }: { transaction: Transaction; categories: Category[]; onEdit: (transaction: Transaction) => void }) {
+function TransactionRow({ transaction, categories, onSelect }: { transaction: Transaction; categories: Category[]; onSelect: (transaction: Transaction) => void }) {
   const category = categories.find((item) => item.id === transaction.categoryId);
   const descriptor = transaction.type === "transfer" ? "Transfer between your accounts" : category?.name ?? "Uncategorised";
   const signed = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔";
   const amountClass = transaction.type === "income" ? "amount-income" : transaction.type === "expense" ? "amount-expense" : "amount-transfer";
-  return <button className="transaction-row transaction-button" onClick={() => onEdit(transaction)}><TransactionGlyph type={transaction.icon} /><div className="transaction-title"><strong>{transaction.merchantNote}</strong><span>{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span>{shortDate(transaction.date)}</span></div></button>;
+  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><TransactionGlyph type={transaction.icon} /><div className="transaction-title"><strong>{transaction.merchantNote}</strong><span>{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span>{shortDate(transaction.date)}</span></div></button>;
 }
 
 function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
@@ -431,8 +544,21 @@ function BudgetLine({ category, used, onOpen }: { category: Category; used: numb
 function HorizonView({ tab, onTab, goals, trips, goalProgress, tripSpend, onCreateGoal, onCreateTrip, onOpenGoal, onOpenTrip }: { tab: "Goals" | "Plans"; onTab: (value: "Goals" | "Plans") => void; goals: Goal[]; trips: Trip[]; goalProgress: Record<string, number>; tripSpend: Record<string, number>; onCreateGoal: () => void; onCreateTrip: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void }) {
   return (
     <>
-      <section className="horizon-hero"><img src={journeyArt} alt="Travel planning and savings still life" /><div className="horizon-copy"><div className="page-kicker">Horizon</div><h1>Fund what<br />matters next.</h1><p>Goals and trips stay connected to the same transactions you already trust.</p></div></section>
-      <div className="horizon-tabs"><button className={`horizon-tab ${tab === "Goals" ? "active" : ""}`} onClick={() => onTab("Goals")}>Savings goals</button><button className={`horizon-tab ${tab === "Plans" ? "active" : ""}`} onClick={() => onTab("Plans")}>Trip & event plans</button></div>
+      <section className="horizon-hero">
+        <img src={journeyArt} alt="Travel planning and savings still life" />
+        <div className="horizon-copy">
+          <div className="page-kicker">Horizon</div>
+          <h1>Fund what<br />matters next.</h1>
+          <p>Goals and trips stay connected to the same transactions you already trust.</p>
+        </div>
+      </section>
+      <div className="horizon-tabs">
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className={`horizon-tab ${tab === "Goals" ? "active" : ""}`} onClick={() => onTab("Goals")}>Savings goals</button>
+          <button className={`horizon-tab ${tab === "Plans" ? "active" : ""}`} onClick={() => onTab("Plans")}>Trip & event plans</button>
+        </div>
+        <button className="add-button" onClick={tab === "Goals" ? onCreateGoal : onCreateTrip}><Plus size={15} /><span>{tab === "Goals" ? "Add savings goal" : "Add trip plan"}</span></button>
+      </div>
       {tab === "Goals" ? <><div className="page-header compact-header"><div><div className="page-kicker">Set aside with intention</div><h1>Your quiet reserves.</h1></div></div><div className="horizon-grid">{goals.map((goal) => <GoalCard goal={goal} saved={goalProgress[goal.id] ?? 0} key={goal.id} onOpen={() => onOpenGoal(goal)} />)}</div></> : <><div className="page-header compact-header"><div><div className="page-kicker">Budget the memory, not the aftermath</div><h1>Plans with room to enjoy.</h1></div></div><div className="horizon-grid">{trips.map((trip) => <TripCard trip={trip} spent={tripSpend[trip.id] ?? 0} key={trip.id} onOpen={() => onOpenTrip(trip)} />)}</div></>}
     </>
   );
@@ -448,7 +574,7 @@ function TripCard({ trip, spent, onOpen }: { trip: Trip; spent: number; onOpen: 
   return <button className="paper-card plan-card plan-card-button" onClick={onOpen}><div className="plan-icon" style={{ color: trip.color }}><Plane size={18} strokeWidth={1.7} /></div><div className="plan-meta">{trip.dateRange}</div><h3>{trip.name}</h3><div className="plan-number">{fmt.format(spent)} <span>of {fmt.format(trip.budget)} spent</span></div><Progress value={progress} color={trip.color} /><div className="plan-foot">{fmt.format(Math.max(0, trip.budget - spent))} left for the experience</div></button>;
 }
 
-function PlanDetailView({ detail, goals, trips, goalProgress, tripSpend, transactions, categories, accounts, onBack, onEdit, onAddGoalFunds, onLogTripExpense }: { detail: Detail; goals: Goal[]; trips: Trip[]; goalProgress: Record<string, number>; tripSpend: Record<string, number>; transactions: Transaction[]; categories: Category[]; accounts: Account[]; onBack: () => void; onEdit: (transaction: Transaction) => void; onAddGoalFunds: (goal: Goal) => void; onLogTripExpense: (trip: Trip) => void }) {
+function PlanDetailView({ detail, goals, trips, goalProgress, tripSpend, transactions, categories, accounts, onBack, onSelectTransaction, onAddGoalFunds, onLogTripExpense }: { detail: Detail; goals: Goal[]; trips: Trip[]; goalProgress: Record<string, number>; tripSpend: Record<string, number>; transactions: Transaction[]; categories: Category[]; accounts: Account[]; onBack: () => void; onSelectTransaction: (transaction: Transaction) => void; onAddGoalFunds: (goal: Goal) => void; onLogTripExpense: (trip: Trip) => void }) {
   if (!detail) return null;
   const isGoal = detail.kind === "goal";
   const subject = isGoal ? goals.find((goal) => goal.id === detail.id) : trips.find((trip) => trip.id === detail.id);
@@ -457,41 +583,70 @@ function PlanDetailView({ detail, goals, trips, goalProgress, tripSpend, transac
   const accumulated = isGoal ? goalProgress[subject.id] ?? 0 : tripSpend[subject.id] ?? 0;
   const target = isGoal ? (subject as Goal).targetAmount : (subject as Trip).budget;
   const title = subject.name;
-  return <><button className="detail-back" onClick={onBack}><ArrowLeft size={16} /> Back to Horizon</button><header className="page-header detail-header"><div><div className="page-kicker">{isGoal ? "Savings goal" : "Trip & event plan"}</div><h1>{title}</h1><p className="page-subtitle">{isGoal ? (subject as Goal).targetDate : (subject as Trip).dateRange}</p></div></header><section className="paper-card detail-summary"><div><span className="detail-label">{isGoal ? "Held aside" : "Spent so far"}</span><strong>{fmt.format(accumulated)}</strong></div><div><span className="detail-label">{isGoal ? "Target" : "Budget"}</span><strong>{fmt.format(target)}</strong></div><div><span className="detail-label">{isGoal ? "Still to fund" : "Remaining"}</span><strong>{fmt.format(Math.max(0, target - accumulated))}</strong></div></section><section className="paper-card section-card detail-ledger"><div className="section-head"><h2>Tagged ledger</h2><span className="page-kicker" style={{ margin: 0 }}>{records.length} records</span></div><div className="transaction-list">{records.length ? records.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onEdit={onEdit} />) : <p className="budget-note">No linked transactions yet. Use the mobile add action to pre-fill the appropriate ledger tag.</p>}</div></section><section className="paper-card detail-note"><PiggyBank size={18} /><p>{isGoal ? "Funding this goal creates a transfer tagged to the goal. It moves money between accounts without changing your net worth." : "Logging an expense assigns the trip tag directly to a normal expense transaction, so trip spend and category budgets stay in agreement."}</p><span>{accounts.length} accounts remain in the same ledger.</span></section></>;
+  return <><button className="detail-back" onClick={onBack}><ArrowLeft size={16} /> Back to Horizon</button><header className="page-header detail-header"><div><div className="page-kicker">{isGoal ? "Savings goal" : "Trip & event plan"}</div><h1>{title}</h1><p className="page-subtitle">{isGoal ? (subject as Goal).targetDate : (subject as Trip).dateRange}</p></div><button className="primary-button" onClick={() => isGoal ? onAddGoalFunds(subject as Goal) : onLogTripExpense(subject as Trip)}><Plus size={15} /> {isGoal ? "Contribute funds" : "Log expense"}</button></header><section className="paper-card detail-summary"><div><span className="detail-label">{isGoal ? "Held aside" : "Spent so far"}</span><strong>{fmt.format(accumulated)}</strong></div><div><span className="detail-label">{isGoal ? "Target" : "Budget"}</span><strong>{fmt.format(target)}</strong></div><div><span className="detail-label">{isGoal ? "Still to fund" : "Remaining"}</span><strong>{fmt.format(Math.max(0, target - accumulated))}</strong></div></section><section className="paper-card section-card detail-ledger"><div className="section-head"><h2>Tagged ledger</h2><span className="page-kicker" style={{ margin: 0 }}>{records.length} records</span></div><div className="transaction-list">{records.length ? records.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No linked transactions yet. Use the mobile add action or contribute button above.</p>}</div></section></>;
 }
 
-function SettingsView({ accounts, categories, subcategorySpent, onDeleteCategory, onOpenAddCategory, onOpenAddSub }: { accounts: Array<Account & { balance: number }>; categories: Category[]; subcategorySpent: Record<string, number>; onDeleteCategory: (id: string) => void; onOpenAddCategory: () => void; onOpenAddSub: (parentId: string) => void }) {
+function SettingsView({ accounts, categories, subcategorySpent, onDeleteCategory, onOpenAddCategory, onOpenAddSub, onOpenAddAccount }: { accounts: Array<Account & { balance: number }>; categories: Category[]; subcategorySpent: Record<string, number>; onDeleteCategory: (id: string) => void; onOpenAddCategory: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddAccount: () => void }) {
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
   return (
     <>
-      <header className="page-header"><div><div className="page-kicker">Housekeeping</div><h1>The ledger<br />behind the ledger.</h1><p className="page-subtitle">Your accounts and categories are the vocabulary every calculation reads.</p></div></header>
-      <div className="settings-grid">
-        <article className="paper-card settings-card" style={{ gridColumn: "1 / -1" }}>
-          <div className="section-head" style={{ marginBottom: 12 }}>
-            <h2>Expense categories ({expenseTop.length} of 8 used)</h2>
-            <button className="add-button" onClick={onOpenAddCategory} disabled={expenseTop.length >= 8}><Plus size={15} /><span>Add category</span></button>
+      <header className="page-header"><div><div className="page-kicker">Settings & Accounts</div><h1>The financial foundation.</h1><p className="page-subtitle">Manage accounts, assets, liabilities, and structured category trees.</p></div></header>
+      <div className="settings-grid" style={{ display: "grid", gap: 20 }}>
+        
+        {/* Accounts / Assets section */}
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <div className="section-head" style={{ marginBottom: 16 }}>
+            <h2>Accounts, Assets & Liabilities</h2>
+            <button className="add-button" onClick={onOpenAddAccount}><Plus size={15} /><span>Add account</span></button>
           </div>
-          <p className="budget-note" style={{ marginBottom: 18 }}>Monthly budgets are set at the top-level. Subcategories track detail and roll up automatically.</p>
-          <div className="category-edit-list">
+          <div style={{ display: "grid", gap: 12 }}>
+            {accounts.map((acc) => (
+              <div key={acc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "#fcfaf6", border: "1px solid #ded8ca", borderRadius: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <i className="account-dot" style={{ background: acc.color, width: 12, height: 12, borderRadius: "50%", display: "inline-block" }} />
+                  <div>
+                    <strong style={{ fontSize: 15, fontFamily: "Space Grotesk, sans-serif", display: "block" }}>{acc.name}</strong>
+                    <span style={{ color: "#777", fontSize: 12 }}>{acc.kind === "asset" ? "Asset / Bank account" : "Liability / Debt"} · {acc.accountNumber}</span>
+                  </div>
+                </div>
+                <strong style={{ fontSize: 16, fontFamily: "Space Grotesk, sans-serif" }}>{fmt.format(acc.balance)}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        {/* Expense Categories */}
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <div className="section-head" style={{ marginBottom: 16 }}>
+            <h2>Expense Categories ({expenseTop.length})</h2>
+            <button className="add-button" onClick={onOpenAddCategory}><Plus size={15} /><span>Add expense category</span></button>
+          </div>
+          <div className="category-edit-list" style={{ display: "grid", gap: 12 }}>
             {expenseTop.map((cat) => {
               const subs = categories.filter((c) => c.parentId === cat.id);
               return (
-                <div key={cat.id} className="category-group-row">
-                  <div className="category-parent-header">
-                    <span className="cat-marker" style={{ background: cat.color }} />
-                    <strong>{cat.name}</strong>
-                    <span className="cat-budget-tag">Budget: {fmt.format(cat.monthlyBudget)}</span>
-                    <button className="sub-add-link" onClick={() => onOpenAddSub(cat.id)}><FolderPlus size={14} /> Add subcategory ({subs.length}/4)</button>
-                    <button className="delete-button" onClick={() => onDeleteCategory(cat.id)}><Trash2 size={13} /></button>
+                <div key={cat.id} className="category-group-row" style={{ background: "#fcfaf6", border: "1px solid #ded8ca", borderRadius: 12, padding: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span className="cat-marker" style={{ background: cat.color, width: 10, height: 10, borderRadius: "50%", display: "inline-block" }} />
+                      <strong style={{ fontSize: 15 }}>{cat.name}</strong>
+                      <span className="cat-budget-tag" style={{ fontSize: 12, color: "#666", background: "#eee", padding: "2px 8px", borderRadius: 6 }}>Budget: {fmt.format(cat.monthlyBudget)}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button className="secondary-button" style={{ fontSize: 11, padding: "6px 10px" }} onClick={() => onOpenAddSub(cat.id)}><FolderPlus size={13} /> Add subcategory</button>
+                      <button className="delete-button" onClick={() => onDeleteCategory(cat.id)}><Trash2 size={13} /></button>
+                    </div>
                   </div>
                   {subs.length > 0 && (
-                    <div className="subcategory-sublist">
+                    <div style={{ marginTop: 10, paddingLeft: 20, display: "grid", gap: 6, borderLeft: "2px solid #e3dec9" }}>
                       {subs.map((sub) => (
-                        <div key={sub.id} className="subcategory-row">
+                        <div key={sub.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13, color: "#555" }}>
                           <span>↳ {sub.name}</span>
-                          <b>{fmt.format(subcategorySpent[sub.id] ?? 0)}</b>
-                          <button className="delete-button" onClick={() => onDeleteCategory(sub.id)}><Trash2 size={12} /></button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <b>{fmt.format(subcategorySpent[sub.id] ?? 0)}</b>
+                            <button className="delete-button" onClick={() => onDeleteCategory(sub.id)}><Trash2 size={12} /></button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -502,37 +657,37 @@ function SettingsView({ accounts, categories, subcategorySpent, onDeleteCategory
           </div>
         </article>
 
-        <article className="paper-card settings-card" style={{ gridColumn: "1 / -1", marginTop: 12 }}>
-          <div className="section-head" style={{ marginBottom: 12 }}>
-            <h2>Income sources ({incomeList.length} of 6 used)</h2>
+        {/* Income Sources */}
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <div className="section-head" style={{ marginBottom: 16 }}>
+            <h2>Income Sources</h2>
           </div>
-          <div className="category-edit-list">
-            {incomeList.map((inc) => (
-              <div key={inc.id} className="category-parent-header">
-                <span className="cat-marker" style={{ background: inc.color }} />
-                <strong>{inc.name}</strong>
+          <div className="category-edit-list" style={{ display: "grid", gap: 10 }}>
+            {categories.filter((c) => c.type === "income").map((inc) => (
+              <div key={inc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#fcfaf6", border: "1px solid #ded8ca", borderRadius: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span className="cat-marker" style={{ background: inc.color, width: 10, height: 10, borderRadius: "50%", display: "inline-block" }} />
+                  <strong style={{ fontSize: 15 }}>{inc.name}</strong>
+                </div>
                 <button className="delete-button" onClick={() => onDeleteCategory(inc.id)}><Trash2 size={13} /></button>
               </div>
             ))}
           </div>
         </article>
 
-        <article className="paper-card settings-card" style={{ marginTop: 12 }}><div className="set-icon"><WalletCards size={19} /></div><h3>Accounts</h3><p>{accounts.filter((account) => account.kind === "asset").length} assets and {accounts.filter((account) => account.kind === "liability").length} liability are contributing to net worth correctly.</p></article>
-        <article className="paper-card settings-card" style={{ marginTop: 12 }}><div className="set-icon"><FileDown size={19} /></div><h3>Export data</h3><p>Prepare a CSV or an archival PDF that keeps transactions, goals, and trips together.</p><button className="secondary-button" style={{ marginTop: 12 }}>Prepare export</button></article>
       </div>
     </>
   );
 }
 
-function DraftPanel({ kind, title, amount, transaction, accounts, categories, goals, trips, parentName, parentBudget, parentTarget, subName, onTitle, onAmount, onTransaction, onParentName, onParentBudget, onParentTarget, onSubName, onClose, onSave, onDelete }: {
-  kind: Exclude<DraftKind, null>; title: string; amount: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; parentName: string; parentBudget: string; parentTarget: string; subName: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onParentName: (value: string) => void; onParentBudget: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onClose: () => void; onSave: () => void; onDelete: () => void;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onDelete }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onClose: () => void; onSave: () => void; onDelete: () => void;
 }) {
-  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? "Set a new goal" : kind === "trip" ? "Plan the journey" : kind === "category" ? "Add top-level category" : "Add subcategory";
-  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose." : kind === "trip" ? "Set a ceiling before the memories start." : "Expand your ledger structure.";
+  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? "Set a new savings goal" : kind === "trip" ? "Plan a trip or event" : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
+  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
   const update = (patch: Partial<TransactionDraft>) => onTransaction((current) => ({ ...current, ...patch }));
   
-  // Build searchable flat category options with path notation ("Parent → Sub")
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const expenseOptions: Array<{ id: string; label: string }> = [];
   expenseTop.forEach((top) => {
@@ -560,13 +715,38 @@ function DraftPanel({ kind, title, amount, transaction, accounts, categories, go
           <div className="tag-grid"><div className="form-field"><label>Goal tag</label><select value={transaction.goalId} onChange={(event) => update({ goalId: event.target.value })}><option value="none">No goal</option>{goals.map((goal) => <option value={goal.id} key={goal.id}>{goal.name}</option>)}</select></div><div className="form-field"><label>Trip tag</label><select value={transaction.tripId} onChange={(event) => update({ tripId: event.target.value })}><option value="none">No trip</option>{trips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name}</option>)}</select></div></div>
         </>}
 
-        {kind === "goal" && <><div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div><div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div></>}
-        {kind === "trip" && <><div className="form-field"><label>Plan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Autumn in Lisbon" autoFocus /></div><div className="form-field"><label>Working budget</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="1,200" inputMode="decimal" /></div></>}
-        {kind === "category" && <><div className="form-field"><label>Category name</label><input value={parentName} onChange={(event) => onParentName(event.target.value)} placeholder="e.g. Health & Fitness" autoFocus /></div><div className="form-field"><label>Monthly budget</label><input value={parentBudget} onChange={(event) => onParentBudget(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="400" inputMode="decimal" /></div></>}
-        {kind === "subcategory" && <><div className="form-field"><label>Parent category</label><select value={parentTarget || expenseTop[0]?.id} onChange={(event) => onParentTarget(event.target.value)}>{expenseTop.map((top) => <option value={top.id} key={top.id}>{top.name}</option>)}</select></div><div className="form-field"><label>Subcategory name</label><input value={subName} onChange={(event) => onSubName(event.target.value)} placeholder="e.g. Pharmacy & Care" autoFocus /></div></>}
+        {kind === "goal" && <>
+          <div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div>
+          <div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div>
+          <div className="form-field"><label>Target timeline</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. By Dec 2026" /></div>
+        </>}
+
+        {kind === "trip" && <>
+          <div className="form-field"><label>Plan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Autumn in Lisbon" autoFocus /></div>
+          <div className="form-field"><label>Working budget</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="1,200" inputMode="decimal" /></div>
+          <div className="form-field"><label>Dates</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. 12–19 Oct 2026" /></div>
+        </>}
+
+        {kind === "category" && <>
+          <div className="form-field"><label>Type</label><div className="type-options"><button className={`type-option ${catType === "expense" ? "active" : ""}`} onClick={() => onCatType("expense")}>Expense</button><button className={`type-option ${catType === "income" ? "active" : ""}`} onClick={() => onCatType("income")}>Income</button></div></div>
+          <div className="form-field"><label>Category name</label><input value={catName} onChange={(event) => onCatName(event.target.value)} placeholder="e.g. Wellness or Consulting" autoFocus /></div>
+          {catType === "expense" && <div className="form-field"><label>Monthly budget</label><input value={catBudget} onChange={(event) => onCatBudget(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="400" inputMode="decimal" /></div>}
+        </>}
+
+        {kind === "subcategory" && <>
+          <div className="form-field"><label>Parent category</label><select value={parentTarget || expenseTop[0]?.id} onChange={(event) => onParentTarget(event.target.value)}>{expenseTop.map((top) => <option value={top.id} key={top.id}>{top.name}</option>)}</select></div>
+          <div className="form-field"><label>Subcategory name</label><input value={subName} onChange={(event) => onSubName(event.target.value)} placeholder="e.g. Specialty coffee" autoFocus /></div>
+        </>}
+
+        {kind === "account" && <>
+          <div className="form-field"><label>Account kind</label><div className="type-options"><button className={`type-option ${accKind === "asset" ? "active" : ""}`} onClick={() => onAccKind("asset")}>Asset / Bank</button><button className={`type-option ${accKind === "liability" ? "active" : ""}`} onClick={() => onAccKind("liability")}>Liability / Debt</button></div></div>
+          <div className="form-field"><label>Account name</label><input value={accName} onChange={(event) => onAccName(event.target.value)} placeholder="e.g. Savings or Investment Portfolio" autoFocus /></div>
+          <div className="form-field"><label>Starting balance</label><input value={accBalance} onChange={(event) => onAccBalance(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="2500" inputMode="decimal" /></div>
+          <div className="form-field"><label>Masked number / Ref</label><input value={accNumber} onChange={(event) => onAccNumber(event.target.value)} placeholder="e.g. ··· 9912" /></div>
+        </>}
 
         <div className="draft-actions">
-          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? "Save entry" : kind === "goal" ? "Create goal" : kind === "trip" ? "Create plan" : kind === "category" ? "Save category" : "Save subcategory"}</button>
+          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? "Save entry" : kind === "goal" ? "Create goal" : kind === "trip" ? "Create plan" : kind === "category" ? "Save category" : kind === "subcategory" ? "Save subcategory" : "Save account"}</button>
           {kind === "transaction" && transaction.id && <button className="delete-button" onClick={onDelete}><Trash2 size={15} /> Delete entry</button>}
         </div>
       </aside>
