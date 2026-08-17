@@ -87,3 +87,7 @@ Use an **abstract open ledger mark**: two offset, ink-dark vertical strokes join
 - Deep ink surfaces should read as archival ink, paper shadow, and antique-gold rulework rather than purple-blue SaaS gradients.
 - Data-dense zones use sharper paper-sheet geometry and ledger-row rhythm; rounded, elevated cards are reserved for high-level summaries and account moments.
 - The gold rule, status/date capsules, and account ribbons should repeat as one recognizable ledger grammar across navigation, allocation details, and account identity.
+
+## Style Decisions — Interaction repair cycle
+
+Accepted visual amendments from the mobile review: dense finance surfaces should read as ledger sheets with sharper geometry and hairline rules; antique gold should consistently mark active context, section starts, selections, and monthly framing; the open-ledger mark and uppercase wordmark should be more ownable at compact sizes; mobile reading should use chapter-like pacing instead of a uniform stack of soft cards; and secondary controls should use ink, rule, stamp, and paper logic rather than generic rounded fintech pills. Rounded elevation remains reserved for the primary balance spread and tactile account moments.

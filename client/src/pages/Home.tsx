@@ -119,6 +119,12 @@ export default function Home() {
 
   const [draft, setDraft] = useState<DraftKind>(null);
   const [transactionDetail, setTransactionDetail] = useState<Transaction | null>(null);
+  const [goalDetail, setGoalDetail] = useState<Goal | null>(null);
+  const [tripDetail, setTripDetail] = useState<Trip | null>(null);
+  const [goalAdjustment, setGoalAdjustment] = useState<"deposit" | "withdraw" | null>(null);
+  const [goalAdjustmentAmount, setGoalAdjustmentAmount] = useState("");
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editingTripId, setEditingTripId] = useState<string | null>(null);
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAmount, setDraftAmount] = useState("");
@@ -221,6 +227,54 @@ export default function Home() {
     });
   }, [transactions, filter, categoryFilterId, query, categories]);
 
+  const startCreatingGoal = () => {
+    setEditingGoalId(null);
+    setDraftTitle("");
+    setDraftAmount("");
+    setDraftDate("By Dec 2026");
+    setDraft("goal");
+  };
+
+  const startCreatingTrip = () => {
+    setEditingTripId(null);
+    setDraftTitle("");
+    setDraftAmount("");
+    setDraftDate("Upcoming");
+    setDraft("trip");
+  };
+
+  const startEditingGoal = (goal: Goal) => {
+    setGoalDetail(null);
+    setEditingGoalId(goal.id);
+    setDraftTitle(goal.name);
+    setDraftAmount(String(goal.target));
+    setDraftDate(goal.deadline);
+    setDraft("goal");
+  };
+
+  const startEditingTrip = (trip: Trip) => {
+    setTripDetail(null);
+    setEditingTripId(trip.id);
+    setDraftTitle(trip.name);
+    setDraftAmount(String(trip.budget));
+    setDraftDate(trip.dates);
+    setDraft("trip");
+  };
+
+  const submitGoalAdjustment = () => {
+    const parsed = parseFloat(goalAdjustmentAmount);
+    if (!goalDetail || !goalAdjustment || isNaN(parsed) || parsed <= 0) {
+      alert("Please enter a valid adjustment amount.");
+      return;
+    }
+    const nextSaved = goalAdjustment === "deposit" ? Math.min(goalDetail.target, goalDetail.saved + parsed) : Math.max(0, goalDetail.saved - parsed);
+    const nextGoal = { ...goalDetail, saved: nextSaved };
+    setGoals((current) => current.map((goal) => goal.id === nextGoal.id ? nextGoal : goal));
+    setGoalDetail(nextGoal);
+    setGoalAdjustment(null);
+    setGoalAdjustmentAmount("");
+  };
+
   const startCreatingTransaction = () => {
     setTransactionDraft({
       merchantNote: "",
@@ -255,6 +309,8 @@ export default function Home() {
 
   const resetDraft = () => {
     setDraft(null);
+    setEditingGoalId(null);
+    setEditingTripId(null);
     setDraftTitle("");
     setDraftAmount("");
     setCatNameInput("");
@@ -300,7 +356,9 @@ export default function Home() {
         alert("Please enter a valid goal title and target amount.");
         return;
       }
-      setGoals((current) => [{ id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026" }, ...current]);
+      setGoals((current) => editingGoalId
+        ? current.map((goal) => goal.id === editingGoalId ? { ...goal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", saved: Math.min(goal.saved, parsed) } : goal)
+        : [{ id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026" }, ...current]);
       resetDraft();
     } else if (draft === "trip") {
       const parsed = parseFloat(draftAmount);
@@ -308,7 +366,9 @@ export default function Home() {
         alert("Please enter a valid trip name and budget.");
         return;
       }
-      setTrips((current) => [{ id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" }, ...current]);
+      setTrips((current) => editingTripId
+        ? current.map((trip) => trip.id === editingTripId ? { ...trip, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" } : trip)
+        : [{ id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" }, ...current]);
       resetDraft();
     } else if (draft === "category") {
       if (!catNameInput.trim()) {
@@ -426,8 +486,10 @@ export default function Home() {
             <HorizonView
               goals={goals}
               trips={trips}
-              onOpenAddGoal={() => setDraft("goal")}
-              onOpenAddTrip={() => setDraft("trip")}
+              onOpenAddGoal={startCreatingGoal}
+              onOpenAddTrip={startCreatingTrip}
+              onOpenGoal={(goal) => setGoalDetail(goal)}
+              onOpenTrip={(trip) => setTripDetail(trip)}
             />
           )}
 
@@ -482,6 +544,48 @@ export default function Home() {
         </div>
       )}
 
+      {/* Savings Goal Detail */}
+      {goalDetail && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${goalDetail.name} savings goal`} onMouseDown={() => { setGoalDetail(null); setGoalAdjustment(null); setGoalAdjustmentAmount(""); }}>
+          <aside className="draft-panel plan-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top"><div><div className="draft-kicker">Savings goal</div><h2>{goalDetail.name}</h2></div><button className="close-button" onClick={() => { setGoalDetail(null); setGoalAdjustment(null); }} aria-label="Close"><X size={17} /></button></div>
+            <div className="plan-detail-hero paper-card">
+              <div className="plan-detail-kicker">{goalDetail.deadline}</div>
+              <strong>{fmt.format(goalDetail.saved)} <span>of {fmt.format(goalDetail.target)}</span></strong>
+              <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${Math.min(100, Math.round((goalDetail.saved / goalDetail.target) * 100))}%`, background: "#b78a3d" }} /></div>
+              <div className="horizon-card-foot"><span>{Math.min(100, Math.round((goalDetail.saved / goalDetail.target) * 100))}% held aside</span><span>{fmt.format(Math.max(0, goalDetail.target - goalDetail.saved))} to go</span></div>
+            </div>
+            {goalAdjustment ? (
+              <div className="adjustment-panel">
+                <div className="draft-kicker">{goalAdjustment === "deposit" ? "Add to this goal" : "Move money back"}</div>
+                <label className="form-field"><span>Amount</span><input autoFocus value={goalAdjustmentAmount} onChange={(event) => setGoalAdjustmentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label>
+                <div className="draft-actions"><button className="primary-button draft-submit" onClick={submitGoalAdjustment}>{goalAdjustment === "deposit" ? "Record deposit" : "Record withdrawal"}</button><button className="secondary-button" onClick={() => { setGoalAdjustment(null); setGoalAdjustmentAmount(""); }}>Cancel</button></div>
+              </div>
+            ) : (
+              <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => setGoalAdjustment("deposit")}><ArrowDownRight size={15} /> Deposit</button><button className="secondary-button" onClick={() => setGoalAdjustment("withdraw")}><ArrowUpRight size={15} /> Withdraw</button><button className="text-link" onClick={() => startEditingGoal(goalDetail)}><Edit3 size={14} /> Modify goal</button></div>
+            )}
+            <div className="field-note plan-detail-note"><div className="field-note-row"><span>Target</span><b>{fmt.format(goalDetail.target)}</b></div><div className="field-note-row"><span>Deadline</span><b>{goalDetail.deadline}</b></div><div className="field-note-row"><span>Status</span><b>{goalDetail.saved >= goalDetail.target ? "Complete" : "In progress"}</b></div></div>
+          </aside>
+        </div>
+      )}
+
+      {/* Trip Plan Detail */}
+      {tripDetail && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${tripDetail.name} trip plan`} onMouseDown={() => setTripDetail(null)}>
+          <aside className="draft-panel plan-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top"><div><div className="draft-kicker">Trip & event plan</div><h2>{tripDetail.name}</h2></div><button className="close-button" onClick={() => setTripDetail(null)} aria-label="Close"><X size={17} /></button></div>
+            <div className="plan-detail-hero paper-card">
+              <div className="plan-detail-kicker">{tripDetail.dates}</div>
+              <strong>{fmt.format(transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).reduce((sum, transaction) => sum + transaction.amount, 0))} <span>spent of {fmt.format(tripDetail.budget)}</span></strong>
+              <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${Math.min(100, (transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).reduce((sum, transaction) => sum + transaction.amount, 0) / tripDetail.budget) * 100)}%`, background: "#8c6d36" }} /></div>
+              <div className="horizon-card-foot"><span>{transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).length} linked expenses</span><span>{fmt.format(Math.max(0, tripDetail.budget - transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).reduce((sum, transaction) => sum + transaction.amount, 0)))} remaining</span></div>
+            </div>
+            <div className="field-note plan-detail-note"><div className="field-note-row"><span>Working budget</span><b>{fmt.format(tripDetail.budget)}</b></div><div className="field-note-row"><span>Dates</span><b>{tripDetail.dates}</b></div><div className="field-note-row"><span>Linked spend</span><b>{transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).length} records</b></div></div>
+            <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => startEditingTrip(tripDetail)}><Edit3 size={15} /> Modify plan</button><button className="secondary-button" onClick={() => { startCreatingTransaction(); setTransactionDraft((current) => ({ ...current, tripId: tripDetail.id })); setTripDetail(null); }}>Add linked expense</button></div>
+          </aside>
+        </div>
+      )}
+
       {/* Expanded Profile Modal */}
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
@@ -527,6 +631,8 @@ export default function Home() {
           categories={categories}
           goals={goals}
           trips={trips}
+          editingGoalId={editingGoalId}
+          editingTripId={editingTripId}
           catName={catNameInput}
           catBudget={catBudgetInput}
           catType={catTypeInput}
@@ -640,12 +746,12 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   const mix = expenseTopCategories.filter((category) => category.monthlyBudget > 0 && (categorySpent[category.id] ?? 0) > 0).sort((a, b) => (categorySpent[b.id] ?? 0) - (categorySpent[a.id] ?? 0));
   const stops = mix.reduce((parts, category, index) => { const start = parts.end; const size = spent ? ((categorySpent[category.id] ?? 0) / spent) * 100 : 0; return { end: start + size, gradient: `${parts.gradient}${category.color} ${start}% ${start + size}%${index < mix.length - 1 ? ", " : ""}` }; }, { end: 0, gradient: "" });
   return <>
-    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="stats-tabs" role="tablist" aria-label="Stats view"><button className={`filter-button ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}>Insight</button><button className={`filter-button ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}>Summary</button></div></header>
+    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div></div></header>
     {statsTab === "insight" ? <div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><i className="account-dot" style={{ background: category.color }} /><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Monthly summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>Income less recorded expenses. Transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">August 2026</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span><i className="account-dot" style={{ background: category.color }} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
   </>;
 }
 
-function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip }: { goals: Goal[]; trips: Trip[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void }) {
+function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip, onOpenGoal, onOpenTrip }: { goals: Goal[]; trips: Trip[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void }) {
   const [horizonTab, setHorizonTab] = useState<"goals" | "trips">("goals");
   return (
     <>
@@ -669,22 +775,12 @@ function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip }: { goals: Go
           {goals.map((goal) => {
             const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
             return (
-              <article key={goal.id} className="paper-card" style={{ padding: 24 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                  <div>
-                    <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8c6d36", display: "block", marginBottom: 4 }}>{goal.deadline}</span>
-                    <h3 style={{ fontSize: 20, fontFamily: "Fraunces, serif" }}>{goal.name}</h3>
-                  </div>
-                  <strong style={{ fontSize: 18, fontFamily: "Space Grotesk, sans-serif" }}>{fmt.format(goal.saved)} <span style={{ fontSize: 13, color: "#777", fontWeight: 400 }}>of {fmt.format(goal.target)}</span></strong>
-                </div>
-                <div className="budget-track" style={{ height: 10, borderRadius: 5, background: "#ede7d6" }}>
-                  <div className="budget-fill" style={{ width: `${pct}%`, background: "#b78a3d", borderRadius: 5 }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#666", marginTop: 8 }}>
-                  <span>{pct}% held aside</span>
-                  <span>{fmt.format(goal.target - goal.saved)} to go</span>
-                </div>
-              </article>
+              <button key={goal.id} className="paper-card horizon-plan-card" onClick={() => onOpenGoal(goal)} aria-label={`Open savings goal ${goal.name}`}>
+                <div className="horizon-card-topline"><span>{goal.deadline}</span><ChevronRight size={17} /></div>
+                <div className="horizon-card-main"><div><h3>{goal.name}</h3><span className="horizon-card-action">Open goal detail</span></div><strong>{fmt.format(goal.saved)} <span>of {fmt.format(goal.target)}</span></strong></div>
+                <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${pct}%`, background: "#b78a3d" }} /></div>
+                <div className="horizon-card-foot"><span>{pct}% held aside</span><span>{fmt.format(goal.target - goal.saved)} to go</span></div>
+              </button>
             );
           })}
         </div>
@@ -693,16 +789,11 @@ function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip }: { goals: Go
       {horizonTab === "trips" && (
         <div style={{ display: "grid", gap: 16 }}>
           {trips.map((trip) => (
-            <article key={trip.id} className="paper-card" style={{ padding: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                <div>
-                  <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "#8c6d36", display: "block", marginBottom: 4 }}>{trip.dates}</span>
-                  <h3 style={{ fontSize: 20, fontFamily: "Fraunces, serif" }}>{trip.name}</h3>
-                </div>
-                <strong style={{ fontSize: 18, fontFamily: "Space Grotesk, sans-serif" }}>Working budget: {fmt.format(trip.budget)}</strong>
-              </div>
-              <p style={{ color: "#666", fontSize: 14 }}>Linked expenses tagged with this trip automatically accumulate against this ceiling.</p>
-            </article>
+            <button key={trip.id} className="paper-card horizon-plan-card trip-plan-card" onClick={() => onOpenTrip(trip)} aria-label={`Open trip plan ${trip.name}`}>
+              <div className="horizon-card-topline"><span>{trip.dates}</span><ChevronRight size={17} /></div>
+              <div className="horizon-card-main"><div><h3>{trip.name}</h3><span className="horizon-card-action">Open trip detail</span></div><strong>Working budget: {fmt.format(trip.budget)}</strong></div>
+              <p>Linked expenses tagged with this trip automatically accumulate against this ceiling.</p>
+            </button>
           ))}
         </div>
       )}
@@ -808,11 +899,11 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onOpenAddSub }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onOpenAddSub }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string;
   onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void;
 }) {
-  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? "Set a new savings goal" : kind === "trip" ? "Plan a trip or event" : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
+  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
   const update = (patch: Partial<TransactionDraft>) => onTransaction((current) => ({ ...current, ...patch }));
 
@@ -904,7 +995,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         </>}
 
         <div className="draft-actions">
-          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? "Create goal" : kind === "trip" ? "Create plan" : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
+          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? (editingGoalId ? "Save goal" : "Create goal") : kind === "trip" ? (editingTripId ? "Save plan" : "Create plan") : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
           <button className="secondary-button" onClick={onClose}>Cancel</button>
         </div>
       </aside>

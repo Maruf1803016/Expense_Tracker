@@ -21,3 +21,10 @@
 - [x] Give Month in hand a dedicated dashboard section with clear ledger/budget context.
 - [x] Check the recent app against the expected overview, insights, goals/plans, settings, profile, categories, accounts, and transaction flows.
 - [x] Re-run mobile/desktop verification, production build, and save a new checkpoint.
+
+
+## Horizon card and Insights interaction repair
+- [x] Make savings-goal cards open a goal detail view with modify, deposit, and withdraw actions.
+- [x] Make trip-plan cards open a trip-plan detail view with modify and linked-spend context.
+- [x] Move Insight/Summary selection into a clearly labeled analytics sub-navigation instead of a redundant header button.
+- [x] Verify mobile card taps, edit flows, analytics switching, type checks, production build, and checkpoint.
