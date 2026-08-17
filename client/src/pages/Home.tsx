@@ -271,6 +271,23 @@ export default function Home() {
     setTransactionDetail(transaction);
   }
 
+  function startEditingTransaction(transaction: Transaction) {
+    setTransactionDetail(null);
+    setTransactionDraft({
+      id: transaction.id,
+      merchantNote: transaction.merchantNote,
+      amount: String(transaction.amount),
+      type: transaction.type,
+      accountId: transaction.accountId,
+      destinationAccountId: transaction.destinationAccountId ?? "reserve",
+      categoryId: transaction.categoryId ?? "food-groceries",
+      goalId: transaction.tag?.goalId ?? "none",
+      tripId: transaction.tag?.tripId ?? "none",
+      date: transaction.date,
+    });
+    setDraft("transaction");
+  }
+
   function saveDraft() {
     if (draft === "transaction") {
       const amount = Number(transactionDraft.amount);
@@ -398,20 +415,17 @@ export default function Home() {
         <button className={`mobile-item ${active === "Overview" ? "active" : ""}`} onClick={() => { setActive("Overview"); setDetail(null); }}><HomeIcon size={17} /><span>Overview</span></button>
         <button className={`mobile-item ${active === "Insights" ? "active" : ""}`} onClick={() => { setActive("Insights"); setDetail(null); }}><BarChart3 size={17} /><span>Insights</span></button>
         <button className="mobile-add" onClick={openContextualDraft} aria-label="Add entry"><Plus size={20} /></button>
-        <button className={`mobile-item ${active === "Horizon" ? "active" : ""}`} onClick={() => { setActive("Horizon"); setDetail(null); }}><Compass size={17} /><span>Horizon</span></button>
+        <button className={`mobile-item ${active === "Horizon" ? "active" : ""}`} onClick={() => { setActive("Horizon"); setDetail(null); }}><Compass size={17} /><span>Goals & Plans</span></button>
         <button className={`mobile-item ${active === "Settings" ? "active" : ""}`} onClick={() => { setActive("Settings"); setDetail(null); }}><Settings2 size={17} /><span>Settings</span></button>
       </nav>
 
-      {/* Transaction Detail & Edit Modal */}
+      {/* Transaction Detail Modal */}
       {transactionDetail && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="Transaction detail" onMouseDown={() => setTransactionDetail(null)}>
           <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
             <div className="draft-top">
               <div><div className="draft-kicker">Ledger entry</div><h2>{transactionDetail.merchantNote}</h2></div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button className="secondary-button" onClick={() => { const tr = transactionDetail; setTransactionDetail(null); openTransactionEditor(tr); }}><Edit3 size={14} /> Edit</button>
-                <button className="close-button" onClick={() => setTransactionDetail(null)} aria-label="Close"><X size={17} /></button>
-              </div>
+              <button className="close-button" onClick={() => setTransactionDetail(null)} aria-label="Close"><X size={17} /></button>
             </div>
             <div className="detail-summary paper-card" style={{ marginTop: 14, marginBottom: 18 }}>
               <div><span className="detail-label">Amount</span><strong className={transactionDetail.type === "income" ? "amount-income" : transactionDetail.type === "expense" ? "amount-expense" : "amount-transfer"}>{fmt.format(transactionDetail.amount)}</strong></div>
@@ -426,29 +440,39 @@ export default function Home() {
               {transactionDetail.tag?.tripId && <div className="field-note-row"><span>Tagged trip</span><b>{trips.find(t => t.id === transactionDetail.tag?.tripId)?.name}</b></div>}
             </div>
             <div className="draft-actions" style={{ marginTop: 24 }}>
-              <button className="primary-button draft-submit" onClick={() => { const tr = transactionDetail; setTransactionDetail(null); openTransactionEditor(tr); }}>Modify entry</button>
+              <button className="primary-button draft-submit" onClick={() => startEditingTransaction(transactionDetail)}><Edit3 size={15} /> Modify entry</button>
               <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
             </div>
           </aside>
         </div>
       )}
 
-      {/* Profile Modal */}
+      {/* Expanded Profile Modal */}
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
           <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="draft-top"><div><div className="draft-kicker">Authenticated session</div><h2>My Profile</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
+            <div className="draft-top"><div><div className="draft-kicker">Authenticated session</div><h2>User Profile & Security</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "20px 0", padding: "18px", background: "#f8f4ec", borderRadius: 14, border: "1px solid #ded8ca" }}>
               <div className="profile-dot" style={{ width: 52, height: 52, fontSize: 18 }}>MM</div>
               <div><strong style={{ fontSize: 17, display: "block", fontFamily: "Space Grotesk, sans-serif" }}>Maruf Mahmud</strong><span style={{ color: "#777", fontSize: 13 }}>maruf.owner@expense-tracker.app</span></div>
             </div>
-            <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+            <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 20 }}>
               <div className="field-note-row"><span>Subscription</span><b>Owner Tier (Active)</b></div>
-              <div className="field-note-row"><span>Security</span><b>Encrypted & User-Scoped</b></div>
-              <div className="field-note-row"><span>Storage</span><b>Firestore & Local Sync</b></div>
+              <div className="field-note-row"><span>Security</span><b>End-to-end encrypted</b></div>
+              <div className="field-note-row"><span>Cloud Sync</span><b>Connected to Firestore</b></div>
+            </div>
+            <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "between", padding: "12px 14px", background: "#fcfaf6", borderRadius: 10, border: "1px solid #ded8ca", fontSize: 14, cursor: "pointer" }}>
+                <span>Biometric lock on start</span>
+                <input type="checkbox" defaultChecked style={{ accentColor: "#b78a3d", width: 16, height: 16 }} />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "between", padding: "12px 14px", background: "#fcfaf6", borderRadius: 10, border: "1px solid #ded8ca", fontSize: 14, cursor: "pointer" }}>
+                <span>Monthly budget summaries</span>
+                <input type="checkbox" defaultChecked style={{ accentColor: "#b78a3d", width: 16, height: 16 }} />
+              </label>
             </div>
             <div className="draft-actions">
-              <button className="primary-button draft-submit" onClick={resetDraft}><ShieldCheck size={16} /> Security & Privacy</button>
+              <button className="primary-button draft-submit" onClick={resetDraft}><ShieldCheck size={16} /> Save preferences</button>
               <button className="delete-button" onClick={() => { alert("Signed out of local demo session."); resetDraft(); }}><LogOut size={16} /> Sign out of session</button>
             </div>
           </aside>
@@ -547,9 +571,9 @@ function HorizonView({ tab, onTab, goals, trips, goalProgress, tripSpend, onCrea
       <section className="horizon-hero">
         <img src={journeyArt} alt="Travel planning and savings still life" />
         <div className="horizon-copy">
-          <div className="page-kicker">Horizon</div>
+          <div className="page-kicker">Goals & Plans</div>
           <h1>Fund what<br />matters next.</h1>
-          <p>Goals and trips stay connected to the same transactions you already trust.</p>
+          <p className="page-subtitle">Savings targets and budgeted trips connected to your ledger.</p>
         </div>
       </section>
       <div className="horizon-tabs">
@@ -583,7 +607,7 @@ function PlanDetailView({ detail, goals, trips, goalProgress, tripSpend, transac
   const accumulated = isGoal ? goalProgress[subject.id] ?? 0 : tripSpend[subject.id] ?? 0;
   const target = isGoal ? (subject as Goal).targetAmount : (subject as Trip).budget;
   const title = subject.name;
-  return <><button className="detail-back" onClick={onBack}><ArrowLeft size={16} /> Back to Horizon</button><header className="page-header detail-header"><div><div className="page-kicker">{isGoal ? "Savings goal" : "Trip & event plan"}</div><h1>{title}</h1><p className="page-subtitle">{isGoal ? (subject as Goal).targetDate : (subject as Trip).dateRange}</p></div><button className="primary-button" onClick={() => isGoal ? onAddGoalFunds(subject as Goal) : onLogTripExpense(subject as Trip)}><Plus size={15} /> {isGoal ? "Contribute funds" : "Log expense"}</button></header><section className="paper-card detail-summary"><div><span className="detail-label">{isGoal ? "Held aside" : "Spent so far"}</span><strong>{fmt.format(accumulated)}</strong></div><div><span className="detail-label">{isGoal ? "Target" : "Budget"}</span><strong>{fmt.format(target)}</strong></div><div><span className="detail-label">{isGoal ? "Still to fund" : "Remaining"}</span><strong>{fmt.format(Math.max(0, target - accumulated))}</strong></div></section><section className="paper-card section-card detail-ledger"><div className="section-head"><h2>Tagged ledger</h2><span className="page-kicker" style={{ margin: 0 }}>{records.length} records</span></div><div className="transaction-list">{records.length ? records.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No linked transactions yet. Use the mobile add action or contribute button above.</p>}</div></section></>;
+  return <><button className="detail-back" onClick={onBack}><ArrowLeft size={16} /> Back to Goals & Plans</button><header className="page-header detail-header"><div><div className="page-kicker">{isGoal ? "Savings goal" : "Trip & event plan"}</div><h1>{title}</h1><p className="page-subtitle">{isGoal ? (subject as Goal).targetDate : (subject as Trip).dateRange}</p></div><button className="primary-button" onClick={() => isGoal ? onAddGoalFunds(subject as Goal) : onLogTripExpense(subject as Trip)}><Plus size={15} /> {isGoal ? "Contribute funds" : "Log expense"}</button></header><section className="paper-card detail-summary"><div><span className="detail-label">{isGoal ? "Held aside" : "Spent so far"}</span><strong>{fmt.format(accumulated)}</strong></div><div><span className="detail-label">{isGoal ? "Target" : "Budget"}</span><strong>{fmt.format(target)}</strong></div><div><span className="detail-label">{isGoal ? "Still to fund" : "Remaining"}</span><strong>{fmt.format(Math.max(0, target - accumulated))}</strong></div></section><section className="paper-card section-card detail-ledger"><div className="section-head"><h2>Tagged ledger</h2><span className="page-kicker" style={{ margin: 0 }}>{records.length} records</span></div><div className="transaction-list">{records.length ? records.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No linked transactions yet. Use the mobile add action or contribute button above.</p>}</div></section></>;
 }
 
 function SettingsView({ accounts, categories, subcategorySpent, onDeleteCategory, onOpenAddCategory, onOpenAddSub, onOpenAddAccount }: { accounts: Array<Account & { balance: number }>; categories: Category[]; subcategorySpent: Record<string, number>; onDeleteCategory: (id: string) => void; onOpenAddCategory: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddAccount: () => void }) {
@@ -660,10 +684,11 @@ function SettingsView({ accounts, categories, subcategorySpent, onDeleteCategory
         {/* Income Sources */}
         <article className="paper-card settings-card" style={{ padding: 24 }}>
           <div className="section-head" style={{ marginBottom: 16 }}>
-            <h2>Income Sources</h2>
+            <h2>Income Sources ({incomeList.length})</h2>
+            <button className="add-button" onClick={onOpenAddCategory}><Plus size={15} /><span>Add income category</span></button>
           </div>
           <div className="category-edit-list" style={{ display: "grid", gap: 10 }}>
-            {categories.filter((c) => c.type === "income").map((inc) => (
+            {incomeList.map((inc) => (
               <div key={inc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#fcfaf6", border: "1px solid #ded8ca", borderRadius: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="cat-marker" style={{ background: inc.color, width: 10, height: 10, borderRadius: "50%", display: "inline-block" }} />
@@ -746,7 +771,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         </>}
 
         <div className="draft-actions">
-          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? "Save entry" : kind === "goal" ? "Create goal" : kind === "trip" ? "Create plan" : kind === "category" ? "Save category" : kind === "subcategory" ? "Save subcategory" : "Save account"}</button>
+          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? "Create goal" : kind === "trip" ? "Create plan" : kind === "category" ? "Save category" : kind === "subcategory" ? "Save subcategory" : "Save account"}</button>
           {kind === "transaction" && transaction.id && <button className="delete-button" onClick={onDelete}><Trash2 size={15} /> Delete entry</button>}
         </div>
       </aside>

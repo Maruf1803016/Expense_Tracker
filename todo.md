@@ -1,8 +1,6 @@
-# Fix Checklist based on User Feedback
-
-1. [ ] Profile modal/view (tap profile dot opens user profile & sign-out)
-2. [ ] Category selection & creation (fix subcategory picker, allow adding expense/income categories freely)
-3. [ ] Transaction detail page with top-right Edit button when tapping any ledger row
-4. [ ] Savings goals & Trip plans creation modal working correctly from Horizon view
-5. [ ] Rebuild Settings view with clean layout, list of accounts, manage categories, and add asset/account modal
-6. [ ] Account/asset/debit/credit upload and management flow
+# Workflow Refinements
+1. Add category in income (Settings & category picker).
+2. Rename Horizon to "Goals & Plans" with a clear combined label.
+3. Allow creating subcategories directly under expense categories, and adding new top-level income categories.
+4. Remove redundant Edit button from transaction detail, and make Modify entry open the transaction editor successfully.
+5. Expand Profile modal with preferences, active session details, and notification toggles.
