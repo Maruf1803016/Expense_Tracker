@@ -384,7 +384,8 @@ export default function Home() {
 
       <main className="content-viewport">
         <header className="top-nav-bar">
-          <div className="breadcrumb"><span>/</span><strong>{activeTab}</strong></div>
+          <div className="mobile-brand-lockup"><span className="mobile-brand-mark"><Layers size={16} /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
+          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <button className="icon-badge" onClick={() => alert("No pending alerts.")} aria-label="Notifications"><Calendar size={16} /></button>
             <button className="profile-pill" onClick={() => setDraft("profile")} aria-label="User profile">MM</button>
@@ -591,6 +592,20 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, categor
         <div className="account-list">{accounts.map((account) => <div className={`account-row ${account.kind === "liability" ? "liability" : ""}`} key={account.id}><div className="account-left"><i className="account-dot" style={{ background: account.color }} />{account.name} <small style={{ color: "#888", display: "block" }}>{account.accountNumber}</small></div><strong>{account.kind === "liability" ? `${fmt.format(account.balance)} owed` : fmt.format(account.balance)}</strong></div>)}</div>
       </aside>
     </div>
+    <section className="paper-card month-hand-section">
+      <div className="section-head month-hand-head"><div><div className="page-kicker">Monthly allocation</div><h2>Month in hand</h2></div><span className="month-hand-date">August 2026</span></div>
+      <div className="month-hand-grid">
+        <div className="month-hand-summary">
+          <div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense").length} records</b></div></div>
+          <p className="budget-note">A single view of this month’s planned capital, recorded outflow, and category-level pressure.</p>
+        </div>
+        <div className="month-hand-progress">
+          <div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.expense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, plannedBudget ? (totals.expense / plannedBudget) * 100 : 0)}%` }} /></div></div>
+          <div className="month-hand-progress-note"><strong>{plannedBudget ? Math.round((totals.expense / plannedBudget) * 100) : 0}% committed</strong><span>Transfers remain neutral.</span></div>
+        </div>
+      </div>
+      <div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to inspect its ledger</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span>{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div>
+    </section>
     <div className="lower-grid">
       <section className="paper-card section-card">
         <div className="section-head"><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2><div className="filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item ? "active" : ""}`} onClick={() => onFilter(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>
@@ -598,13 +613,6 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, categor
         <div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search a merchant or category" /></div>
         <div className="transaction-list">{transactions.length ? transactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No entries match this view. Try another filter or clear the category context.</p>}</div>
       </section>
-      <aside className="paper-card budget-card">
-        <div className="section-head"><h2>Month in hand</h2><span style={{ fontSize: 13, color: "#8b8174" }}>August 2026</span></div>
-        <div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense").length} records</b></div></div>
-        <div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.expense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, (totals.expense / plannedBudget) * 100)}%` }} /></div></div>
-        <p className="budget-note">Every category total is calculated from this month’s tagged expense records.</p>
-        <div className="upcoming-list"><div className="upcoming-title">Category pulse</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span>{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div>
-      </aside>
     </div>
   </>;
 }
@@ -618,6 +626,7 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
 }
 
 function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
+  const [statsTab, setStatsTab] = useState<"insight" | "summary">("insight");
   const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug"].map((label, index) => {
     const month = String(index + 3).padStart(2, "0");
     const entries = transactions.filter((transaction) => transaction.date.startsWith(`2026-${month}`));
@@ -625,10 +634,15 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   });
   const max = Math.max(...months.flatMap((month) => [month.income, month.expense]), 1);
   const expenseTopCategories = categories.filter((c) => c.type === "expense" && !c.parentId);
-  const spent = Object.values(categorySpent).reduce((sum, value) => sum + value, 0);
+  const incomeTotal = transactions.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0);
+  const expenseTotal = transactions.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0);
+  const spent = expenseTopCategories.reduce((sum, category) => sum + (categorySpent[category.id] ?? 0), 0);
   const mix = expenseTopCategories.filter((category) => category.monthlyBudget > 0 && (categorySpent[category.id] ?? 0) > 0).sort((a, b) => (categorySpent[b.id] ?? 0) - (categorySpent[a.id] ?? 0));
   const stops = mix.reduce((parts, category, index) => { const start = parts.end; const size = spent ? ((categorySpent[category.id] ?? 0) / spent) * 100 : 0; return { end: start + size, gradient: `${parts.gradient}${category.color} ${start}% ${start + size}%${index < mix.length - 1 ? ", " : ""}` }; }, { end: 0, gradient: "" });
-  return <><header className="page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div></header><div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><h2>Category mix</h2><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><i className="account-dot" style={{ background: category.color }} /><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div></>;
+  return <>
+    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="stats-tabs" role="tablist" aria-label="Stats view"><button className={`filter-button ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}>Insight</button><button className={`filter-button ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}>Summary</button></div></header>
+    {statsTab === "insight" ? <div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><i className="account-dot" style={{ background: category.color }} /><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Monthly summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>Income less recorded expenses. Transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">August 2026</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span><i className="account-dot" style={{ background: category.color }} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
+  </>;
 }
 
 function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip }: { goals: Goal[]; trips: Trip[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void }) {

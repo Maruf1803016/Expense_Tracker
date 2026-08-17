@@ -79,3 +79,11 @@ Use an **abstract open ledger mark**: two offset, ink-dark vertical strokes join
 - Dense data zones use square-cut paper sheets, hairline ink rules, and ledger-row rhythm. Rounded elevation remains reserved for summary spreads and tactile account moments.
 - Ledger Gold `#B78A3D` is a recurring directional rule for active context, dates, section starts, and selected controls rather than incidental decoration.
 - Financial status and category signals stay within a muted terracotta, moss, stone, and ink-tinted family; generic bright fintech color is avoided.
+
+
+## Accepted Visual Review Amendments
+
+- The compact mobile header must carry the abstract open-ledger mark and/or uppercase spaced wordmark; the product should not open on a generic page label alone.
+- Deep ink surfaces should read as archival ink, paper shadow, and antique-gold rulework rather than purple-blue SaaS gradients.
+- Data-dense zones use sharper paper-sheet geometry and ledger-row rhythm; rounded, elevated cards are reserved for high-level summaries and account moments.
+- The gold rule, status/date capsules, and account ribbons should repeat as one recognizable ledger grammar across navigation, allocation details, and account identity.

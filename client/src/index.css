@@ -359,3 +359,109 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .donut-ring, .mobile-fab, .rail-button, .transaction-button { transition: none; }
 }
+
+
+/* Feature-restoration surfaces: Month in hand is a first-class planning section, while Horizon actions must remain visibly actionable on mobile. */
+.month-hand-section { margin-top: 22px; padding: 24px; border-radius: 3px; }
+.month-hand-head { align-items: end; margin-bottom: 20px; }
+.month-hand-head h2 { font-family: "Fraunces", Georgia, serif; font-size: 30px; font-weight: 500; letter-spacing: -.045em; margin: 5px 0 0; }
+.month-hand-date { color: #8b8174; font-size: 12px; white-space: nowrap; }
+.month-hand-grid { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(0, 1.15fr); gap: 26px; align-items: center; }
+.month-hand-summary .field-note { margin: 0; }
+.month-hand-summary .budget-note { max-width: 330px; margin: 14px 0 0; }
+.month-hand-progress { display: grid; gap: 12px; }
+.month-hand-progress .budget-meter { margin: 0; }
+.month-hand-progress-note { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #837b70; font-size: 11px; }
+.month-hand-progress-note strong { color: #3b403c; font: 600 15px/1 "Space Grotesk", sans-serif; letter-spacing: -.04em; }
+.month-category-pulse { margin-top: 22px; }
+.month-category-pulse .upcoming-title { letter-spacing: .1em; }
+.month-category-pulse .upcoming-row { padding-block: 11px; }
+
+.horizon-hero { min-height: 330px; padding: clamp(25px, 4vw, 44px); }
+.horizon-hero-text h1 { max-width: 560px; }
+.horizon-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; width: min(500px, 100%); }
+.horizon-actions .filter-button { min-height: 46px; border: 1px solid #d6c6a8; background: rgba(255,253,247,.72); color: #5f574c; font-size: 12px; box-shadow: 0 2px 0 rgba(183,138,61,.08); }
+.horizon-actions .filter-button:hover { background: #fffdf8; color: #1d2524; border-color: #b78a3d; }
+.horizon-actions .filter-button.active { background: #fffdf8; color: #1d2524; border-color: #b78a3d; box-shadow: inset 0 -3px 0 #b78a3d, 0 5px 12px rgba(84,63,27,.08); }
+.horizon-hero .primary-button { min-height: 46px; min-width: 190px; background: #1d2524; color: #fffdf8; border: 1px solid #1d2524; border-radius: 9px; box-shadow: 0 8px 14px rgba(29,37,36,.18); }
+.horizon-hero .primary-button:hover { background: #2e403b; }
+.horizon-empty { padding: 25px; border: 1px dashed #d5c7ad; background: #fffdf8; color: #756e62; }
+.horizon-empty strong { display: block; color: #333934; font-family: "Fraunces", Georgia, serif; font-size: 24px; margin-bottom: 6px; }
+
+@media (max-width: 760px) {
+  .month-hand-section { margin-top: 16px; padding: 18px; }
+  .month-hand-head { align-items: flex-start; margin-bottom: 16px; }
+  .month-hand-head h2 { font-size: 28px; }
+  .month-hand-grid { grid-template-columns: 1fr; gap: 16px; }
+  .month-hand-progress-note { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .month-category-pulse { margin-top: 17px; }
+  .horizon-hero { min-height: 0; padding: 22px; }
+  .horizon-hero-text h1 { font-size: 43px; }
+  .horizon-actions { grid-template-columns: 1fr 1fr; width: 100%; }
+  .horizon-actions .filter-button { min-height: 49px; padding-inline: 8px; }
+  .horizon-hero .primary-button { width: 100%; min-height: 48px; margin-top: 2px; }
+  .horizon-empty { padding: 20px; }
+}
+
+@media (max-width: 390px) {
+  .horizon-actions { grid-template-columns: 1fr; }
+  .horizon-actions .filter-button { min-height: 44px; }
+}
+
+.horizon-hero > .primary-button { position: relative; z-index: 2; }
+.horizon-hero-text, .horizon-actions { position: relative; z-index: 2; }
+
+
+/* Stats restoration: keep Insight and Summary as two clear views without losing the editorial hierarchy. */
+.stats-page-header { align-items: end; }
+.stats-tabs { display: flex; gap: 7px; flex: 0 0 auto; }
+.stats-tabs .filter-button { min-width: 86px; }
+.summary-view-grid { display: grid; grid-template-columns: minmax(240px, .72fr) minmax(0, 1.28fr); gap: 18px; }
+.summary-hero { padding: 28px; background: linear-gradient(135deg, #1d2926, #2e3835); color: #fffdf8; border-color: #1d2926; }
+.summary-hero .page-kicker { color: #d6b467; }
+.summary-hero h2 { margin: 22px 0 9px; font: 500 30px/1.05 "Fraunces", Georgia, serif; }
+.summary-hero > strong { display: block; font: 500 clamp(36px, 5vw, 58px)/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.summary-hero p { max-width: 285px; margin: 18px 0 0; color: rgba(255,253,248,.7); font-size: 13px; line-height: 1.6; }
+.summary-breakdown { padding: 24px; }
+.summary-category-row { display: block; width: 100%; padding: 15px 0; border: 0; border-top: 1px solid #ebe5d9; background: transparent; color: #343a36; text-align: left; cursor: pointer; }
+.summary-category-row:first-of-type { border-top: 0; }
+.summary-category-row > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.summary-category-row > div:first-child span { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.summary-category-row b { color: #313935; font: 600 13px/1.2 "Space Grotesk", sans-serif; white-space: nowrap; }
+.summary-category-row em { color: #918879; font: normal 11px/1.2 Inter, sans-serif; }
+.progress-track { height: 7px; margin-top: 10px; overflow: hidden; border-radius: 999px; background: #eee8dc; }
+.progress-fill { height: 100%; border-radius: inherit; }
+@media (max-width: 760px) {
+  .stats-page-header { align-items: flex-start; gap: 17px; }
+  .stats-tabs { width: 100%; }
+  .stats-tabs .filter-button { flex: 1; }
+  .summary-view-grid { grid-template-columns: 1fr; }
+  .summary-hero { padding: 22px; }
+  .summary-breakdown { padding: 19px; }
+}
+
+
+/* Accepted visual-review pass: the header carries the fieldbook identity, the ink surface is archival rather than SaaS-glossy, and dense evidence uses sheet geometry. */
+.mobile-brand-lockup { display: none; align-items: center; gap: 8px; color: #1d2524; }
+.mobile-brand-mark { width: 28px; height: 28px; display: grid; place-items: center; background: #1d2524; color: #fffdf8; border-radius: 2px; }
+.mobile-brand-lockup strong { display: block; font: 700 10px/1 "Space Grotesk", sans-serif; letter-spacing: .15em; }
+.mobile-brand-lockup span:not(.mobile-brand-mark) { display: block; margin-top: 4px; color: #8b8174; font: 700 7px/1 "DM Sans", sans-serif; letter-spacing: .18em; }
+.balance-card { background: #1d2926; border-radius: 12px; box-shadow: 0 14px 28px rgba(29,37,36,.14); }
+.balance-card::after { background: linear-gradient(90deg, #1d2926 0%, #1d2926 56%, rgba(29,41,38,.9) 78%, rgba(29,41,38,.55) 100%); }
+.balance-art { opacity: .38; mix-blend-mode: luminosity; filter: grayscale(.58) sepia(.42) saturate(.62) contrast(.92); }
+.section-card, .month-hand-section, .summary-breakdown { border-radius: 3px; box-shadow: none; }
+.transaction-row, .account-row, .summary-category-row { border-radius: 0; }
+@media (max-width: 760px) {
+  .top-nav-bar { align-items: center; gap: 10px; margin-bottom: 18px; }
+  .mobile-brand-lockup { display: inline-flex; min-width: 0; }
+  .mobile-brand-lockup > div { min-width: 0; }
+  .breadcrumb { margin-left: auto; }
+  .breadcrumb span { display: none; }
+  .breadcrumb strong { font-size: 9px; letter-spacing: .1em; }
+  .balance-card::after { background: linear-gradient(90deg, #1d2926 0%, #1d2926 62%, rgba(29,41,38,.88) 100%); }
+  .balance-art { opacity: .25; }
+}
+
+
+/* The ledger is now the sole child of the lower section; let the evidence sheet use the full editorial field. */
+.lower-grid { grid-template-columns: minmax(0, 1fr); }
