@@ -649,3 +649,31 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .subcategory-step { margin-top: 8px; padding: 12px; }
   .subcategory-create-link, .income-create-link { min-height: 30px; }
 }
+
+
+/* Ink & Ledger picker sheets: separate parent and child selection surfaces with paper rows and gold state. */
+.picker-trigger { width: 100%; min-height: 47px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 13px; border: 1px solid #ded6c8; border-radius: 9px; background: #fffdf9; color: #303633; text-align: left; font-size: 13px; cursor: pointer; }
+.picker-trigger:hover, .picker-trigger:focus-visible { border-color: #b78a3d; outline: none; }
+.picker-trigger.is-placeholder { color: #81796f; }
+.picker-trigger.has-value { border-color: #b78a3d; }
+.picker-trigger:disabled { cursor: not-allowed; opacity: .55; }
+.picker-sheet-backdrop { position: absolute; inset: 0; z-index: 40; display: flex; align-items: flex-end; justify-content: center; background: rgba(28, 31, 29, .4); }
+.picker-sheet { width: min(100%, 460px); max-height: min(78%, 560px); overflow: auto; padding: 18px; border: 1px solid #d9cebd; border-bottom: 0; border-radius: 18px 18px 0 0; background: #fffdf9; box-shadow: 0 -14px 40px rgba(28, 31, 29, .18); animation: picker-sheet-in .2s cubic-bezier(.23,1,.32,1); }
+.picker-sheet-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid #e9e0d3; }
+.picker-sheet-top h3 { margin: 4px 0 0; color: #1d2524; font-family: "Fraunces", Georgia, serif; font-size: 25px; font-weight: 500; letter-spacing: -.04em; }
+.picker-sheet-note { margin: 14px 0 2px; color: #746c62; font-size: 12px; line-height: 1.5; }
+.picker-sheet-list { display: grid; gap: 0; margin-top: 8px; }
+.picker-row, .picker-create-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 4px; border: 0; border-bottom: 1px solid #e9e0d3; background: transparent; color: #303633; text-align: left; cursor: pointer; }
+.picker-row span { display: grid; gap: 4px; min-width: 0; }
+.picker-row b { font-size: 14px; font-weight: 700; }
+.picker-row small { color: #82786c; font-size: 11px; }
+.picker-row svg { flex: 0 0 auto; color: #9b7430; }
+.picker-row.active { color: #8e6828; }
+.picker-row:hover, .picker-row:focus-visible { background: #fbf7ef; outline: none; }
+.picker-create-row { justify-content: flex-start; margin-top: 8px; padding: 13px 12px; border: 1px solid #decba9; border-radius: 9px; color: #916c2f; font-size: 12px; font-weight: 700; }
+.picker-create-row:hover, .picker-create-row:focus-visible { background: #fbf4e7; outline: none; }
+@keyframes picker-sheet-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 760px) {
+  .picker-sheet-backdrop { position: fixed; }
+  .picker-sheet { width: 100%; max-height: 78vh; padding: 17px 18px 24px; }
+}

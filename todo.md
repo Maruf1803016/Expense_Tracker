@@ -35,3 +35,10 @@
 - [x] Make income picker expose an inline Add income category action.
 - [x] Keep newly created categories/subcategories immediately available in transaction editing and Settings.
 - [x] Verify mobile editor behavior, type checks, production build, and checkpoint.
+
+
+## Separate expense subcategory sheet
+- [x] Open a dedicated subcategory sheet immediately after selecting an expense parent category.
+- [x] Show only the selected parent’s existing subcategories and a clear Create subcategory action.
+- [x] Return the chosen subcategory to the transaction editor and keep Settings synchronized.
+- [x] Verify the mobile flow, checks, production build, and checkpoint.

@@ -915,9 +915,11 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
   const currentCategory = categories.find((category) => category.id === transaction.categoryId);
   const initialParentId = currentCategory?.parentId ?? (currentCategory?.type === "expense" ? currentCategory.id : expenseTop[0]?.id ?? "");
   const [selectedParentId, setSelectedParentId] = useState<string>(initialParentId);
-  const [showExpenseSubcategories, setShowExpenseSubcategories] = useState<boolean>(Boolean(currentCategory?.parentId));
+  const [expenseCategoryPickerOpen, setExpenseCategoryPickerOpen] = useState(false);
+  const [subcategoryPickerOpen, setSubcategoryPickerOpen] = useState(false);
   const selectedParent = expenseTop.find((category) => category.id === selectedParentId) ?? expenseTop[0];
   const selectedSubcategories = selectedParent ? categories.filter((category) => category.parentId === selectedParent.id) : [];
+  const selectedSubcategory = currentCategory?.parentId === selectedParent?.id ? currentCategory : null;
 
   return (
     <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={heading} onMouseDown={onClose}>
@@ -925,7 +927,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         <div className="draft-top"><div><div className="draft-kicker">{descriptor}</div><h2>{heading}</h2></div><button className="close-button" onClick={onClose} aria-label="Close"><X size={17} /></button></div>
         
         {kind === "transaction" && <>
-          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => { if (type === "expense") { const parentId = expenseTop[0]?.id ?? "food"; setSelectedParentId(parentId); setShowExpenseSubcategories(false); update({ type, categoryId: parentId }); } else { update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "income-salary") : transaction.categoryId }); } }}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
+          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => { if (type === "expense") { const parentId = expenseTop[0]?.id ?? "food"; setSelectedParentId(parentId); setExpenseCategoryPickerOpen(false); setSubcategoryPickerOpen(false); update({ type, categoryId: parentId }); } else { update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "income-salary") : transaction.categoryId }); } }}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
           <div className="form-field"><label>Merchant or note</label><input value={transaction.merchantNote} onChange={(event) => update({ merchantNote: event.target.value })} placeholder={transaction.type === "transfer" ? "e.g. Contribution to reserve" : "e.g. Sunday market"} autoFocus /></div>
           <div className="form-field"><label>Amount</label><input value={transaction.amount} onChange={(event) => update({ amount: event.target.value.replace(/[^0-9.]/g, "") })} placeholder="0.00" inputMode="decimal" /></div>
           <div className="form-field"><label>{transaction.type === "transfer" ? "From account" : "Account"}</label><select value={transaction.accountId} onChange={(event) => update({ accountId: event.target.value })}>{accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>)}</select></div>
@@ -935,21 +937,43 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
             <>
               <div className="form-field">
                 <label>Category (Expense)</label>
-                <select value={selectedParent?.id ?? ""} onChange={(event) => { const parentId = event.target.value; setSelectedParentId(parentId); setShowExpenseSubcategories(true); update({ categoryId: parentId }); }}>
-                  {expenseTop.map((top) => <option value={top.id} key={top.id}>📂 {top.name}</option>)}
-                </select>
+                <button type="button" className="picker-trigger" onClick={() => setExpenseCategoryPickerOpen(true)}>
+                  <span>{selectedParent ? `📂 ${selectedParent.name}` : "Choose a category"}</span><ChevronRight size={16} />
+                </button>
               </div>
-              {showExpenseSubcategories && selectedParent && (
-                <div className="form-field subcategory-step">
-                  <label>Subcategory under {selectedParent.name}</label>
-                  <select value={currentCategory?.parentId === selectedParent.id ? transaction.categoryId : selectedParent.id} onChange={(event) => update({ categoryId: event.target.value })}>
-                    <option value={selectedParent.id}>Use {selectedParent.name} (top level)</option>
-                    {selectedSubcategories.map((sub) => <option value={sub.id} key={sub.id}>↳ {sub.name}</option>)}
-                  </select>
-                  <button type="button" className="text-link subcategory-create-link" onClick={() => onOpenAddSub(selectedParent.id)}><FolderPlus size={13} /> Create subcategory under {selectedParent.name}</button>
-                </div>
-              )}
+              <div className="form-field subcategory-step">
+                <label>Subcategory</label>
+                <button type="button" className={`picker-trigger ${selectedSubcategory ? "has-value" : "is-placeholder"}`} onClick={() => { if (selectedParent) setSubcategoryPickerOpen(true); }} disabled={!selectedParent}>
+                  <span>{selectedSubcategory ? `↳ ${selectedSubcategory.name}` : `Choose under ${selectedParent?.name ?? "selected category"}`}</span><ChevronRight size={16} />
+                </button>
+                <button type="button" className="text-link subcategory-create-link" onClick={() => selectedParent && onOpenAddSub(selectedParent.id)} disabled={!selectedParent}><FolderPlus size={13} /> Create subcategory under {selectedParent?.name ?? "selected category"}</button>
+              </div>
             </>
+          )}
+
+          {expenseCategoryPickerOpen && transaction.type === "expense" && (
+            <div className="picker-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpenseCategoryPickerOpen(false); }}>
+              <section className="picker-sheet" role="dialog" aria-modal="true" aria-label="Choose expense category">
+                <div className="picker-sheet-top"><div><div className="draft-kicker">Expense category</div><h3>Choose a category</h3></div><button type="button" className="close-button" onClick={() => setExpenseCategoryPickerOpen(false)} aria-label="Close category picker"><X size={16} /></button></div>
+                <div className="picker-sheet-list">
+                  {expenseTop.map((top) => <button type="button" className={`picker-row ${selectedParent?.id === top.id ? "active" : ""}`} key={top.id} onClick={() => { setSelectedParentId(top.id); update({ categoryId: top.id }); setExpenseCategoryPickerOpen(false); setSubcategoryPickerOpen(true); }}><span><b>📂 {top.name}</b><small>{categories.filter((category) => category.parentId === top.id).length} subcategories</small></span><ChevronRight size={17} /></button>)}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {subcategoryPickerOpen && transaction.type === "expense" && selectedParent && (
+            <div className="picker-sheet-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSubcategoryPickerOpen(false); }}>
+              <section className="picker-sheet" role="dialog" aria-modal="true" aria-label={`Choose subcategory under ${selectedParent.name}`}>
+                <div className="picker-sheet-top"><div><div className="draft-kicker">{selectedParent.name}</div><h3>Choose a subcategory</h3></div><button type="button" className="close-button" onClick={() => setSubcategoryPickerOpen(false)} aria-label="Close subcategory picker"><X size={16} /></button></div>
+                <p className="picker-sheet-note">Choose a more precise label, keep the parent category, or create a new subcategory.</p>
+                <div className="picker-sheet-list">
+                  <button type="button" className={`picker-row ${!selectedSubcategory ? "active" : ""}`} onClick={() => { update({ categoryId: selectedParent.id }); setSubcategoryPickerOpen(false); }}><span><b>Use {selectedParent.name}</b><small>Keep this expense at the top level</small></span>{!selectedSubcategory && <CheckCircle2 size={17} />}</button>
+                  {selectedSubcategories.map((sub) => <button type="button" className={`picker-row ${selectedSubcategory?.id === sub.id ? "active" : ""}`} key={sub.id} onClick={() => { update({ categoryId: sub.id }); setSubcategoryPickerOpen(false); }}><span><b>↳ {sub.name}</b><small>Under {selectedParent.name}</small></span>{selectedSubcategory?.id === sub.id && <CheckCircle2 size={17} />}</button>)}
+                  <button type="button" className="picker-create-row" onClick={() => { setSubcategoryPickerOpen(false); onOpenAddSub(selectedParent.id); }}><FolderPlus size={16} /> Create subcategory under {selectedParent.name}</button>
+                </div>
+              </section>
+            </div>
           )}
 
           {transaction.type === "income" && (
