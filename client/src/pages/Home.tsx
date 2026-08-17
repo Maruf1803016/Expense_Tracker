@@ -135,7 +135,7 @@ export default function Home() {
     type: "expense",
     accountId: "acc-1",
     destinationAccountId: "acc-2",
-    categoryId: "food-groceries",
+    categoryId: "food",
     date: new Date().toISOString().slice(0, 10),
     goalId: "none",
     tripId: "none",
@@ -282,7 +282,7 @@ export default function Home() {
       type: "expense",
       accountId: accounts[0]?.id ?? "acc-1",
       destinationAccountId: accounts[1]?.id ?? "acc-2",
-      categoryId: categories.find(c => c.type === "expense")?.id ?? "food-groceries",
+      categoryId: categories.find(c => c.type === "expense" && !c.parentId)?.id ?? "food",
       date: new Date().toISOString().slice(0, 10),
       goalId: "none",
       tripId: "none",
@@ -299,7 +299,7 @@ export default function Home() {
       type: transaction.type,
       accountId: transaction.accountId,
       destinationAccountId: transaction.destinationAccountId ?? accounts[1]?.id ?? "acc-2",
-      categoryId: transaction.categoryId ?? "food-groceries",
+      categoryId: transaction.categoryId ?? categories.find(c => c.type === "expense" && !c.parentId)?.id ?? "food",
       date: transaction.date,
       goalId: transaction.tag?.goalId ?? "none",
       tripId: transaction.tag?.tripId ?? "none",
@@ -622,6 +622,7 @@ export default function Home() {
       {/* Standard Draft / Create Panel */}
       {draft && draft !== "profile" && (
         <DraftPanel
+          key={`${draft}-${transactionDraft.id ?? "new"}`}
           kind={draft}
           title={draftTitle}
           amount={draftAmount}
@@ -658,6 +659,7 @@ export default function Home() {
           onClose={resetDraft}
           onSave={saveDraft}
           onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
+          onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
         />
       )}
     </div>
@@ -899,9 +901,9 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onOpenAddSub }: {
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
   kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
@@ -910,7 +912,12 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
 
-  const [selectedParentId, setSelectedParentId] = useState<string>(expenseTop[0]?.id ?? "");
+  const currentCategory = categories.find((category) => category.id === transaction.categoryId);
+  const initialParentId = currentCategory?.parentId ?? (currentCategory?.type === "expense" ? currentCategory.id : expenseTop[0]?.id ?? "");
+  const [selectedParentId, setSelectedParentId] = useState<string>(initialParentId);
+  const [showExpenseSubcategories, setShowExpenseSubcategories] = useState<boolean>(Boolean(currentCategory?.parentId));
+  const selectedParent = expenseTop.find((category) => category.id === selectedParentId) ?? expenseTop[0];
+  const selectedSubcategories = selectedParent ? categories.filter((category) => category.parentId === selectedParent.id) : [];
 
   return (
     <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={heading} onMouseDown={onClose}>
@@ -918,37 +925,31 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         <div className="draft-top"><div><div className="draft-kicker">{descriptor}</div><h2>{heading}</h2></div><button className="close-button" onClick={onClose} aria-label="Close"><X size={17} /></button></div>
         
         {kind === "transaction" && <>
-          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "income-salary") : "food-groceries" })}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
+          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => { if (type === "expense") { const parentId = expenseTop[0]?.id ?? "food"; setSelectedParentId(parentId); setShowExpenseSubcategories(false); update({ type, categoryId: parentId }); } else { update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "income-salary") : transaction.categoryId }); } }}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
           <div className="form-field"><label>Merchant or note</label><input value={transaction.merchantNote} onChange={(event) => update({ merchantNote: event.target.value })} placeholder={transaction.type === "transfer" ? "e.g. Contribution to reserve" : "e.g. Sunday market"} autoFocus /></div>
           <div className="form-field"><label>Amount</label><input value={transaction.amount} onChange={(event) => update({ amount: event.target.value.replace(/[^0-9.]/g, "") })} placeholder="0.00" inputMode="decimal" /></div>
           <div className="form-field"><label>{transaction.type === "transfer" ? "From account" : "Account"}</label><select value={transaction.accountId} onChange={(event) => update({ accountId: event.target.value })}>{accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>)}</select></div>
           {transaction.type === "transfer" && <div className="form-field"><label>To account</label><select value={transaction.destinationAccountId} onChange={(event) => update({ destinationAccountId: event.target.value })}>{accounts.filter((account) => account.id !== transaction.accountId).map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>)}</select></div>}
           
           {transaction.type === "expense" && (
-            <div className="form-field">
-              <label>Category (Expense)</label>
-              <select value={transaction.categoryId} onChange={(event) => update({ categoryId: event.target.value })}>
-                {expenseTop.map((top) => {
-                  const subs = categories.filter((c) => c.parentId === top.id);
-                  return (
-                    <React.Fragment key={top.id}>
-                      <option value={top.id}>📂 {top.name} (Top level)</option>
-                      {subs.map((sub) => (
-                        <option value={sub.id} key={sub.id}>&nbsp;&nbsp;&nbsp;&nbsp;↳ {sub.name}</option>
-                      ))}
-                    </React.Fragment>
-                  );
-                })}
-              </select>
-              <div style={{ marginTop: 8 }}>
-                <button type="button" className="text-link" style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }} onClick={() => {
-                  const parentId = transaction.categoryId && categories.find(c => c.id === transaction.categoryId)?.parentId ? categories.find(c => c.id === transaction.categoryId)!.parentId! : expenseTop[0]?.id;
-                  if (parentId) onOpenAddSub(parentId);
-                }}>
-                  <FolderPlus size={13} /> + Create new subcategory under selected category
-                </button>
+            <>
+              <div className="form-field">
+                <label>Category (Expense)</label>
+                <select value={selectedParent?.id ?? ""} onChange={(event) => { const parentId = event.target.value; setSelectedParentId(parentId); setShowExpenseSubcategories(true); update({ categoryId: parentId }); }}>
+                  {expenseTop.map((top) => <option value={top.id} key={top.id}>📂 {top.name}</option>)}
+                </select>
               </div>
-            </div>
+              {showExpenseSubcategories && selectedParent && (
+                <div className="form-field subcategory-step">
+                  <label>Subcategory under {selectedParent.name}</label>
+                  <select value={currentCategory?.parentId === selectedParent.id ? transaction.categoryId : selectedParent.id} onChange={(event) => update({ categoryId: event.target.value })}>
+                    <option value={selectedParent.id}>Use {selectedParent.name} (top level)</option>
+                    {selectedSubcategories.map((sub) => <option value={sub.id} key={sub.id}>↳ {sub.name}</option>)}
+                  </select>
+                  <button type="button" className="text-link subcategory-create-link" onClick={() => onOpenAddSub(selectedParent.id)}><FolderPlus size={13} /> Create subcategory under {selectedParent.name}</button>
+                </div>
+              )}
+            </>
           )}
 
           {transaction.type === "income" && (
@@ -957,6 +958,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
               <select value={transaction.categoryId} onChange={(event) => update({ categoryId: event.target.value })}>
                 {incomeList.map((inc) => <option value={inc.id} key={inc.id}>{inc.name}</option>)}
               </select>
+              <button type="button" className="text-link income-create-link" onClick={onOpenAddIncomeCategory}><Plus size={13} /> Add income category</button>
             </div>
           )}
 

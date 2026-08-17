@@ -28,3 +28,10 @@
 - [x] Make trip-plan cards open a trip-plan detail view with modify and linked-spend context.
 - [x] Move Insight/Summary selection into a clearly labeled analytics sub-navigation instead of a redundant header button.
 - [x] Verify mobile card taps, edit flows, analytics switching, type checks, production build, and checkpoint.
+
+
+## Category picker refinement
+- [x] Make expense picker select a parent category first, then reveal only its subcategories and the create-subcategory action.
+- [x] Make income picker expose an inline Add income category action.
+- [x] Keep newly created categories/subcategories immediately available in transaction editing and Settings.
+- [x] Verify mobile editor behavior, type checks, production build, and checkpoint.

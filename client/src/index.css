@@ -638,3 +638,14 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .summary-breakdown { border-radius: 5px; }
   .filter-button { min-height: 40px; }
 }
+
+
+/* Ink & Ledger category workflow: parent-first selection, paper-sheet controls, and gold-ledger actions. */
+.subcategory-step { margin-top: 12px; padding: 13px 14px 14px; border: 1px solid #e4d8c5; border-left: 3px solid #b78a3d; background: #fbf7ef; }
+.subcategory-step label { color: #9a7435; }
+.subcategory-create-link, .income-create-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; padding: 0; border: 0; background: transparent; color: #9a7435; font-size: 12px; font-weight: 700; cursor: pointer; }
+.subcategory-create-link:hover, .income-create-link:hover { color: #6d4f1f; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .subcategory-step { margin-top: 8px; padding: 12px; }
+  .subcategory-create-link, .income-create-link { min-height: 30px; }
+}
