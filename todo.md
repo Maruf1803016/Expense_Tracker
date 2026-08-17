@@ -1,8 +1,11 @@
-# Interconnection & Feature Pass
+# Refinement Checklist: Category Hierarchy, Caps & Navigation
 
-- [x] Replace isolated screen values with unified local `transactions`, `accounts`, `categories`, `goals`, and `trips` records.
-- [x] Rename the branded card label to the neutral `Credit card · 2481` and model it as a liability account.
-- [x] Derive account balances, net worth, budgets, goal progress, trip spend, and insights from transactions.
-- [x] Add `transfer` as a third transaction type with a paired source and destination account flow.
-- [x] Add category, goal, trip, and ledger-row drill-down behaviors with pre-filled transaction drafting.
-- [x] Verify calculations, desktop/mobile behavior, and retain the Ink & Ledger visual language.
+- [x] Replace isolated screen values with unified local records and derived calculations.
+- [x] Add category hierarchy (`parent_id`, `type`, one level deep for expense categories, flat list for income).
+- [x] Enforce category caps (`maxExpenseCategories: 8`, `maxIncomeCategories: 6`, `maxSubcategoriesPerCategory: 5`) with UI counters and disabling "+ Add category/subcategory".
+- [x] Roll up subcategory spend to parent categories automatically for budgets and insights.
+- [x] Update Settings → Edit categories into separate Expense and Income sections with expandable top-level rows and subcategory management.
+- [x] Update transaction form category picker to a flat searchable list showing path (`"Food & Dining → Restaurants"`).
+- [x] Connect donut chart slice clicks to drill into that category's subcategory breakdown.
+- [x] Remove top-right "+ Add transaction" action and rely solely on the bottom/ledger navigation add button.
+- [x] Verify build success (`pnpm check`) and responsive behavior.
