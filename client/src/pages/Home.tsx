@@ -941,13 +941,6 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
                   <span>{selectedParent ? `📂 ${selectedParent.name}` : "Choose a category"}</span><ChevronRight size={16} />
                 </button>
               </div>
-              <div className="form-field subcategory-step">
-                <label>Subcategory</label>
-                <button type="button" className={`picker-trigger ${selectedSubcategory ? "has-value" : "is-placeholder"}`} onClick={() => { if (selectedParent) setSubcategoryPickerOpen(true); }} disabled={!selectedParent}>
-                  <span>{selectedSubcategory ? `↳ ${selectedSubcategory.name}` : `Choose under ${selectedParent?.name ?? "selected category"}`}</span><ChevronRight size={16} />
-                </button>
-                <button type="button" className="text-link subcategory-create-link" onClick={() => selectedParent && onOpenAddSub(selectedParent.id)} disabled={!selectedParent}><FolderPlus size={13} /> Create subcategory under {selectedParent?.name ?? "selected category"}</button>
-              </div>
             </>
           )}
 

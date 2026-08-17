@@ -42,3 +42,10 @@
 - [x] Show only the selected parent’s existing subcategories and a clear Create subcategory action.
 - [x] Return the chosen subcategory to the transaction editor and keep Settings synchronized.
 - [x] Verify the mobile flow, checks, production build, and checkpoint.
+
+
+## Cleaner expense category editor
+- [x] Remove the permanently visible subcategory section from the transaction editor.
+- [x] Keep subcategory selection and creation available from the parent category interaction.
+- [x] Preserve selected values and Settings synchronization.
+- [x] Verify mobile layout, checks, production build, and checkpoint.
