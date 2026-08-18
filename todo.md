@@ -67,3 +67,9 @@
 - [x] Style and verify the collapsible monthly ledger on desktop and mobile.
 - [x] Style and verify the category budget pacing and projection states.
 - [x] Mark the completed dashboard slice in the feature roadmap before checkpointing.
+
+## Debt & Loans workspace
+- [x] Add local loan records with borrowed/lent direction, counterparty, due date, and repayment terms.
+- [x] Add loan summary calculations for original amount, paid amount, remaining balance, and next payment.
+- [x] Create Goals & Plans views for loan cards, detail history, add/edit, and record-payment flows.
+- [x] Verify Debt & Loans on mobile and desktop, type-check, build, and checkpoint.

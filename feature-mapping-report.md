@@ -45,9 +45,17 @@ The Insights workspace now includes a **budget pacing sheet** for every top-leve
 - **Loan Entities:** Introduce `Loan` data structures (`title`, `type: borrowed/lent`, `totalAmount`, `paidAmount`, `dueDate`, `counterparty`).
 - **Horizon Tab Extension:** Add a dedicated loan tracking card within the Goals & Plans workspace, complete with progress meters and quick payment logging.
 
+#### Implementation status — completed
+
+The Goals & Plans workspace now includes a prominent **Debt & Loans** tab. It distinguishes money **you owe** from money **owed to you**, summarizes both outstanding balances, and presents each record with a counterparty, due date, terms, settlement progress, and remaining amount. Users can create or edit a loan record, open its detail sheet, record repayments, and review the local payment history. The initial web implementation uses the app’s local-first state; Firebase persistence remains a future integration.
+
 ### Phase 3: Advanced Analytics & Statement Export
 - **Category Drill-Downs:** Tap any category spend breakdown to view historical subcategory trends across selected months.
 - **Statement Generation:** Wire CSV and PDF export handlers to filter transactions by date range and account.
+
+### Phase 4: Goal Intelligence and Recurring Cash Flow
+- **Deadline Planning:** Add deadline countdowns, daily savings requirements, financing amounts, and a richer deposit/withdrawal history to savings goals.
+- **Recurring Transactions:** Add recurring income and bill schedules, next due dates, and an upcoming cash-flow section on Overview.
 
 ---
 

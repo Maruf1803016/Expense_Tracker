@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ArrowDownRight, ArrowUpRight, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins } from "lucide-react";
 
 type TransactionType = "expense" | "income" | "transfer";
 
@@ -49,7 +49,26 @@ interface Trip {
   dates: string;
 }
 
-type DraftKind = "transaction" | "goal" | "trip" | "category" | "subcategory" | "account" | "profile" | null;
+interface LoanPayment {
+  id: string;
+  amount: number;
+  date: string;
+  note: string;
+}
+
+interface Loan {
+  id: string;
+  title: string;
+  direction: "borrowed" | "lent";
+  counterparty: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueDate: string;
+  terms: string;
+  paymentHistory: LoanPayment[];
+}
+
+type DraftKind = "transaction" | "goal" | "trip" | "loan" | "category" | "subcategory" | "account" | "profile" | null;
 
 interface TransactionDraft {
   id?: string;
@@ -105,6 +124,20 @@ const INITIAL_TRIPS: Trip[] = [
   { id: "trip-1", name: "Autumn in Lisbon", budget: 1200, dates: "12–19 Oct 2026" },
 ];
 
+const INITIAL_LOANS: Loan[] = [
+  {
+    id: "loan-1",
+    title: "Studio equipment advance",
+    direction: "borrowed",
+    counterparty: "Tariq Rahman",
+    totalAmount: 2400,
+    paidAmount: 600,
+    dueDate: "2026-11-15",
+    terms: "$200 monthly through November",
+    paymentHistory: [{ id: "loan-payment-1", amount: 600, date: "2026-08-05", note: "First repayment" }],
+  },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "insights" | "horizon" | "settings">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
@@ -116,15 +149,19 @@ export default function Home() {
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
+  const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
 
   const [draft, setDraft] = useState<DraftKind>(null);
   const [transactionDetail, setTransactionDetail] = useState<Transaction | null>(null);
   const [goalDetail, setGoalDetail] = useState<Goal | null>(null);
   const [tripDetail, setTripDetail] = useState<Trip | null>(null);
+  const [loanDetail, setLoanDetail] = useState<Loan | null>(null);
   const [goalAdjustment, setGoalAdjustment] = useState<"deposit" | "withdraw" | null>(null);
   const [goalAdjustmentAmount, setGoalAdjustmentAmount] = useState("");
+  const [loanPaymentAmount, setLoanPaymentAmount] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
+  const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAmount, setDraftAmount] = useState("");
@@ -150,6 +187,9 @@ export default function Home() {
   const [accKindInput, setAccKindInput] = useState<"asset" | "liability">("asset");
   const [accBalanceInput, setAccBalanceInput] = useState("");
   const [accNumberInput, setAccNumberInput] = useState("");
+  const [loanDirectionInput, setLoanDirectionInput] = useState<Loan["direction"]>("borrowed");
+  const [loanCounterpartyInput, setLoanCounterpartyInput] = useState("");
+  const [loanTermsInput, setLoanTermsInput] = useState("");
 
   const totals = useMemo(() => {
     let income = 0;
@@ -243,6 +283,17 @@ export default function Home() {
     setDraft("trip");
   };
 
+  const startCreatingLoan = () => {
+    setEditingLoanId(null);
+    setLoanDirectionInput("borrowed");
+    setLoanCounterpartyInput("");
+    setLoanTermsInput("Monthly repayment");
+    setDraftTitle("");
+    setDraftAmount("");
+    setDraftDate("2026-12-31");
+    setDraft("loan");
+  };
+
   const startEditingGoal = (goal: Goal) => {
     setGoalDetail(null);
     setEditingGoalId(goal.id);
@@ -261,6 +312,18 @@ export default function Home() {
     setDraft("trip");
   };
 
+  const startEditingLoan = (loan: Loan) => {
+    setLoanDetail(null);
+    setEditingLoanId(loan.id);
+    setLoanDirectionInput(loan.direction);
+    setLoanCounterpartyInput(loan.counterparty);
+    setLoanTermsInput(loan.terms);
+    setDraftTitle(loan.title);
+    setDraftAmount(String(loan.totalAmount));
+    setDraftDate(loan.dueDate);
+    setDraft("loan");
+  };
+
   const submitGoalAdjustment = () => {
     const parsed = parseFloat(goalAdjustmentAmount);
     if (!goalDetail || !goalAdjustment || isNaN(parsed) || parsed <= 0) {
@@ -273,6 +336,30 @@ export default function Home() {
     setGoalDetail(nextGoal);
     setGoalAdjustment(null);
     setGoalAdjustmentAmount("");
+  };
+
+  const submitLoanPayment = () => {
+    const parsed = parseFloat(loanPaymentAmount);
+    if (!loanDetail || isNaN(parsed) || parsed <= 0) {
+      alert("Please enter a valid payment amount.");
+      return;
+    }
+    const remaining = Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount);
+    const applied = Math.min(parsed, remaining);
+    const payment: LoanPayment = {
+      id: `loan-payment-${Date.now()}`,
+      amount: applied,
+      date: new Date().toISOString().slice(0, 10),
+      note: loanDetail.direction === "borrowed" ? "Payment made" : "Payment received",
+    };
+    const nextLoan: Loan = {
+      ...loanDetail,
+      paidAmount: loanDetail.paidAmount + applied,
+      paymentHistory: [payment, ...loanDetail.paymentHistory],
+    };
+    setLoans((current) => current.map((loan) => loan.id === nextLoan.id ? nextLoan : loan));
+    setLoanDetail(nextLoan);
+    setLoanPaymentAmount("");
   };
 
   const startCreatingTransaction = () => {
@@ -311,6 +398,7 @@ export default function Home() {
     setDraft(null);
     setEditingGoalId(null);
     setEditingTripId(null);
+    setEditingLoanId(null);
     setDraftTitle("");
     setDraftAmount("");
     setCatNameInput("");
@@ -319,6 +407,8 @@ export default function Home() {
     setAccNameInput("");
     setAccBalanceInput("");
     setAccNumberInput("");
+    setLoanCounterpartyInput("");
+    setLoanTermsInput("");
   };
 
   const saveDraft = () => {
@@ -369,6 +459,16 @@ export default function Home() {
       setTrips((current) => editingTripId
         ? current.map((trip) => trip.id === editingTripId ? { ...trip, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" } : trip)
         : [{ id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" }, ...current]);
+      resetDraft();
+    } else if (draft === "loan") {
+      const parsed = parseFloat(draftAmount);
+      if (!draftTitle.trim() || !loanCounterpartyInput.trim() || isNaN(parsed) || parsed <= 0 || !draftDate) {
+        alert("Please enter a loan name, counterparty, original amount, and due date.");
+        return;
+      }
+      setLoans((current) => editingLoanId
+        ? current.map((loan) => loan.id === editingLoanId ? { ...loan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(loan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date" } : loan)
+        : [{ id: `loan-${Date.now()}`, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [] }, ...current]);
       resetDraft();
     } else if (draft === "category") {
       if (!catNameInput.trim()) {
@@ -486,10 +586,13 @@ export default function Home() {
             <HorizonView
               goals={goals}
               trips={trips}
+              loans={loans}
               onOpenAddGoal={startCreatingGoal}
               onOpenAddTrip={startCreatingTrip}
+              onOpenAddLoan={startCreatingLoan}
               onOpenGoal={(goal) => setGoalDetail(goal)}
               onOpenTrip={(trip) => setTripDetail(trip)}
+              onOpenLoan={(loan) => setLoanDetail(loan)}
             />
           )}
 
@@ -586,6 +689,25 @@ export default function Home() {
         </div>
       )}
 
+      {/* Debt & Loan Detail */}
+      {loanDetail && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${loanDetail.title} debt and loan record`} onMouseDown={() => { setLoanDetail(null); setLoanPaymentAmount(""); }}>
+          <aside className="draft-panel plan-detail-panel loan-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top"><div><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Debt you owe" : "Money owed to you"}</div><h2>{loanDetail.title}</h2></div><button className="close-button" onClick={() => { setLoanDetail(null); setLoanPaymentAmount(""); }} aria-label="Close"><X size={17} /></button></div>
+            <div className="plan-detail-hero paper-card loan-detail-hero">
+              <div className="plan-detail-kicker">{loanDetail.counterparty} · due {shortDate(loanDetail.dueDate)}</div>
+              <strong>{fmt.format(Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount))} <span>remaining of {fmt.format(loanDetail.totalAmount)}</span></strong>
+              <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}%`, background: loanDetail.direction === "borrowed" ? "#a65a3b" : "#2e654f" }} /></div>
+              <div className="horizon-card-foot"><span>{loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}% settled</span><span>{loanDetail.terms}</span></div>
+            </div>
+            <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
+            {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
+            <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><span>{shortDate(payment.date)}</span></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
+            <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button></div>
+          </aside>
+        </div>
+      )}
+
       {/* Expanded Profile Modal */}
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
@@ -634,6 +756,7 @@ export default function Home() {
           trips={trips}
           editingGoalId={editingGoalId}
           editingTripId={editingTripId}
+          editingLoanId={editingLoanId}
           catName={catNameInput}
           catBudget={catBudgetInput}
           catType={catTypeInput}
@@ -643,6 +766,9 @@ export default function Home() {
           accKind={accKindInput}
           accBalance={accBalanceInput}
           accNumber={accNumberInput}
+          loanDirection={loanDirectionInput}
+          loanCounterparty={loanCounterpartyInput}
+          loanTerms={loanTermsInput}
           onTitle={setDraftTitle}
           onAmount={setDraftAmount}
           onDate={setDraftDate}
@@ -656,6 +782,9 @@ export default function Home() {
           onAccKind={setAccKindInput}
           onAccBalance={setAccBalanceInput}
           onAccNumber={setAccNumberInput}
+          onLoanDirection={setLoanDirectionInput}
+          onLoanCounterparty={setLoanCounterpartyInput}
+          onLoanTerms={setLoanTermsInput}
           onClose={resetDraft}
           onSave={saveDraft}
           onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
@@ -798,8 +927,8 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   </>;
 }
 
-function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip, onOpenGoal, onOpenTrip }: { goals: Goal[]; trips: Trip[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void }) {
-  const [horizonTab, setHorizonTab] = useState<"goals" | "trips">("goals");
+function HorizonView({ goals, trips, loans, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenGoal, onOpenTrip, onOpenLoan }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void }) {
+  const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans">("goals");
   return (
     <>
       <section className="horizon-hero">
@@ -810,10 +939,11 @@ function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip, onOpenGoal, o
           <div className="horizon-actions">
             <button className={`filter-button ${horizonTab === "goals" ? "active" : ""}`} onClick={() => setHorizonTab("goals")}>Savings goals</button>
             <button className={`filter-button ${horizonTab === "trips" ? "active" : ""}`} onClick={() => setHorizonTab("trips")}>Trip & event plans</button>
+            <button className={`filter-button ${horizonTab === "loans" ? "active" : ""}`} onClick={() => setHorizonTab("loans")}>Debt & loans</button>
           </div>
         </div>
-        <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : onOpenAddTrip}>
-          <Plus size={15} /> {horizonTab === "goals" ? "Add savings goal" : "Add trip plan"}
+        <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : horizonTab === "trips" ? onOpenAddTrip : onOpenAddLoan}>
+          <Plus size={15} /> {horizonTab === "goals" ? "Add savings goal" : horizonTab === "trips" ? "Add trip plan" : "Add loan record"}
         </button>
       </section>
 
@@ -842,6 +972,27 @@ function HorizonView({ goals, trips, onOpenAddGoal, onOpenAddTrip, onOpenGoal, o
               <p>Linked expenses tagged with this trip automatically accumulate against this ceiling.</p>
             </button>
           ))}
+        </div>
+      )}
+
+      {horizonTab === "loans" && (
+        <div className="loan-workspace">
+          <div className="loan-workspace-summary">
+            <div><span>Outstanding you owe</span><strong>{fmt.format(loans.filter((loan) => loan.direction === "borrowed").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
+            <div><span>Outstanding owed to you</span><strong>{fmt.format(loans.filter((loan) => loan.direction === "lent").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
+          </div>
+          <div style={{ display: "grid", gap: 16 }}>
+            {loans.map((loan) => {
+              const remaining = Math.max(0, loan.totalAmount - loan.paidAmount);
+              const percentPaid = loan.totalAmount ? Math.min(100, Math.round((loan.paidAmount / loan.totalAmount) * 100)) : 0;
+              return <button key={loan.id} className="paper-card horizon-plan-card loan-plan-card" onClick={() => onOpenLoan(loan)} aria-label={`Open ${loan.title} loan record`}>
+                <div className="horizon-card-topline"><span className={`loan-direction ${loan.direction}`}>{loan.direction === "borrowed" ? "You owe" : "Owed to you"}</span><ChevronRight size={17} /></div>
+                <div className="horizon-card-main"><div><h3>{loan.title}</h3><span className="horizon-card-action">{loan.counterparty} · due {shortDate(loan.dueDate)}</span></div><strong>{fmt.format(remaining)} <span>remaining</span></strong></div>
+                <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${percentPaid}%`, background: loan.direction === "borrowed" ? "#a65a3b" : "#2e654f" }} /></div>
+                <div className="horizon-card-foot"><span>{percentPaid}% settled</span><span>{loan.terms}</span></div>
+              </button>;
+            })}
+          </div>
         </div>
       )}
     </>
@@ -946,12 +1097,12 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
-  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
-  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
+  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
+  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
   const update = (patch: Partial<TransactionDraft>) => onTransaction((current) => ({ ...current, ...patch }));
 
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
@@ -1040,6 +1191,15 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Dates</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. 12–19 Oct 2026" /></div>
         </>}
 
+        {kind === "loan" && <>
+          <div className="form-field"><label>Direction</label><div className="type-options"><button className={`type-option ${loanDirection === "borrowed" ? "active" : ""}`} onClick={() => onLoanDirection("borrowed")}>I borrowed</button><button className={`type-option ${loanDirection === "lent" ? "active" : ""}`} onClick={() => onLoanDirection("lent")}>I lent</button></div></div>
+          <div className="form-field"><label>Loan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Family bridge loan" autoFocus /></div>
+          <div className="form-field"><label>{loanDirection === "borrowed" ? "Lender" : "Borrower"}</label><input value={loanCounterparty} onChange={(event) => onLoanCounterparty(event.target.value)} placeholder={loanDirection === "borrowed" ? "e.g. Morgan" : "e.g. Alex"} /></div>
+          <div className="form-field"><label>Original amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="2,400" inputMode="decimal" /></div>
+          <div className="form-field"><label>Due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
+          <div className="form-field"><label>Repayment terms <em>optional</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
+        </>}
+
         {kind === "category" && <>
           <div className="form-field"><label>Type</label><div className="type-options"><button className={`type-option ${catType === "expense" ? "active" : ""}`} onClick={() => onCatType("expense")}>Expense</button><button className={`type-option ${catType === "income" ? "active" : ""}`} onClick={() => onCatType("income")}>Income</button></div></div>
           <div className="form-field"><label>{catType === "income" ? "Income category name" : "Category name"}</label><input value={catName} onChange={(event) => onCatName(event.target.value)} placeholder={catType === "income" ? "e.g. Rental yield or Bonus" : "e.g. Wellness"} autoFocus /></div>
@@ -1059,7 +1219,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         </>}
 
         <div className="draft-actions">
-          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? (editingGoalId ? "Save goal" : "Create goal") : kind === "trip" ? (editingTripId ? "Save plan" : "Create plan") : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
+          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? (editingGoalId ? "Save goal" : "Create goal") : kind === "trip" ? (editingTripId ? "Save plan" : "Create plan") : kind === "loan" ? (editingLoanId ? "Save loan" : "Create loan") : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
           <button className="secondary-button" onClick={onClose}>Cancel</button>
         </div>
       </aside>

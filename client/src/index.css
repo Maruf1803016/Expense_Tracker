@@ -875,3 +875,43 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .section-card .filter-row { width: 100%; overflow-x: auto; }
   .section-card .filter-button { flex: 0 0 auto; padding-inline: 9px; }
 }
+
+/* Debt & Loans: a visible Horizon ledger for obligations and receivables, using ink, gold, rust, and sage as status evidence. */
+.loan-workspace { display: grid; gap: 18px; }
+.loan-workspace-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #d9d0c2; background: #fffdf8; border-radius: 3px; overflow: hidden; }
+.loan-workspace-summary > div { min-height: 118px; display: grid; align-content: center; gap: 10px; padding: 22px 24px; position: relative; }
+.loan-workspace-summary > div + div { border-left: 1px solid #e1dbcf; background: #fbf8f0; }
+.loan-workspace-summary > div::before { content: ""; position: absolute; top: 0; left: 24px; width: 34px; height: 2px; background: #b78a3d; }
+.loan-workspace-summary span { color: #82786b; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.loan-workspace-summary strong { color: #27302c; font: 600 clamp(25px, 3vw, 35px)/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.loan-workspace-summary > div:first-child strong { color: #965b45; }
+.loan-workspace-summary > div:last-child strong { color: #376a51; }
+.loan-plan-card { min-height: 182px; }
+.loan-plan-card .horizon-card-topline { padding-bottom: 9px; border-bottom: 1px solid #ebe3d6; }
+.loan-direction { display: inline-flex; align-items: center; gap: 6px; }
+.loan-direction::before { content: ""; width: 6px; height: 6px; background: currentColor; }
+.loan-direction.borrowed { color: #985c45; }
+.loan-direction.lent { color: #3f7358; }
+.loan-detail-panel { max-width: 560px; }
+.loan-detail-hero { background: #f8f2e6; border-color: #dccdac; }
+.loan-payment-panel { border-left: 3px solid #b78a3d; }
+.loan-settled-note { display: flex; align-items: center; gap: 9px; margin-top: 18px; padding: 15px 16px; background: #eff5ee; border: 1px solid #d4e2d3; color: #3e6c4f; font-size: 12px; font-weight: 700; }
+.loan-history { margin-top: 23px; border-top: 1px solid #d9d0c2; }
+.section-mini-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0 10px; color: #826f50; font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.section-mini-head b { color: #7d756a; font-size: 10px; letter-spacing: .06em; }
+.loan-history-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 0; border-top: 1px solid #ece5d9; }
+.loan-history-row > div { display: grid; gap: 4px; }
+.loan-history-row strong { color: #363c37; font-size: 12px; }
+.loan-history-row span { color: #8b8174; font-size: 10px; }
+.loan-history-row > b { color: #313833; font: 600 13px/1 "Space Grotesk", sans-serif; }
+.empty-hint { padding: 17px 0; color: #857b6f; font-size: 12px; }
+
+@media (max-width: 760px) {
+  .loan-workspace { gap: 14px; }
+  .loan-workspace-summary > div { min-height: 103px; padding: 18px; }
+  .loan-workspace-summary > div::before { left: 18px; width: 27px; }
+  .loan-workspace-summary > div + div { border-left: 0; border-top: 1px solid #e1dbcf; }
+  .loan-workspace-summary { grid-template-columns: 1fr; }
+  .loan-detail-hero { padding: 18px; }
+  .loan-history-row { align-items: flex-start; }
+}
