@@ -110,3 +110,8 @@
 - [x] Add an obvious return control from History to Overview on mobile and desktop destinations.
 - [x] Repair and verify month-record expand/collapse controls in the History workspace, including repeat toggles.
 - [x] Validate navigation recovery and History interaction on mobile and desktop, type-check, build, and checkpoint the repair.
+
+## Reported back-control presentation defect
+- [x] Replace the oversized “Return to Overview” text line with a compact header-level back control on Accounts & Assets and History.
+- [x] Preserve a clear return action while allowing the page eyebrow and title hierarchy to remain uncluttered on mobile.
+- [x] Verify the compact back control on mobile and desktop, type-check, build, and checkpoint the visual refinement.

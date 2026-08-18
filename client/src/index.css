@@ -1116,9 +1116,13 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .liability-register { padding-bottom: 4px; }
 .history-budget-section { margin-bottom: 22px; }
 .history-register { margin-top: 22px; }
-.back-link { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; padding: 5px 0; color: #88662c; border: 0; border-bottom: 1px solid #cdb071; background: transparent; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
-.back-link:hover, .back-link:focus-visible { color: #1d2524; outline: none; }
-.back-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 4px; }
+.page-kicker-row { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; }
+.page-kicker-row .page-kicker { margin: 0; }
+.back-control { display: inline-grid; place-items: center; width: 29px; height: 29px; padding: 0; color: #856329; border: 1px solid #d7c38e; border-radius: 50%; background: #fbf8f0; cursor: pointer; transition: color .16s cubic-bezier(.23,1,.32,1), border-color .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.back-control:hover { color: #fffdf7; border-color: #1d2524; background: #1d2524; }
+.back-control:active { transform: scale(.94); }
+.back-control:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* Daily registers use the same filing cues as the rail: gold rules for context, stamped timing, and restrained account tabs. */
 .dashboard-schedule-register::before,
@@ -1176,7 +1180,8 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .account-folio-grid { grid-template-columns: 1fr; gap: 11px; }
   .account-folio-card { min-height: 164px; }
   .history-register .section-head { gap: 10px; }
-  .back-link { margin-bottom: 12px; }
+  .page-kicker-row { margin-bottom: 9px; }
+  .back-control { width: 27px; height: 27px; }
   .lower-grid .transaction-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding-left: 14px; }
   .lower-grid .transaction-amount { min-width: 91px; }
   .lower-grid .transaction-title strong { font-size: 13px; }

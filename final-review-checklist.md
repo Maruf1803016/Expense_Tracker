@@ -41,5 +41,6 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Recurring income and bills workspace | **Passed.** Schedules are visible on the dashboard and in Goals & Plans; creation, settlement, pause/resume, and history have passing TypeScript and production-build validation. |
 | Dashboard information architecture | **Passed.** The Overview now holds daily financial signals only, while account folios and the full history have dedicated destinations. Desktop/mobile rendering, TypeScript, and production build passed. |
 | Accounts & Assets and History navigation repair | **Passed.** Both dedicated destinations now include a visible “Return to Overview” control. The History month record was manually expanded, collapsed, and expanded again in the live interface; labels now clearly state “Tap to view” and “Tap to close.” |
+| Compact header back control | **Passed.** The long mobile return line was replaced by an accessible circular back arrow in the page-header eyebrow row, preserving the Overview return action without competing with the page label or title. |
 
 > The final release review is intentionally still open. It will be completed after the remaining product slices are implemented, so that the review measures the complete product rather than a temporary subset of it.
