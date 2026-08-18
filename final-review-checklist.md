@@ -9,6 +9,7 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Area | Required final checks | Current implementation status |
 |---|---|---|
 | Dashboard and ledger | Balance, income/outflow/savings-rate, net worth, account folios, month history, search, filters, and transaction selection | Implemented; requires final end-to-end review |
+| Information architecture | Overview shows only the daily snapshot; Accounts & Assets contains folios and liabilities; History contains month-by-month ledger and budget pacing; Insights and Goals & Plans retain their specialized workspaces | Implemented; requires final end-to-end review |
 | Transactions | Add income, expense, and transfer; choose account; set category; inspect entry; use **Modify entry**; save edited values | Implemented; requires final end-to-end review |
 | Categories | Expense parent selection followed by a separate subcategory sheet; create one-level expense subcategory; add flat income category; observe Settings synchronization; enforce 8/6 category caps | Implemented; requires final end-to-end review |
 | Accounts and assets | Add, edit, display masked account details, reflect balances and liabilities in net worth | Implemented in the local prototype; requires final end-to-end review |
@@ -38,5 +39,6 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Desktop overview after repair | **Passed.** The desktop account-folio treatment remains intact. |
 | TypeScript and production build after repair | **Passed.** |
 | Recurring income and bills workspace | **Passed.** Schedules are visible on the dashboard and in Goals & Plans; creation, settlement, pause/resume, and history have passing TypeScript and production-build validation. |
+| Dashboard information architecture | **Passed.** The Overview now holds daily financial signals only, while account folios and the full history have dedicated destinations. Desktop/mobile rendering, TypeScript, and production build passed. |
 
 > The final release review is intentionally still open. It will be completed after the remaining product slices are implemented, so that the review measures the complete product rather than a temporary subset of it.

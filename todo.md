@@ -97,3 +97,10 @@
 - [x] Allow users to mark a schedule paid/received, create the corresponding ledger entry, and correctly advance the next due date.
 - [x] Support add, edit, pause, and resume flows without losing the schedule history.
 - [x] Verify the schedule workspace on mobile and desktop, type-check, build, and checkpoint it.
+
+## Information architecture and dashboard simplification
+- [x] Reduce Overview to the daily financial snapshot: balance, month totals, net worth, upcoming schedules, and a concise recent ledger.
+- [x] Create a dedicated Accounts & Assets destination for account folios, balances, liabilities, and account-level details.
+- [x] Create a dedicated History destination for the full monthly ledger and budget pacing, with clear navigation from Overview.
+- [x] Keep Insights analytical and Goals & Plans operational, avoiding duplicate dashboard content.
+- [x] Validate desktop/mobile navigation, type-check, build, and checkpoint the reorganized information architecture.
