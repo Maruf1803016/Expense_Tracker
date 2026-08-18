@@ -79,3 +79,9 @@
 - [x] Add optional repayment notes and reference fields to payment records.
 - [x] Show repayment method and note context in each loan history entry.
 - [x] Verify payment recording on mobile and desktop, type-check, build, and checkpoint.
+
+## Goal intelligence
+- [x] Add an optional financing contribution and a deadline-aware remaining-savings calculation to each goal.
+- [x] Show daily and weekly savings requirements plus progress and deadline pacing in goal cards and detail sheets.
+- [x] Expand goal funding history with dated, annotated deposit and withdrawal context.
+- [x] Verify responsive desktop/mobile presentation, TypeScript, and production build before checkpointing.

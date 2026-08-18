@@ -40,6 +40,16 @@ interface Goal {
   target: number;
   saved: number;
   deadline: string;
+  financedAmount?: number;
+  fundingHistory: GoalFunding[];
+}
+
+interface GoalFunding {
+  id: string;
+  amount: number;
+  type: "deposit" | "withdraw";
+  date: string;
+  note: string;
 }
 
 interface Trip {
@@ -87,6 +97,23 @@ interface TransactionDraft {
 
 const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
 
+function goalMetrics(goal: Goal) {
+  const financed = Math.min(goal.target, Math.max(0, goal.financedAmount ?? 0));
+  const personalTarget = Math.max(0, goal.target - financed);
+  const remaining = Math.max(0, personalTarget - goal.saved);
+  const parsedDeadline = new Date(goal.deadline.replace(/^By\s+/i, ""));
+  const daysLeft = Number.isNaN(parsedDeadline.getTime()) ? null : Math.max(0, Math.ceil((new Date(parsedDeadline.getFullYear(), parsedDeadline.getMonth(), parsedDeadline.getDate()).getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) / 86400000));
+  return {
+    financed,
+    personalTarget,
+    remaining,
+    percent: personalTarget ? Math.min(100, Math.round((goal.saved / personalTarget) * 100)) : 100,
+    daysLeft,
+    dailyNeeded: daysLeft && daysLeft > 0 ? remaining / daysLeft : null,
+    weeklyNeeded: daysLeft && daysLeft > 0 ? remaining / Math.max(1, daysLeft / 7) : null,
+  };
+}
+
 const INITIAL_ACCOUNTS: Account[] = [
   { id: "acc-1", name: "Daily account", kind: "asset", balance: 19465, accountNumber: "··· 4092", color: "#1b3a2b" },
   { id: "acc-2", name: "Reserve", kind: "asset", balance: 3200, accountNumber: "··· 8110", color: "#2b4c3f" },
@@ -119,7 +146,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 const INITIAL_GOALS: Goal[] = [
-  { id: "goal-1", name: "Quiet reserve", target: 8000, saved: 3200, deadline: "By Dec 2026" },
+  { id: "goal-1", name: "Quiet reserve", target: 8000, saved: 3200, deadline: "By Dec 2026", financedAmount: 0, fundingHistory: [{ id: "goal-funding-1", amount: 3200, type: "deposit", date: "2026-08-01", note: "Opening reserve balance" }] },
 ];
 
 const INITIAL_TRIPS: Trip[] = [
@@ -160,6 +187,7 @@ export default function Home() {
   const [loanDetail, setLoanDetail] = useState<Loan | null>(null);
   const [goalAdjustment, setGoalAdjustment] = useState<"deposit" | "withdraw" | null>(null);
   const [goalAdjustmentAmount, setGoalAdjustmentAmount] = useState("");
+  const [goalAdjustmentNote, setGoalAdjustmentNote] = useState("");
   const [loanPaymentAmount, setLoanPaymentAmount] = useState("");
   const [loanPaymentMethod, setLoanPaymentMethod] = useState("Cash in hand");
   const [loanCustomPaymentMethod, setLoanCustomPaymentMethod] = useState("");
@@ -196,6 +224,7 @@ export default function Home() {
   const [loanDirectionInput, setLoanDirectionInput] = useState<Loan["direction"]>("borrowed");
   const [loanCounterpartyInput, setLoanCounterpartyInput] = useState("");
   const [loanTermsInput, setLoanTermsInput] = useState("");
+  const [goalFinancingInput, setGoalFinancingInput] = useState("");
 
   const totals = useMemo(() => {
     let income = 0;
@@ -278,6 +307,7 @@ export default function Home() {
     setDraftTitle("");
     setDraftAmount("");
     setDraftDate("By Dec 2026");
+    setGoalFinancingInput("");
     setDraft("goal");
   };
 
@@ -306,6 +336,7 @@ export default function Home() {
     setDraftTitle(goal.name);
     setDraftAmount(String(goal.target));
     setDraftDate(goal.deadline);
+    setGoalFinancingInput(goal.financedAmount ? String(goal.financedAmount) : "");
     setDraft("goal");
   };
 
@@ -336,12 +367,20 @@ export default function Home() {
       alert("Please enter a valid adjustment amount.");
       return;
     }
-    const nextSaved = goalAdjustment === "deposit" ? Math.min(goalDetail.target, goalDetail.saved + parsed) : Math.max(0, goalDetail.saved - parsed);
-    const nextGoal = { ...goalDetail, saved: nextSaved };
+    const metrics = goalMetrics(goalDetail);
+    const applied = goalAdjustment === "deposit" ? Math.min(parsed, metrics.remaining) : Math.min(parsed, goalDetail.saved);
+    if (applied <= 0) {
+      alert(goalAdjustment === "deposit" ? "This goal is already fully funded." : "There is no saved balance available to withdraw.");
+      return;
+    }
+    const nextSaved = goalAdjustment === "deposit" ? goalDetail.saved + applied : goalDetail.saved - applied;
+    const funding: GoalFunding = { id: `goal-funding-${Date.now()}`, amount: applied, type: goalAdjustment, date: new Date().toISOString().slice(0, 10), note: goalAdjustmentNote.trim() || (goalAdjustment === "deposit" ? "Goal contribution" : "Moved back to available funds") };
+    const nextGoal = { ...goalDetail, saved: nextSaved, fundingHistory: [funding, ...(goalDetail.fundingHistory ?? [])] };
     setGoals((current) => current.map((goal) => goal.id === nextGoal.id ? nextGoal : goal));
     setGoalDetail(nextGoal);
     setGoalAdjustment(null);
     setGoalAdjustmentAmount("");
+    setGoalAdjustmentNote("");
   };
 
   const resetLoanPaymentDraft = () => {
@@ -426,6 +465,7 @@ export default function Home() {
     setAccNumberInput("");
     setLoanCounterpartyInput("");
     setLoanTermsInput("");
+    setGoalFinancingInput("");
   };
 
   const saveDraft = () => {
@@ -463,9 +503,10 @@ export default function Home() {
         alert("Please enter a valid goal title and target amount.");
         return;
       }
+      const financed = Math.min(parsed, Math.max(0, parseFloat(goalFinancingInput) || 0));
       setGoals((current) => editingGoalId
-        ? current.map((goal) => goal.id === editingGoalId ? { ...goal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", saved: Math.min(goal.saved, parsed) } : goal)
-        : [{ id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026" }, ...current]);
+        ? current.map((goal) => goal.id === editingGoalId ? { ...goal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", financedAmount: financed, saved: Math.min(goal.saved, Math.max(0, parsed - financed)), fundingHistory: goal.fundingHistory ?? [] } : goal)
+        : [{ id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026", financedAmount: financed, fundingHistory: [] }, ...current]);
       resetDraft();
     } else if (draft === "trip") {
       const parsed = parseFloat(draftAmount);
@@ -539,7 +580,7 @@ export default function Home() {
     <div className="app-container">
       <aside className="sidebar-rail">
         <div className="brand-lockup">
-          <span className="brand-mark"><Layers size={20} /></span>
+          <span className="brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span>
           <div>
             <strong>Expense</strong>
             <span>Financial Fieldbook</span>
@@ -561,7 +602,7 @@ export default function Home() {
 
       <main className="content-viewport">
         <header className="top-nav-bar">
-          <div className="mobile-brand-lockup"><span className="mobile-brand-mark"><Layers size={16} /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
+          <div className="mobile-brand-lockup"><span className="mobile-brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
           <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <button className="icon-badge" onClick={() => alert("No pending alerts.")} aria-label="Notifications"><Calendar size={16} /></button>
@@ -666,25 +707,39 @@ export default function Home() {
 
       {/* Savings Goal Detail */}
       {goalDetail && (
-        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${goalDetail.name} savings goal`} onMouseDown={() => { setGoalDetail(null); setGoalAdjustment(null); setGoalAdjustmentAmount(""); }}>
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${goalDetail.name} savings goal`} onMouseDown={() => { setGoalDetail(null); setGoalAdjustment(null); setGoalAdjustmentAmount(""); setGoalAdjustmentNote(""); }}>
           <aside className="draft-panel plan-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="draft-top"><div><div className="draft-kicker">Savings goal</div><h2>{goalDetail.name}</h2></div><button className="close-button" onClick={() => { setGoalDetail(null); setGoalAdjustment(null); }} aria-label="Close"><X size={17} /></button></div>
-            <div className="plan-detail-hero paper-card">
-              <div className="plan-detail-kicker">{goalDetail.deadline}</div>
-              <strong>{fmt.format(goalDetail.saved)} <span>of {fmt.format(goalDetail.target)}</span></strong>
-              <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${Math.min(100, Math.round((goalDetail.saved / goalDetail.target) * 100))}%`, background: "#b78a3d" }} /></div>
-              <div className="horizon-card-foot"><span>{Math.min(100, Math.round((goalDetail.saved / goalDetail.target) * 100))}% held aside</span><span>{fmt.format(Math.max(0, goalDetail.target - goalDetail.saved))} to go</span></div>
-            </div>
-            {goalAdjustment ? (
-              <div className="adjustment-panel">
-                <div className="draft-kicker">{goalAdjustment === "deposit" ? "Add to this goal" : "Move money back"}</div>
-                <label className="form-field"><span>Amount</span><input autoFocus value={goalAdjustmentAmount} onChange={(event) => setGoalAdjustmentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label>
-                <div className="draft-actions"><button className="primary-button draft-submit" onClick={submitGoalAdjustment}>{goalAdjustment === "deposit" ? "Record deposit" : "Record withdrawal"}</button><button className="secondary-button" onClick={() => { setGoalAdjustment(null); setGoalAdjustmentAmount(""); }}>Cancel</button></div>
-              </div>
-            ) : (
-              <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => setGoalAdjustment("deposit")}><ArrowDownRight size={15} /> Deposit</button><button className="secondary-button" onClick={() => setGoalAdjustment("withdraw")}><ArrowUpRight size={15} /> Withdraw</button><button className="text-link" onClick={() => startEditingGoal(goalDetail)}><Edit3 size={14} /> Modify goal</button></div>
-            )}
-            <div className="field-note plan-detail-note"><div className="field-note-row"><span>Target</span><b>{fmt.format(goalDetail.target)}</b></div><div className="field-note-row"><span>Deadline</span><b>{goalDetail.deadline}</b></div><div className="field-note-row"><span>Status</span><b>{goalDetail.saved >= goalDetail.target ? "Complete" : "In progress"}</b></div></div>
+            <div className="draft-top"><div><div className="draft-kicker">Savings goal</div><h2>{goalDetail.name}</h2></div><button className="close-button" onClick={() => { setGoalDetail(null); setGoalAdjustment(null); setGoalAdjustmentNote(""); }} aria-label="Close"><X size={17} /></button></div>
+            {(() => {
+              const metrics = goalMetrics(goalDetail);
+              const fundingHistory = goalDetail.fundingHistory ?? [];
+              return <>
+                <div className="plan-detail-hero paper-card">
+                  <div className="plan-detail-kicker">{goalDetail.deadline}</div>
+                  <strong>{fmt.format(goalDetail.saved)} <span>of {fmt.format(metrics.personalTarget)} to save</span></strong>
+                  <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${metrics.percent}%`, background: "#b78a3d" }} /></div>
+                  <div className="horizon-card-foot"><span>{metrics.percent}% personally funded</span><span>{fmt.format(metrics.remaining)} to go</span></div>
+                </div>
+                <div className="goal-intelligence-grid">
+                  <div><span>Deadline pace</span><strong>{metrics.daysLeft === null ? "Set a date" : metrics.daysLeft === 0 ? "Due now" : `${metrics.daysLeft} days left`}</strong></div>
+                  <div><span>Daily requirement</span><strong>{metrics.dailyNeeded === null ? "—" : fmt.format(metrics.dailyNeeded)}</strong></div>
+                  <div><span>Weekly requirement</span><strong>{metrics.weeklyNeeded === null ? "—" : fmt.format(metrics.weeklyNeeded)}</strong></div>
+                  {metrics.financed > 0 && <div><span>Financing contribution</span><strong>{fmt.format(metrics.financed)}</strong></div>}
+                </div>
+                {goalAdjustment ? (
+                  <div className="adjustment-panel">
+                    <div className="draft-kicker">{goalAdjustment === "deposit" ? "Add to this goal" : "Move money back"}</div>
+                    <label className="form-field"><span>Amount</span><input autoFocus value={goalAdjustmentAmount} onChange={(event) => setGoalAdjustmentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label>
+                    <label className="form-field"><span>Note <em>optional</em></span><input value={goalAdjustmentNote} onChange={(event) => setGoalAdjustmentNote(event.target.value)} placeholder={goalAdjustment === "deposit" ? "e.g. August surplus" : "e.g. Unexpected home repair"} /></label>
+                    <div className="draft-actions"><button className="primary-button draft-submit" onClick={submitGoalAdjustment}>{goalAdjustment === "deposit" ? "Record deposit" : "Record withdrawal"}</button><button className="secondary-button" onClick={() => { setGoalAdjustment(null); setGoalAdjustmentAmount(""); setGoalAdjustmentNote(""); }}>Cancel</button></div>
+                  </div>
+                ) : (
+                  <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => setGoalAdjustment("deposit")}><ArrowDownRight size={15} /> Deposit</button><button className="secondary-button" onClick={() => setGoalAdjustment("withdraw")}><ArrowUpRight size={15} /> Withdraw</button><button className="text-link" onClick={() => startEditingGoal(goalDetail)}><Edit3 size={14} /> Modify goal</button></div>
+                )}
+                <div className="field-note plan-detail-note"><div className="field-note-row"><span>Whole target</span><b>{fmt.format(goalDetail.target)}</b></div><div className="field-note-row"><span>Personal savings target</span><b>{fmt.format(metrics.personalTarget)}</b></div><div className="field-note-row"><span>Deadline</span><b>{goalDetail.deadline}</b></div><div className="field-note-row"><span>Status</span><b>{metrics.remaining === 0 ? "Complete" : "In progress"}</b></div></div>
+                <section className="goal-funding-history"><div className="section-mini-head"><span>Funding history</span><b>{fundingHistory.length} records</b></div>{fundingHistory.length ? <div className="loan-history">{fundingHistory.map((entry) => <div className="loan-history-row" key={entry.id}><div><strong>{entry.type === "deposit" ? "Deposit" : "Withdrawal"}</strong><p>{entry.note}</p><span>{shortDate(entry.date)} · {entry.type === "deposit" ? "Added to goal" : "Returned to funds"}</span></div><b className={entry.type === "deposit" ? "funding-positive" : "funding-negative"}>{entry.type === "deposit" ? "+" : "−"}{fmt.format(entry.amount)}</b></div>)}</div> : <p className="empty-hint">No funding movements recorded yet.</p>}</section>
+              </>;
+            })()}
           </aside>
         </div>
       )}
@@ -786,6 +841,7 @@ export default function Home() {
           loanDirection={loanDirectionInput}
           loanCounterparty={loanCounterpartyInput}
           loanTerms={loanTermsInput}
+          goalFinancing={goalFinancingInput}
           onTitle={setDraftTitle}
           onAmount={setDraftAmount}
           onDate={setDraftDate}
@@ -802,6 +858,7 @@ export default function Home() {
           onLoanDirection={setLoanDirectionInput}
           onLoanCounterparty={setLoanCounterpartyInput}
           onLoanTerms={setLoanTermsInput}
+          onGoalFinancing={setGoalFinancingInput}
           onClose={resetDraft}
           onSave={saveDraft}
           onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
@@ -858,7 +915,7 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, categor
       <aside className="paper-card side-summary">
         <div className="card-head"><h2>Net worth</h2><span className="text-link">Assets − debts</span></div>
         <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> calculated from accounts</span></div>
-        <div className="account-list">{accounts.map((account) => <div className={`account-row ${account.kind === "liability" ? "liability" : ""}`} key={account.id}><div className="account-left"><i className="account-dot" style={{ background: account.color }} />{account.name} <small style={{ color: "#888", display: "block" }}>{account.accountNumber}</small></div><strong>{account.kind === "liability" ? `${fmt.format(account.balance)} owed` : fmt.format(account.balance)}</strong></div>)}</div>
+        <div className="account-list">{accounts.map((account) => <div className={`account-row ${account.kind === "liability" ? "liability" : ""}`} key={account.id}><div className="account-left"><i className="account-dot" style={{ background: account.color }} /><span className="account-file"><b>{account.name}</b><small>Folio {account.accountNumber}</small></span></div><strong>{account.kind === "liability" ? `${fmt.format(account.balance)} owed` : fmt.format(account.balance)}</strong></div>)}</div>
       </aside>
     </div>
     <section className="paper-card month-hand-section">
@@ -910,7 +967,7 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
   const descriptor = transaction.type === "transfer" ? "Transfer between your accounts" : category?.name ?? "Uncategorised";
   const signed = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔";
   const amountClass = transaction.type === "income" ? "amount-income" : transaction.type === "expense" ? "amount-expense" : "amount-transfer";
-  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><strong>{transaction.merchantNote}</strong><span>{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span>{transaction.date}</span></div></button>;
+  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span>{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span>{transaction.date}</span></div></button>;
 }
 
 function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
@@ -967,13 +1024,13 @@ function HorizonView({ goals, trips, loans, onOpenAddGoal, onOpenAddTrip, onOpen
       {horizonTab === "goals" && (
         <div style={{ display: "grid", gap: 16 }}>
           {goals.map((goal) => {
-            const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
+            const metrics = goalMetrics(goal);
             return (
               <button key={goal.id} className="paper-card horizon-plan-card" onClick={() => onOpenGoal(goal)} aria-label={`Open savings goal ${goal.name}`}>
                 <div className="horizon-card-topline"><span>{goal.deadline}</span><ChevronRight size={17} /></div>
-                <div className="horizon-card-main"><div><h3>{goal.name}</h3><span className="horizon-card-action">Open goal detail</span></div><strong>{fmt.format(goal.saved)} <span>of {fmt.format(goal.target)}</span></strong></div>
-                <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${pct}%`, background: "#b78a3d" }} /></div>
-                <div className="horizon-card-foot"><span>{pct}% held aside</span><span>{fmt.format(goal.target - goal.saved)} to go</span></div>
+                <div className="horizon-card-main"><div><h3>{goal.name}</h3><span className="horizon-card-action">{metrics.daysLeft === null ? "Open goal detail" : `${metrics.daysLeft} days to target`}</span></div><strong>{fmt.format(goal.saved)} <span>of {fmt.format(metrics.personalTarget)}</span></strong></div>
+                <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${metrics.percent}%`, background: "#b78a3d" }} /></div>
+                <div className="horizon-card-foot"><span>{metrics.dailyNeeded === null ? `${metrics.percent}% held aside` : `${fmt.format(metrics.dailyNeeded)}/day needed`}</span><span>{fmt.format(metrics.remaining)} to go</span></div>
               </button>
             );
           })}
@@ -1114,9 +1171,9 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, goalFinancing, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onGoalFinancing, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; goalFinancing: string;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onGoalFinancing: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
@@ -1199,6 +1256,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         {kind === "goal" && <>
           <div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div>
           <div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div>
+          <div className="form-field"><label>Financing contribution <em>optional</em></label><input value={goalFinancing} onChange={(event) => onGoalFinancing(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 1,500 from a loan or grant" inputMode="decimal" /><small>This reduces the amount you need to personally save.</small></div>
           <div className="form-field"><label>Target timeline</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. By Dec 2026" /></div>
         </>}
 

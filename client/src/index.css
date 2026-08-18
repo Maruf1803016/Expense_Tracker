@@ -928,3 +928,65 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .loan-payment-grid { grid-template-columns: 1fr; }
   .loan-payment-full { grid-column: auto; }
 }
+
+/* Goal intelligence: dated savings pace and a compact funding ledger, aligned with the existing loan record treatment. */
+.goal-intelligence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 18px 0; border: 1px solid #ddd4c2; background: #ddd4c2; }
+.goal-intelligence-grid > div { display: grid; gap: 5px; padding: 14px 15px; background: #fbf8f1; }
+.goal-intelligence-grid span { color: #857964; font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.goal-intelligence-grid strong { color: #18231e; font: 600 15px/1.2 "Space Grotesk", sans-serif; }
+.goal-funding-history { margin-top: 22px; border-top: 1px solid #d9d0bf; padding-top: 0; }
+.goal-funding-history .loan-history { margin-top: 0; }
+.goal-funding-history .loan-history-row p { margin: 0; color: #665f55; font-size: 11px; line-height: 1.35; }
+.loan-history-row > b.funding-positive { color: #286048; }
+.loan-history-row > b.funding-negative { color: #9c4b36; }
+@media (max-width: 560px) { .goal-intelligence-grid { grid-template-columns: 1fr; } }
+
+/* Ink & Ledger accepted review pass: the mark is an abstract open ledger; registers and account folios retain their written evidence. */
+.brand-mark,
+.mobile-brand-mark {
+  display: block;
+  overflow: hidden;
+  background: #f7f2e9;
+  border: 1px solid #bcae95;
+  box-shadow: none;
+}
+.brand-mark::before,
+.mobile-brand-mark::before { content: none; }
+.brand-mark::after,
+.mobile-brand-mark::after {
+  left: 7px;
+  right: 7px;
+  bottom: 7px;
+  height: 1px;
+  background: #b78a3d;
+  box-shadow: none;
+}
+.ledger-spine { position: absolute; display: block; background: #1d2524; }
+.ledger-spine-left { left: 10px; top: 8px; width: 4px; height: 18px; }
+.ledger-spine-right { right: 10px; top: 12px; width: 4px; height: 14px; opacity: .82; }
+.mobile-brand-mark .ledger-spine-left { left: 7px; top: 6px; width: 3px; height: 14px; }
+.mobile-brand-mark .ledger-spine-right { right: 7px; top: 9px; width: 3px; height: 11px; }
+.mobile-brand-mark::after { left: 5px; right: 5px; bottom: 5px; }
+
+.side-summary { position: relative; }
+.side-summary .card-head { position: relative; padding-right: 74px; }
+.side-summary .card-head::after { content: "ACCOUNT FOLIO"; position: absolute; right: 20px; top: 23px; padding: 4px 5px; border: 1px solid #ded0b9; color: #967339; font: 700 8px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; }
+.account-list { position: relative; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 39px, rgba(183,138,61,.07) 40px); }
+.account-row { position: relative; padding-left: 25px; }
+.account-row::before { content: ""; position: absolute; left: 0; top: 17px; width: 12px; height: 1px; background: #b78a3d; }
+.account-left { min-width: 0; }
+.account-file { display: grid; min-width: 0; gap: 3px; }
+.account-file b { overflow: hidden; color: #48453f; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.account-file small { color: #8c8274; font-size: 9px; font-weight: 600; letter-spacing: .04em; }
+
+.transaction-row { align-items: start; padding-block: 15px; }
+.transaction-title { display: grid; gap: 3px; }
+.transaction-title .entry-kind { color: #92733e; font-size: 8px; font-weight: 800; letter-spacing: .11em; line-height: 1.1; text-transform: uppercase; }
+.transaction-title strong { overflow: visible; color: #292f2c; font-size: 13px; line-height: 1.32; text-overflow: clip; white-space: normal; }
+.transaction-title > span:last-child { line-height: 1.35; }
+.transaction-amount { padding-top: 13px; }
+@media (max-width: 760px) {
+  .side-summary .card-head::after { right: 16px; }
+  .account-row { padding-left: 22px; }
+  .transaction-title strong { font-size: 12px; }
+}
