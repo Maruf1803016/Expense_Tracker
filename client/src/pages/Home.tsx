@@ -323,12 +323,26 @@ interface TransactionDraft {
 }
 
 const CURRENCY_OPTIONS = [
-  { code: "USD", label: "US dollar ($)" },
   { code: "BDT", label: "Bangladeshi taka (৳)" },
+  { code: "USD", label: "US dollar ($)" },
   { code: "EUR", label: "Euro (€)" },
   { code: "GBP", label: "British pound (£)" },
   { code: "INR", label: "Indian rupee (₹)" },
   { code: "AED", label: "UAE dirham (د.إ)" },
+  { code: "SAR", label: "Saudi riyal (ر.س)" },
+  { code: "QAR", label: "Qatari riyal (ر.ق)" },
+  { code: "KWD", label: "Kuwaiti dinar (د.ك)" },
+  { code: "OMR", label: "Omani rial (ر.ع.)" },
+  { code: "MYR", label: "Malaysian ringgit (RM)" },
+  { code: "SGD", label: "Singapore dollar (S$)" },
+  { code: "AUD", label: "Australian dollar (A$)" },
+  { code: "CAD", label: "Canadian dollar (C$)" },
+  { code: "JPY", label: "Japanese yen (¥)" },
+  { code: "CNY", label: "Chinese yuan (CN¥)" },
+  { code: "KRW", label: "South Korean won (₩)" },
+  { code: "THB", label: "Thai baht (฿)" },
+  { code: "PKR", label: "Pakistani rupee (₨)" },
+  { code: "TRY", label: "Turkish lira (₺)" },
 ] as const;
 type SupportedCurrency = (typeof CURRENCY_OPTIONS)[number]["code"];
 const isSupportedCurrency = (value: string): value is SupportedCurrency => CURRENCY_OPTIONS.some((currency) => currency.code === value);
@@ -769,10 +783,10 @@ export default function Home() {
     try {
       if (action === "verification") {
         await sendVerification();
-        setProfileNotice("A verification link has been sent to your inbox.");
+        setProfileNotice("Verification email sent. Open the link in the same browser, then return here and choose Refresh status.");
       } else if (action === "refreshVerification") {
         await refreshVerification();
-        setProfileNotice("Your email status has been refreshed.");
+        setProfileNotice("Status refreshed. If this still reads Not verified, open the newest verification link in your inbox and try again.");
       } else {
         const resetEmail = user?.email ?? authEmailInput;
         if (!resetEmail?.trim()) {
@@ -780,10 +794,10 @@ export default function Home() {
           return;
         }
         await requestPasswordReset(resetEmail);
-        setProfileNotice("If this address can receive account email, password-reset instructions are on their way.");
+        setProfileNotice("Password-reset instructions were sent. Check Inbox, Spam, and Promotions, then use the newest link.");
       }
-    } catch {
-      // AuthContext supplies an accessible message in the account panel.
+    } catch (caught) {
+      setProfileNotice(caught instanceof Error ? caught.message : "That account action could not be completed. Try again in a moment.");
     } finally {
       setAuthSubmitting(false);
     }
@@ -1333,7 +1347,6 @@ export default function Home() {
         <nav className="rail-nav">
           <button className={`rail-button ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={16} /> Overview</button>
           <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
-          <button className={`rail-button ${activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("accounts")}><HandCoins size={16} /> Accounts & Assets</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
           <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Goals & Plans</button>
           <button className={`rail-button ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
@@ -1341,7 +1354,6 @@ export default function Home() {
         <div className="rail-footer">
           <div className="rail-kicker">August close</div>
           <div className="rail-metric"><strong>16 days left</strong><span>{fmt.format(totals.ordinaryExpense)} recorded against budget plans.</span></div>
-          <button className="text-link" onClick={() => setActiveTab("reports")} style={{ marginTop: 12, display: "inline-block" }}>Open reports</button>
         </div>
       </aside>
 
@@ -1376,7 +1388,6 @@ export default function Home() {
               onClearCategory={() => setCategoryFilterId(null)}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
-              onOpenAccounts={() => setActiveTab("accounts")}
               onOpenHistory={() => setActiveTab("history")}
             />
           )}
@@ -1415,7 +1426,6 @@ export default function Home() {
               categories={categories}
               categorySpent={categorySpent}
               onOpenCategory={(id) => { setCategoryFilterId(id); setActiveTab("history"); }}
-              onOpenReports={() => setActiveTab("reports")}
             />
           )}
 
@@ -1425,7 +1435,7 @@ export default function Home() {
               categories={categories}
               accounts={accountsWithBalance}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
-              onBack={() => setActiveTab("insights")}
+              onBack={() => setActiveTab("settings")}
             />
           )}
 
@@ -1460,6 +1470,7 @@ export default function Home() {
               onSaveReminderSettings={saveReminderSettings}
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
               onOpenReports={() => setActiveTab("reports")}
+              onOpenAccounts={() => setActiveTab("accounts")}
             />
           )}
         </div>
@@ -1531,7 +1542,7 @@ export default function Home() {
                   <div className="adjustment-panel">
                     <div className="draft-kicker">{goalAdjustment === "deposit" ? "Add to this goal" : "Move money back"}</div>
                     <label className="form-field"><span>Amount</span><input autoFocus value={goalAdjustmentAmount} onChange={(event) => setGoalAdjustmentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label>
-                    <label className="form-field"><span>Note <em>optional</em></span><input value={goalAdjustmentNote} onChange={(event) => setGoalAdjustmentNote(event.target.value)} placeholder={goalAdjustment === "deposit" ? "e.g. August surplus" : "e.g. Unexpected home repair"} /></label>
+                    <label className="form-field"><span>Note <em>(optional)</em></span><input value={goalAdjustmentNote} onChange={(event) => setGoalAdjustmentNote(event.target.value)} placeholder={goalAdjustment === "deposit" ? "e.g. August surplus" : "e.g. Unexpected home repair"} /></label>
                     <div className="draft-actions"><button className="primary-button draft-submit" onClick={submitGoalAdjustment}>{goalAdjustment === "deposit" ? "Record deposit" : "Record withdrawal"}</button><button className="secondary-button" onClick={() => { setGoalAdjustment(null); setGoalAdjustmentAmount(""); setGoalAdjustmentNote(""); }}>Cancel</button></div>
                   </div>
                 ) : (
@@ -1574,7 +1585,7 @@ export default function Home() {
               <div className="horizon-card-foot"><span>{loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}% settled</span><span>{loanDetail.terms}</span></div>
             </div>
             <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Cash account</span><b>{accounts.find((account) => account.id === loanDetail.cashAccountId)?.name ?? "No cash account linked"}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
-            {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><div className="loan-payment-grid"><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><label className="form-field"><span>How was it paid?</span><select value={loanPaymentMethod} onChange={(event) => setLoanPaymentMethod(event.target.value)}><option>Cash in hand</option><option>Card</option><option>Bank transfer</option><option>bKash</option><option>Nagad</option><option>Custom</option></select></label>{loanPaymentMethod === "Custom" && <label className="form-field loan-payment-full"><span>Custom payment method</span><input value={loanCustomPaymentMethod} onChange={(event) => setLoanCustomPaymentMethod(event.target.value)} placeholder="e.g., Rocket" /></label>}<label className="form-field loan-payment-full"><span>Note <em>optional</em></span><textarea value={loanPaymentNote} onChange={(event) => setLoanPaymentNote(event.target.value)} placeholder="What was this payment for?" rows={2} /></label><label className="form-field loan-payment-full"><span>Reference <em>optional</em></span><input value={loanPaymentReference} onChange={(event) => setLoanPaymentReference(event.target.value)} placeholder="Transaction ID, last four digits, or receipt" /></label></div><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
+            {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><div className="loan-payment-grid"><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><label className="form-field"><span>How was it paid?</span><select value={loanPaymentMethod} onChange={(event) => setLoanPaymentMethod(event.target.value)}><option>Cash in hand</option><option>Card</option><option>Bank transfer</option><option>bKash</option><option>Nagad</option><option>Custom</option></select></label>{loanPaymentMethod === "Custom" && <label className="form-field loan-payment-full"><span>Custom payment method</span><input value={loanCustomPaymentMethod} onChange={(event) => setLoanCustomPaymentMethod(event.target.value)} placeholder="e.g., Rocket" /></label>}<label className="form-field loan-payment-full"><span>Note <em>(optional)</em></span><textarea value={loanPaymentNote} onChange={(event) => setLoanPaymentNote(event.target.value)} placeholder="What was this payment for?" rows={2} /></label><label className="form-field loan-payment-full"><span>Reference <em>(optional)</em></span><input value={loanPaymentReference} onChange={(event) => setLoanPaymentReference(event.target.value)} placeholder="Transaction ID, last four digits, or receipt" /></label></div><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
             <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><div className="loan-payment-meta"><span>{shortDate(payment.date)} · {payment.method}</span>{payment.reference && <span>Ref · {payment.reference}</span>}{payment.transactionId && <span>Cash flow recorded</span>}</div></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
             <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button></div>
           </aside>
@@ -1617,8 +1628,8 @@ export default function Home() {
                 <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
                 <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
               </div>
-              {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>Verification helps keep your personal money record recoverable and recognisable.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>Send verification email</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>I’ve verified it</button></div></div>}
-              <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>We will send a secure reset link to {user.email ?? "your account email"}.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>Send reset link</button></div>
+              {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>We will send one link to {user.email}. Open it in this browser, then refresh your status here.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>{authSubmitting ? "Sending…" : "Send verification email"}</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>Refresh status</button></div></div>}
+              <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>A secure reset link will be sent to {user.email ?? "your account email"}. Check Inbox, Spam, and Promotions.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>{authSubmitting ? "Sending…" : "Send reset link"}</button></div>
               {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}
               {profileNotice && <p className="account-notice" role="status">{profileNotice}</p>}
               <div className="draft-actions"><button className="secondary-button" onClick={resetDraft}><ShieldCheck size={16} /> Continue to ledger</button><button className="delete-button" onClick={() => { void signOut(); resetDraft(); }}><LogOut size={16} /> Sign out</button></div>
@@ -1707,15 +1718,16 @@ export default function Home() {
   );
 }
 
-function OverviewView({ balance, netWorth, accounts, totals, categories, transactions, schedules, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onSelectTransaction, onOpenSchedule, onOpenAccounts, onOpenHistory }: {
+function OverviewView({ balance, netWorth, accounts, totals, categories, transactions, schedules, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onSelectTransaction, onOpenSchedule, onOpenHistory }: {
   balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; transactions: Transaction[]; schedules: RecurringSchedule[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
-  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onSelectTransaction: (transaction: Transaction) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onOpenAccounts: () => void; onOpenHistory: () => void;
+  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onSelectTransaction: (transaction: Transaction) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onOpenHistory: () => void;
 }) {
   const savingsRate = totals.ordinaryIncome ? Math.round(((totals.ordinaryIncome - totals.ordinaryExpense) / totals.ordinaryIncome) * 100) : 0;
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
   const upcomingSchedules = schedules.filter((schedule) => schedule.status === "active").slice().sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
   const upcomingIncome = upcomingSchedules.filter((schedule) => schedule.type === "income").slice(0, 3);
   const upcomingBills = upcomingSchedules.filter((schedule) => schedule.type === "expense").slice(0, 3);
+  const pendingTransactions = transactions.filter((transaction) => transaction.settlementStatus === "pending").slice(0, 4);
   const assetCount = accounts.filter((account) => account.kind === "asset").length;
   const liabilityCount = accounts.length - assetCount;
 
@@ -1742,7 +1754,6 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
         <div className="card-head"><h2>Net worth</h2></div>
         <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> accounts plus loan position</span></div>
         <div className="overview-account-glance"><span>{assetCount} asset folio{assetCount === 1 ? "" : "s"}</span><span>{liabilityCount ? `${liabilityCount} liability` : "No liabilities"}</span></div>
-        <button className="destination-button overview-accounts-action" onClick={onOpenAccounts}>View accounts & assets <ArrowUpRight size={14} /></button>
       </aside>
     </div>
     <section className="paper-card dashboard-schedule-register">
@@ -1752,6 +1763,7 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
         <div className="schedule-register-column expense"><div className="schedule-register-label"><span>Upcoming bills</span><b><i />{upcomingBills.length} active</b></div>{upcomingBills.length ? upcomingBills.map((schedule) => <button key={schedule.id} className="schedule-register-row" onClick={() => onOpenSchedule(schedule)}><span><strong>{schedule.name}</strong><small><em>{scheduleDueLabel(schedule.nextDueDate)}</em><span>{scheduleFrequencyLabel(schedule.frequency)}</span></small></span><b>{fmt.format(schedule.amount)}</b></button>) : <p className="empty-hint">No upcoming bill schedule.</p>}</div>
       </div>
     </section>
+    {pendingTransactions.length > 0 && <section className="paper-card pending-register"><div className="section-head pending-register-head"><div><div className="page-kicker">Needs confirmation</div><h2>Pending payments</h2></div><span className="pending-count">{pendingTransactions.length} open</span></div><p className="budget-note">Keep these in view until money has actually moved.</p><div className="pending-transaction-list">{pendingTransactions.map((transaction) => <button className="pending-transaction-row" key={transaction.id} onClick={() => onSelectTransaction(transaction)}><span><em>Pending</em><strong>{transaction.merchantNote}</strong><small>{transaction.date}</small></span><b className={transaction.type === "income" ? "amount-income" : transaction.type === "expense" ? "amount-expense" : "amount-transfer"}>{transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔"}{fmt.format(transaction.amount)}</b></button>)}</div></section>}
     <div className="lower-grid">
       <section className="paper-card section-card">
         <div className="section-head"><div><div className="page-kicker">Last recorded</div><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2></div></div>
@@ -1811,10 +1823,10 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
   const descriptor = transaction.cashFlowKind === "loan-disbursement" ? "Loan cash movement · original amount" : transaction.cashFlowKind === "loan-settlement" ? "Loan cash movement · settlement" : transaction.type === "transfer" ? "Transfer between your accounts" : category?.name ?? "Uncategorised";
   const signed = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔";
   const amountClass = transaction.type === "income" ? "amount-income" : transaction.type === "expense" ? "amount-expense" : "amount-transfer";
-  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.cashFlowKind ? "Loan flow" : transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span className="category-picker-label">{category && <CategoryIcon icon={category.icon} size={14} />}{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
+  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.cashFlowKind ? "Loan flow" : transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span className="category-picker-label">{category && <CategoryIcon icon={category.icon} size={14} />}{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount">{transaction.settlementStatus === "pending" && <span className="pending-payment-chip">Pending</span>}<strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
 }
 
-function InsightsView({ transactions, categories, categorySpent, onOpenCategory, onOpenReports }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void; onOpenReports: () => void }) {
+function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
   const [statsTab, setStatsTab] = useState<"insight" | "summary">("insight");
   const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug"].map((label, index) => {
     const month = String(index + 3).padStart(2, "0");
@@ -1840,7 +1852,7 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory,
     return { category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining: Math.max(0, category.monthlyBudget - spentAmount) };
   });
   return <>
-    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div><button className="analytics-report-link" onClick={onOpenReports}><FileText size={14} /> Reports & export <ChevronRight size={14} /></button></div></header>
+    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div></div></header>
     {statsTab === "insight" ? <><div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div className="category-picker-label"><span className="category-symbol" style={{ color: category.color }}><CategoryIcon icon={category.icon} size={14} /></span><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div><section className="paper-card budget-pacing-sheet"><div className="section-head"><div><div className="page-kicker">Budget pacing</div><h2>Are your categories on track?</h2></div><span className="month-hand-date">Day {elapsedDays} of {daysInCurrentMonth}</span></div><p className="budget-note">Daily burn rate and projected month-end spend make pressure visible before the month closes.</p><div className="budget-pacing-list">{budgetPacing.map(({ category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining }) => { const percentage = category.monthlyBudget ? Math.min(100, (spentAmount / category.monthlyBudget) * 100) : 0; const statusClass = status === "On pace" ? "on-pace" : "warning"; return <div className="budget-pacing-row" key={category.id}><div className="budget-pacing-top"><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} /><strong>{category.name}</strong></span><b>{fmt.format(spentAmount)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${percentage}%`, background: category.color }} /></div><div className="budget-pacing-meta"><span className={`pacing-status ${statusClass}`}>{status}</span><span>{fmt.format(averageDaily)} / day</span><span>Projected {fmt.format(projected)}</span><span>{fmt.format(remaining)} left</span></div>{spentAmount > safeSpendToDate && <div className="pacing-warning">Spending is above the safe pace for day {elapsedDays}.</div>}</div>; })}</div></section></> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Monthly summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>Income less recorded expenses. Transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">August 2026</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
   </>;
 }
@@ -2023,16 +2035,16 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
   );
 }
 
-function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder, onOpenReports }: {
+function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder, onOpenReports, onOpenAccounts }: {
   categories: Category[]; subcategorySpent: Record<string, number>;
   onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
   reminderSettings: ReminderSettings; reminderPushStatus: string | null; reminderPushBusy: boolean; signedIn: boolean;
-  onSaveReminderSettings: (settings: ReminderSettings) => void; onEnableDeviceReminder: () => void; onOpenReports: () => void;
+  onSaveReminderSettings: (settings: ReminderSettings) => void; onEnableDeviceReminder: () => void; onOpenReports: () => void; onOpenAccounts: () => void;
 }) {
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
   const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const [openSection, setOpenSection] = useState<"notifications" | "currency" | "expenses" | "income" | "export" | null>("notifications");
+  const [openSection, setOpenSection] = useState<"notifications" | "currency" | "accounts" | "expenses" | "income" | "export" | null>(null);
   const toggleSection = (section: typeof openSection) => setOpenSection((current) => current === section ? null : section);
   const timezoneChoices = Array.from(new Set([deviceTimezone, "Asia/Dhaka", "Asia/Kolkata", "Asia/Singapore", "Europe/London", "America/New_York", "UTC"]));
 
@@ -2042,8 +2054,8 @@ function SettingsView({ categories, subcategorySpent, reminderSettings, reminder
       <div style={{ display: "grid", gap: 24 }}>
         <article className="paper-card settings-card reminder-settings-card" style={{ padding: 24 }}>
           <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("notifications")} aria-expanded={openSection === "notifications"}>
-            <span className={`settings-status-dot ${reminderSettings.enabled ? "is-active" : ""}`} aria-hidden="true" />
-            <span><span className="page-kicker">Notification settings</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily reminder set for ${reminderSettings.time}` : "No daily reminder set"}</small></span>
+            <span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span>
+            <span><span className="page-kicker">Notification settings</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily reminder set for ${reminderSettings.time}` : "Choose a time when you are ready"}</small></span>
             <ChevronRight className={openSection === "notifications" ? "is-open" : ""} size={19} aria-hidden="true" />
           </button>
           {openSection === "notifications" && <div className="settings-accordion-content">
@@ -2068,6 +2080,13 @@ function SettingsView({ categories, subcategorySpent, reminderSettings, reminder
             <span className="category-symbol"><CircleDollarSign size={17} /></span><span><span className="page-kicker">Ledger currency</span><strong>{CURRENCY_OPTIONS.find((currency) => currency.code === reminderSettings.currency)?.label ?? reminderSettings.currency}</strong><small>Use one display currency across your ledger, insights, and exports.</small></span><ChevronRight className={openSection === "currency" ? "is-open" : ""} size={19} aria-hidden="true" />
           </button>
           {openSection === "currency" && <div className="settings-accordion-content"><label className="reminder-timezone"><span>Display currency</span><select value={reminderSettings.currency} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, currency: event.target.value as SupportedCurrency })}>{CURRENCY_OPTIONS.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</select><small>This changes how existing amounts are displayed; it does not convert their recorded values.</small></label>{!signedIn && <p className="reminder-settings-note">Sign in to save your preferred display currency.</p>}</div>}
+        </article>
+
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("accounts")} aria-expanded={openSection === "accounts"}>
+            <span className="category-symbol"><HandCoins size={17} /></span><span><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight className={openSection === "accounts" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "accounts" && <div className="settings-accordion-content export-settings-content"><p className="category-section-note">Keep your cash, cards, assets, and liabilities in one clear register. You can add or update accounts from the workspace.</p><button className="primary-button" onClick={onOpenAccounts}><HandCoins size={15} /> Open Accounts & Assets</button></div>}
         </article>
 
         <article className="paper-card settings-card" style={{ padding: 24 }}>
@@ -2238,16 +2257,16 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           )}
 
           <div className="form-field"><label>Date</label><input type="date" value={transaction.date} onChange={(event) => update({ date: event.target.value })} /></div>
-          <div className="tag-grid"><div className="form-field"><label>Payee <em>optional</em></label><input value={transaction.payee} onChange={(event) => update({ payee: event.target.value })} placeholder={transaction.type === "income" ? "Who paid you?" : "Who received it?"} /></div><div className="form-field"><label>Payer <em>optional</em></label><input value={transaction.payer} onChange={(event) => update({ payer: event.target.value })} placeholder={transaction.type === "income" ? "Who sent it?" : "Who paid?"} /></div></div>
+          <div className="tag-grid"><div className="form-field"><label>Payee <em>(optional)</em></label><input value={transaction.payee} onChange={(event) => update({ payee: event.target.value })} placeholder={transaction.type === "income" ? "Who paid you?" : "Who received it?"} /></div><div className="form-field"><label>Payer <em>(optional)</em></label><input value={transaction.payer} onChange={(event) => update({ payer: event.target.value })} placeholder={transaction.type === "income" ? "Who sent it?" : "Who paid?"} /></div></div>
           <div className="form-field"><label>Settlement</label><div className="type-options"><button type="button" className={`type-option ${transaction.settlementStatus === "paid" ? "active" : ""}`} onClick={() => update({ settlementStatus: "paid" })}><CircleCheck size={15} /> Paid</button><button type="button" className={`type-option ${transaction.settlementStatus === "pending" ? "active" : ""}`} onClick={() => update({ settlementStatus: "pending" })}><Clock3 size={15} /> Pending</button></div></div>
-          <div className="form-field transaction-evidence"><label>Receipts & proof <em>optional</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
+          <div className="form-field transaction-evidence"><label>Receipts & proof <em>(optional)</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
           <div className="tag-grid"><div className="form-field"><label>Goal tag</label><select value={transaction.goalId} onChange={(event) => update({ goalId: event.target.value })}><option value="none">No goal</option>{goals.map((goal) => <option value={goal.id} key={goal.id}>{goal.name}</option>)}</select></div><div className="form-field"><label>Trip tag</label><select value={transaction.tripId} onChange={(event) => update({ tripId: event.target.value })}><option value="none">No trip</option>{trips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name}</option>)}</select></div></div>
         </>}
 
         {kind === "goal" && <>
           <div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div>
           <div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div>
-          <div className="form-field"><label>Financing contribution <em>optional</em></label><input value={goalFinancing} onChange={(event) => onGoalFinancing(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 1,500 from a loan or grant" inputMode="decimal" /><small>This reduces the amount you need to personally save.</small></div>
+          <div className="form-field"><label>Financing contribution <em>(optional)</em></label><input value={goalFinancing} onChange={(event) => onGoalFinancing(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 1,500 from a loan or grant" inputMode="decimal" /><small>This reduces the amount you need to personally save.</small></div>
           <div className="form-field"><label>Target timeline</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. By Dec 2026" /></div>
         </>}
 
@@ -2264,7 +2283,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Original amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="2,400" inputMode="decimal" /></div>
           <div className="form-field"><label>{loanDirection === "borrowed" ? "Cash received into" : "Cash advanced from"}</label><select value={loanAccount} onChange={(event) => onLoanAccount(event.target.value)} disabled={!accounts.length}>{accounts.length ? accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>) : <option value="">Preparing your Main Account…</option>}</select><small>{loanDirection === "borrowed" ? "Saving creates an income cash movement in this account." : "Saving creates an expense cash movement from this account."}</small></div>
           <div className="form-field"><label>Due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
-          <div className="form-field"><label>Repayment terms <em>optional</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
+          <div className="form-field"><label>Repayment terms <em>(optional)</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
         </>}
 
         {kind === "schedule" && <>

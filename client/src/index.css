@@ -317,8 +317,8 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .settings-accordion-trigger > svg { color: #8c6d36; transition: transform .18s cubic-bezier(.23,1,.32,1); }
 .settings-accordion-trigger > svg.is-open { transform: rotate(90deg); }
 .settings-accordion-trigger:focus-visible { outline: 2px solid #b78a3d; outline-offset: 6px; border-radius: 4px; }
-.settings-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #a49c90; box-shadow: 0 0 0 4px rgba(164,156,144,.11); }
-.settings-status-dot.is-active { background: #2d6049; box-shadow: 0 0 0 4px rgba(45,96,73,.12); }
+.settings-status-chip { align-self: start; margin-top: 2px; padding: 5px 7px; border: 1px solid #d8d0c3; border-radius: 999px; color: #766e63; background: #f8f5ee; font: 800 8px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.settings-status-chip.is-active { border-color: #a6c5ad; color: #2e664c; background: #eff7f0; }
 .settings-accordion-content { margin-top: 20px; padding-top: 18px; border-top: 1px solid #e6ddd0; animation: settings-accordion-in .18s cubic-bezier(.23,1,.32,1); }
 .settings-accordion-content > .category-section-note:first-child { margin-top: 0; }
 .export-settings-content { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
@@ -1153,6 +1153,21 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .transaction-title .entry-kind { color: #92733e; font-size: 8px; font-weight: 800; letter-spacing: .11em; line-height: 1.1; text-transform: uppercase; }
 .transaction-title strong { overflow: visible; color: #292f2c; font-size: 13px; line-height: 1.32; text-overflow: clip; white-space: normal; }
 .transaction-title > span:last-child { line-height: 1.35; }
+.transaction-amount { display: grid; justify-items: end; gap: 4px; }
+.pending-payment-chip,
+.pending-count { display: inline-flex; align-items: center; width: fit-content; padding: 3px 6px; border: 1px solid #ad7662; color: #8e5a4e; background: #fff8f2; font: 800 8px/1 "Space Grotesk", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.pending-register { position: relative; margin-top: 20px; padding: 23px 25px; border-radius: 3px; border-color: #e0cdbf; box-shadow: none; }
+.pending-register::before { content: ""; position: absolute; top: 0; left: 23px; width: 38px; height: 2px; background: #a96f5d; }
+.pending-register-head { align-items: end; margin-bottom: 7px; }
+.pending-register-head h2 { margin: 5px 0 0; color: #2e3431; font: 500 29px/1.05 "Fraunces", Georgia, serif; letter-spacing: -.045em; }
+.pending-transaction-list { display: grid; margin-top: 14px; border-top: 1px solid #eadfd5; }
+.pending-transaction-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 12px 1px; border: 0; border-bottom: 1px solid #eadfd5; color: #2d3431; background: transparent; text-align: left; cursor: pointer; }
+.pending-transaction-row:last-child { border-bottom: 0; }
+.pending-transaction-row > span { display: grid; gap: 3px; min-width: 0; }
+.pending-transaction-row em { color: #985c4f; font: 800 8px/1 "Space Grotesk", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.pending-transaction-row strong { overflow: hidden; font-size: 13px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.pending-transaction-row small { color: #8d8276; font-size: 10px; }
+.pending-transaction-row:hover strong { color: #8a652c; }
 .transaction-amount { padding-top: 13px; }
 @media (max-width: 760px) {
   .side-summary .card-head {
@@ -1284,6 +1299,10 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .lower-grid .transaction-amount { min-width: 91px; }
   .lower-grid .transaction-title strong { font-size: 13px; }
   .schedule-register-row { padding-right: 1px; }
+  .pending-register { margin-top: 16px; padding: 21px 16px; }
+  .pending-register::before { left: 16px; }
+  .pending-register-head { align-items: flex-start; gap: 8px; }
+  .pending-register-head h2 { font-size: 26px; }
 }
 
 /* Reports & export — a filterable record room, using the ledger grammar rather than generic dashboard cards. */

@@ -61,7 +61,7 @@
 ## Controlled feature planning
 - [x] Reconcile the live web app with every screenshot-derived feature group.
 - [x] Publish a completed-versus-remaining feature map with navigation placement and data dependencies.
-- [ ] Agree the next focused build slice before adding further capabilities.
+- [x] Agree the next focused build slice before adding further capabilities.
 
 ## Approved slice 1 — finish and verify
 - [x] Style and verify the collapsible monthly ledger on desktop and mobile.
@@ -144,7 +144,7 @@
 - [x] Run the TypeScript checker and production build for the Firebase browser integration.
 - [x] Validate persistence across a signed-in refresh and logout/login.
 - [ ] Exercise the visible Firestore-permission error state as part of the final security and resilience audit.
-- [ ] Checkpoint the verified Firebase integration.
+- [x] Checkpoint the verified Firebase integration.
 
 ## Approved live Firebase verification
 - [x] Create or sign in to the approved test account and verify the authenticated profile state.
@@ -210,4 +210,15 @@
 - [x] Add an attachment workflow for transaction evidence: camera capture, image selection, and digital receipt/document upload.
 - [x] Store transaction attachments securely, retain their metadata with the ledger record, and present them in the transaction detail view.
 - [x] Validate the new Settings and transaction workflows with responsive renders, focused tests, TypeScript, and a production build.
-- [ ] Save a checkpoint for the completed expandable Settings and transaction-evidence slice.
+- [x] Save a checkpoint for the completed expandable Settings and transaction-evidence slice.
+
+## Final Settings, payment, profile, and account refinement
+- [x] Expand the saved currency catalogue with the primary international and regional choices, presented through a polished selector rather than a large raw list.
+- [x] Replace the reminder status dot with a restrained, accessible configured-state treatment and keep Notification Settings collapsed when Settings opens.
+- [x] Place a clear Pending/Paid state chip before each transaction amount and add a focused Overview list of unresolved pending entries.
+- [x] Present optional form labels consistently as parenthesized, visually de-emphasized “(optional)” text.
+- [x] Repair and optimize the profile verification and password-recovery actions, with clear feedback for success, failure, resend limits, and refresh state.
+- [x] Remove every remaining Insights export shortcut so data export is accessed only from Settings.
+- [x] Add an Account workspace inside Settings and move Accounts & Assets out of the Overview while preserving access to account registers.
+- [x] Validate the final-review refinements with focused tests, TypeScript, production build, and responsive renders.
+- [ ] Save a checkpoint for the final Settings, payment, profile, and account refinement.
