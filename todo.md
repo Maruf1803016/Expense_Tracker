@@ -200,3 +200,14 @@
 - [x] Add browser/device notification permission, push-subscription, and background-delivery support for the selected daily reminder time.
 - [ ] Publish the reminder callback, register the platform Heartbeat, and live-verify an in-app reminder plus a closed/background device notification.
 - [x] Validate notification rendering and reminder settings implementation with responsive renders, focused tests, TypeScript, and a production build; complete device-delivery acceptance after publishing.
+
+## Expandable settings and enriched transaction records
+- [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
+- [x] Add a persistent currency setting in Settings and format ledger, analytics, and export monetary values using the saved preference.
+- [x] Add a reminder enabled indicator that turns green only when the daily reminder is configured, alongside a selectable notification time zone.
+- [x] Move the Reports & Export entry point into an expandable Export Data section in Settings without removing the existing report workspace.
+- [x] Extend expense, income, and transfer records with optional payee, payer, and settlement status fields.
+- [x] Add an attachment workflow for transaction evidence: camera capture, image selection, and digital receipt/document upload.
+- [x] Store transaction attachments securely, retain their metadata with the ledger record, and present them in the transaction detail view.
+- [x] Validate the new Settings and transaction workflows with responsive renders, focused tests, TypeScript, and a production build.
+- [ ] Save a checkpoint for the completed expandable Settings and transaction-evidence slice.

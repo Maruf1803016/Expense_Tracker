@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, type LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
@@ -42,6 +42,20 @@ interface Transaction {
   icon: string;
   loanId?: string;
   cashFlowKind?: "loan-disbursement" | "loan-settlement";
+  payee?: string;
+  payer?: string;
+  settlementStatus?: "paid" | "pending";
+  attachments?: TransactionAttachment[];
+}
+
+interface TransactionAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  storageKey: string;
+  url: string;
+  uploadedAt: string;
 }
 
 interface Goal {
@@ -131,6 +145,7 @@ interface ReminderSettings {
   enabled: boolean;
   time: string;
   timezone: string;
+  currency: SupportedCurrency;
 }
 
 type StoredRecord = Record<string, unknown>;
@@ -197,6 +212,15 @@ function storedDate(value: unknown, fallback: string) {
   return fallback;
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The selected file could not be read."));
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(file);
+  });
+}
+
 function normaliseCategory(record: StoredRecord): Category[] {
   const parentId = storedString(record.parentId ?? record.parent_id) || null;
   const id = storedString(record.id);
@@ -216,7 +240,11 @@ function normaliseTransaction(record: StoredRecord): Transaction {
   const planId = storedString(record.planId);
   const rawType = record.type;
   const cashFlowKind = record.cashFlowKind === "loan-disbursement" || record.cashFlowKind === "loan-settlement" ? record.cashFlowKind : undefined;
-  return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart"), loanId: storedString(record.loanId) || undefined, cashFlowKind };
+  const attachments = storedArray(record.attachments).map((item, index) => {
+    const attachment = (item ?? {}) as StoredRecord;
+    return { id: storedString(attachment.id, `attachment-${index}`), name: storedString(attachment.name, "Attachment"), type: storedString(attachment.type, "application/octet-stream"), size: storedNumber(attachment.size), storageKey: storedString(attachment.storageKey), url: storedString(attachment.url), uploadedAt: storedDate(attachment.uploadedAt, dateInputValue(new Date())) };
+  }).filter((attachment) => attachment.storageKey && attachment.url);
+  return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart"), loanId: storedString(record.loanId) || undefined, cashFlowKind, payee: storedString(record.payee) || undefined, payer: storedString(record.payer) || undefined, settlementStatus: record.settlementStatus === "pending" ? "pending" : "paid", attachments };
 }
 
 function normaliseGoal(record: StoredRecord): Goal {
@@ -261,11 +289,13 @@ function normaliseNotification(record: StoredRecord): AppNotification {
 
 function normaliseReminderSettings(record: StoredRecord): ReminderSettings {
   const time = storedString(record.time, "22:00");
+  const candidateCurrency = storedString(record.currency, "USD");
   return {
     id: storedString(record.id, "daily-expense-reminder"),
     enabled: record.enabled === true,
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : "22:00",
     timezone: storedString(record.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
+    currency: isSupportedCurrency(candidateCurrency) ? candidateCurrency : "USD",
   };
 }
 
@@ -286,9 +316,24 @@ interface TransactionDraft {
   date: string;
   goalId: string;
   tripId: string;
+  payee: string;
+  payer: string;
+  settlementStatus: "paid" | "pending";
+  attachments: TransactionAttachment[];
 }
 
-const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 });
+const CURRENCY_OPTIONS = [
+  { code: "USD", label: "US dollar ($)" },
+  { code: "BDT", label: "Bangladeshi taka (৳)" },
+  { code: "EUR", label: "Euro (€)" },
+  { code: "GBP", label: "British pound (£)" },
+  { code: "INR", label: "Indian rupee (₹)" },
+  { code: "AED", label: "UAE dirham (د.إ)" },
+] as const;
+type SupportedCurrency = (typeof CURRENCY_OPTIONS)[number]["code"];
+const isSupportedCurrency = (value: string): value is SupportedCurrency => CURRENCY_OPTIONS.some((currency) => currency.code === value);
+let activeCurrency: SupportedCurrency = "USD";
+const fmt = { format: (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: activeCurrency, maximumFractionDigits: 2 }).format(value) };
 
 function goalMetrics(goal: Goal) {
   const financed = Math.min(goal.target, Math.max(0, goal.financedAmount ?? 0));
@@ -497,6 +542,10 @@ export default function Home() {
     date: new Date().toISOString().slice(0, 10),
     goalId: "none",
     tripId: "none",
+    payee: "",
+    payer: "",
+    settlementStatus: "paid",
+    attachments: [],
   });
 
   const [catNameInput, setCatNameInput] = useState("");
@@ -529,9 +578,10 @@ export default function Home() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dismissedFallbackNotificationIds, setDismissedFallbackNotificationIds] = useState<string[]>([]);
-  const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" });
+  const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", currency: "USD" });
   const [reminderPushStatus, setReminderPushStatus] = useState<string | null>(null);
   const [reminderPushBusy, setReminderPushBusy] = useState(false);
+  activeCurrency = reminderSettings.currency;
 
   useEffect(() => {
     if (!user) {
@@ -548,7 +598,7 @@ export default function Home() {
       setStarterRequestedFor(null);
       setNotifications([]);
       setDismissedFallbackNotificationIds([]);
-      setReminderSettings({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" });
+      setReminderSettings({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", currency: "USD" });
       setReminderPushStatus(null);
       return;
     }
@@ -614,6 +664,21 @@ export default function Home() {
       setCloudStatus("error");
       setCloudError("This change could not be saved to your cloud ledger. Keep this tab open and retry after checking your connection.");
     }
+  }, [user]);
+
+  const uploadEvidence = useCallback(async (file: File): Promise<TransactionAttachment> => {
+    if (!user) throw new Error("Sign in before adding an attachment.");
+    if (file.size > 8 * 1024 * 1024) throw new Error("Each attachment must be smaller than 8 MB.");
+    const dataUrl = await readFileAsDataUrl(file);
+    const token = await user.getIdToken();
+    const response = await fetch("/api/transaction-evidence", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, dataUrl }),
+    });
+    const payload = await response.json() as TransactionAttachment | { error?: string };
+    if (!response.ok || !("storageKey" in payload)) throw new Error("error" in payload ? payload.error ?? "The attachment could not be stored." : "The attachment could not be stored.");
+    return payload;
   }, [user]);
 
   const deletePersistedRecord = useCallback(async (collectionName: LedgerCollection, recordId: string) => {
@@ -1035,6 +1100,10 @@ export default function Home() {
       date: new Date().toISOString().slice(0, 10),
       goalId: "none",
       tripId: "none",
+      payee: "",
+      payer: "",
+      settlementStatus: "paid",
+      attachments: [],
     });
     setDraft("transaction");
   };
@@ -1052,6 +1121,10 @@ export default function Home() {
       date: transaction.date,
       goalId: transaction.tag?.goalId ?? "none",
       tripId: transaction.tag?.tripId ?? "none",
+      payee: transaction.payee ?? "",
+      payer: transaction.payer ?? "",
+      settlementStatus: transaction.settlementStatus ?? "paid",
+      attachments: transaction.attachments ?? [],
     });
     setDraft("transaction");
   };
@@ -1102,6 +1175,10 @@ export default function Home() {
           tripId: transactionDraft.tripId !== "none" ? transactionDraft.tripId : undefined,
         },
         icon: transactionDraft.type === "income" ? "ArrowDownRight" : transactionDraft.type === "expense" ? "ShoppingCart" : "Repeat",
+        payee: transactionDraft.payee.trim() || undefined,
+        payer: transactionDraft.payer.trim() || undefined,
+        settlementStatus: transactionDraft.settlementStatus,
+        attachments: transactionDraft.attachments,
       };
 
       if (transactionDraft.id) {
@@ -1258,7 +1335,6 @@ export default function Home() {
           <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
           <button className={`rail-button ${activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("accounts")}><HandCoins size={16} /> Accounts & Assets</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
-          <button className={`rail-button ${activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("reports")}><FileText size={16} /> Reports & Export</button>
           <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Goals & Plans</button>
           <button className={`rail-button ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
         </nav>
@@ -1383,6 +1459,7 @@ export default function Home() {
               onDeleteCategory={deleteCategory}
               onSaveReminderSettings={saveReminderSettings}
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
+              onOpenReports={() => setActiveTab("reports")}
             />
           )}
         </div>
@@ -1413,10 +1490,14 @@ export default function Home() {
               <div className="field-note-row"><span>Account</span><b>{accounts.find(a => a.id === transactionDetail.accountId)?.name ?? transactionDetail.accountId}</b></div>
               {transactionDetail.destinationAccountId && <div className="field-note-row"><span>To account</span><b>{accounts.find(a => a.id === transactionDetail.destinationAccountId)?.name}</b></div>}
               {transactionDetail.categoryId && <div className="field-note-row"><span>Category</span><b>{categories.find(c => c.id === transactionDetail.categoryId)?.name ?? transactionDetail.categoryId}</b></div>}
+              {transactionDetail.payee && <div className="field-note-row"><span>Payee</span><b>{transactionDetail.payee}</b></div>}
+              {transactionDetail.payer && <div className="field-note-row"><span>Payer</span><b>{transactionDetail.payer}</b></div>}
+              <div className="field-note-row"><span>Settlement</span><b>{transactionDetail.settlementStatus === "pending" ? "Pending" : "Paid"}</b></div>
               {transactionDetail.cashFlowKind && <div className="field-note-row"><span>Cash-flow source</span><b>{transactionDetail.cashFlowKind === "loan-disbursement" ? "Loan original amount" : "Loan repayment or collection"}</b></div>}
               {transactionDetail.tag?.goalId && <div className="field-note-row"><span>Tagged goal</span><b>{goals.find(g => g.id === transactionDetail.tag?.goalId)?.name}</b></div>}
               {transactionDetail.tag?.tripId && <div className="field-note-row"><span>Tagged trip</span><b>{trips.find(t => t.id === transactionDetail.tag?.tripId)?.name}</b></div>}
             </div>
+            {transactionDetail.attachments && transactionDetail.attachments.length > 0 && <div className="transaction-evidence" style={{ marginTop: 18 }}><div className="detail-label" style={{ marginBottom: 7 }}>Receipts & proof</div><div className="evidence-list">{transactionDetail.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a></span>)}</div></div>}
             <div className="draft-actions" style={{ marginTop: 24 }}>
               <button className="primary-button draft-submit" onClick={() => startEditingTransaction(transactionDetail)}><Edit3 size={15} /> Modify entry</button>
               <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); void deletePersistedRecord("expenses", transactionDetail.id); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
@@ -1595,6 +1676,7 @@ export default function Home() {
           onAmount={setDraftAmount}
           onDate={setDraftDate}
           onTransaction={setTransactionDraft}
+          onUploadEvidence={uploadEvidence}
           onCatName={setCatNameInput}
           onCatBudget={setCatBudgetInput}
           onCatType={setCatTypeInput}
@@ -1941,40 +2023,58 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
   );
 }
 
-function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder }: {
+function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder, onOpenReports }: {
   categories: Category[]; subcategorySpent: Record<string, number>;
   onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
   reminderSettings: ReminderSettings; reminderPushStatus: string | null; reminderPushBusy: boolean; signedIn: boolean;
-  onSaveReminderSettings: (settings: ReminderSettings) => void; onEnableDeviceReminder: () => void;
+  onSaveReminderSettings: (settings: ReminderSettings) => void; onEnableDeviceReminder: () => void; onOpenReports: () => void;
 }) {
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
+  const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const [openSection, setOpenSection] = useState<"notifications" | "currency" | "expenses" | "income" | "export" | null>("notifications");
+  const toggleSection = (section: typeof openSection) => setOpenSection((current) => current === section ? null : section);
+  const timezoneChoices = Array.from(new Set([deviceTimezone, "Asia/Dhaka", "Asia/Kolkata", "Asia/Singapore", "Europe/London", "America/New_York", "UTC"]));
 
   return (
     <>
       <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Manage categories, income streams, and personal preferences.</p></div></header>
       <div style={{ display: "grid", gap: 24 }}>
         <article className="paper-card settings-card reminder-settings-card" style={{ padding: 24 }}>
-          <div className="section-head reminder-settings-head">
-            <div><div className="page-kicker">Notification settings</div><h2>Close the day with a complete ledger.</h2><p className="category-section-note">Choose when your personal expense reminder should arrive. It will appear in your inbox and on this device when permission is allowed.</p></div>
-            <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}>
-              <span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}
-            </button>
-          </div>
-          <div className="reminder-settings-controls">
-            <label className="reminder-time-field"><span>Daily reminder time</span><input type="time" value={reminderSettings.time} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, time: event.target.value })} /></label>
-            <div className="reminder-timezone"><span>Time zone</span><strong>{reminderSettings.timezone}</strong><small>Your saved time follows this device’s current time zone.</small></div>
-          </div>
-          {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
-          {signedIn && !reminderSettings.enabled && <p className="reminder-settings-note">Enable this once to allow a browser or device notification at your selected time.</p>}
-          {reminderPushStatus && <p className="reminder-settings-status" role="status">{reminderPushStatus}</p>}
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("notifications")} aria-expanded={openSection === "notifications"}>
+            <span className={`settings-status-dot ${reminderSettings.enabled ? "is-active" : ""}`} aria-hidden="true" />
+            <span><span className="page-kicker">Notification settings</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily reminder set for ${reminderSettings.time}` : "No daily reminder set"}</small></span>
+            <ChevronRight className={openSection === "notifications" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "notifications" && <div className="settings-accordion-content">
+            <div className="section-head reminder-settings-head">
+              <p className="category-section-note">Choose when your personal expense reminder should arrive. It will appear in your inbox and on this device when permission is allowed.</p>
+              <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}>
+                <span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}
+              </button>
+            </div>
+            <div className="reminder-settings-controls">
+              <label className="reminder-time-field"><span>Daily reminder time</span><input type="time" value={reminderSettings.time} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, time: event.target.value })} /></label>
+              <label className="reminder-timezone"><span>Reminder location</span><select value={reminderSettings.timezone} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, timezone: event.target.value })}>{timezoneChoices.map((timezone) => <option key={timezone} value={timezone}>{timezone === deviceTimezone ? `${timezone} · this device` : timezone}</option>)}</select><small>Your chosen time follows this location’s local clock.</small></label>
+            </div>
+            {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
+            {signedIn && !reminderSettings.enabled && <p className="reminder-settings-note">Enable this once to allow a browser or device notification at your selected time.</p>}
+            {reminderPushStatus && <p className="reminder-settings-status" role="status">{reminderPushStatus}</p>}
+          </div>}
         </article>
 
         <article className="paper-card settings-card" style={{ padding: 24 }}>
-          <div className="section-head" style={{ marginBottom: 16 }}>
-            <div><h2>Expense Categories ({expenseTop.length})</h2><p className="category-section-note">Five permanent money types. Add as many detailed subcategories as you need.</p></div>
-          </div>
-          <div className="category-edit-list" style={{ display: "grid", gap: 12 }}>
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("currency")} aria-expanded={openSection === "currency"}>
+            <span className="category-symbol"><CircleDollarSign size={17} /></span><span><span className="page-kicker">Ledger currency</span><strong>{CURRENCY_OPTIONS.find((currency) => currency.code === reminderSettings.currency)?.label ?? reminderSettings.currency}</strong><small>Use one display currency across your ledger, insights, and exports.</small></span><ChevronRight className={openSection === "currency" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "currency" && <div className="settings-accordion-content"><label className="reminder-timezone"><span>Display currency</span><select value={reminderSettings.currency} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, currency: event.target.value as SupportedCurrency })}>{CURRENCY_OPTIONS.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</select><small>This changes how existing amounts are displayed; it does not convert their recorded values.</small></label>{!signedIn && <p className="reminder-settings-note">Sign in to save your preferred display currency.</p>}</div>}
+        </article>
+
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("expenses")} aria-expanded={openSection === "expenses"}>
+            <span className="category-symbol"><Wallet size={17} /></span><span><span className="page-kicker">Money taxonomy</span><strong>Expense categories ({expenseTop.length})</strong><small>Five permanent types and their detailed subcategories.</small></span><ChevronRight className={openSection === "expenses" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "expenses" && <div className="settings-accordion-content"><p className="category-section-note">Add as many detailed subcategories as you need beneath the permanent spending types.</p><div className="category-edit-list" style={{ display: "grid", gap: 12 }}>
             {expenseTop.map((cat) => {
               const subs = categories.filter((c) => c.parentId === cat.id);
               return (
@@ -2007,15 +2107,14 @@ function SettingsView({ categories, subcategorySpent, reminderSettings, reminder
                 </div>
               );
             })}
-          </div>
+          </div></div>}
         </article>
 
         <article className="paper-card settings-card" style={{ padding: 24 }}>
-          <div className="section-head" style={{ marginBottom: 16 }}>
-            <h2>Income Sources ({incomeList.length})</h2>
-            <button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /><span>Add income category</span></button>
-          </div>
-          <div className="category-edit-list" style={{ display: "grid", gap: 10 }}>
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("income")} aria-expanded={openSection === "income"}>
+            <span className="category-symbol"><ArrowUpRight size={17} /></span><span><span className="page-kicker">Income taxonomy</span><strong>Income sources ({incomeList.length})</strong><small>Keep income sources simple, named, and easy to reuse.</small></span><ChevronRight className={openSection === "income" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "income" && <div className="settings-accordion-content"><div className="section-head" style={{ marginBottom: 16 }}><p className="category-section-note">Add a source once, then reuse it on every income entry.</p><button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /><span>Add income category</span></button></div><div className="category-edit-list" style={{ display: "grid", gap: 10 }}>
             {incomeList.map((inc) => (
               <div key={inc.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: "#fcfaf6", border: "1px solid #ded8ca", borderRadius: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -2025,7 +2124,14 @@ function SettingsView({ categories, subcategorySpent, reminderSettings, reminder
                 <button className="delete-button" onClick={() => onDeleteCategory(inc.id)}><Trash2 size={13} /></button>
               </div>
             ))}
-          </div>
+          </div></div>}
+        </article>
+
+        <article className="paper-card settings-card" style={{ padding: 24 }}>
+          <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("export")} aria-expanded={openSection === "export"}>
+            <span className="category-symbol"><Download size={17} /></span><span><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter your ledger, then download a CSV or an A4 PDF.</small></span><ChevronRight className={openSection === "export" ? "is-open" : ""} size={19} aria-hidden="true" />
+          </button>
+          {openSection === "export" && <div className="settings-accordion-content export-settings-content"><p className="category-section-note">Open the report workspace to select a date range, account, category, and movement type before exporting the relevant ledger evidence.</p><button className="primary-button" onClick={onOpenReports}><FileText size={15} /> Open Reports & Export</button></div>}
         </article>
       </div>
     </>
@@ -2036,13 +2142,28 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
   kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; loanAccount: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onUploadEvidence: (file: File) => Promise<TransactionAttachment>; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "schedule" ? (editingScheduleId ? "Edit recurring schedule" : "Add recurring schedule") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "schedule" ? "Keep regular income and bills visible before their next due date." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
   const update = (patch: Partial<TransactionDraft>) => onTransaction((current) => ({ ...current, ...patch }));
+  const [evidenceNotice, setEvidenceNotice] = useState<string | null>(null);
+  const [evidenceUploading, setEvidenceUploading] = useState(false);
+  const addEvidence = async (file?: File) => {
+    if (!file) return;
+    setEvidenceUploading(true);
+    setEvidenceNotice(null);
+    try {
+      const attachment = await onUploadEvidence(file);
+      onTransaction((current) => ({ ...current, attachments: [...current.attachments, attachment] }));
+    } catch (error) {
+      setEvidenceNotice(error instanceof Error ? error.message : "The attachment could not be stored.");
+    } finally {
+      setEvidenceUploading(false);
+    }
+  };
 
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
@@ -2117,6 +2238,9 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           )}
 
           <div className="form-field"><label>Date</label><input type="date" value={transaction.date} onChange={(event) => update({ date: event.target.value })} /></div>
+          <div className="tag-grid"><div className="form-field"><label>Payee <em>optional</em></label><input value={transaction.payee} onChange={(event) => update({ payee: event.target.value })} placeholder={transaction.type === "income" ? "Who paid you?" : "Who received it?"} /></div><div className="form-field"><label>Payer <em>optional</em></label><input value={transaction.payer} onChange={(event) => update({ payer: event.target.value })} placeholder={transaction.type === "income" ? "Who sent it?" : "Who paid?"} /></div></div>
+          <div className="form-field"><label>Settlement</label><div className="type-options"><button type="button" className={`type-option ${transaction.settlementStatus === "paid" ? "active" : ""}`} onClick={() => update({ settlementStatus: "paid" })}><CircleCheck size={15} /> Paid</button><button type="button" className={`type-option ${transaction.settlementStatus === "pending" ? "active" : ""}`} onClick={() => update({ settlementStatus: "pending" })}><Clock3 size={15} /> Pending</button></div></div>
+          <div className="form-field transaction-evidence"><label>Receipts & proof <em>optional</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
           <div className="tag-grid"><div className="form-field"><label>Goal tag</label><select value={transaction.goalId} onChange={(event) => update({ goalId: event.target.value })}><option value="none">No goal</option>{goals.map((goal) => <option value={goal.id} key={goal.id}>{goal.name}</option>)}</select></div><div className="form-field"><label>Trip tag</label><select value={transaction.tripId} onChange={(event) => update({ tripId: event.target.value })}><option value="none">No trip</option>{trips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name}</option>)}</select></div></div>
         </>}
 
