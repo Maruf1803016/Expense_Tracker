@@ -35,6 +35,12 @@ To maintain stability and ensure high-fidelity execution, features will be intro
 - **Monthly Accordion Ledger:** Allow users to expand past months (November 2025, October 2025, etc.) right from the Overview dashboard [2].
 - **Burn-Rate Projections:** Calculate average daily spend dynamically and display budget overshoot warnings when spending exceeds safe monthly thresholds [3].
 
+#### Implementation status — completed
+
+The Overview dashboard now derives a **collapsible monthly ledger** from the actual transaction dates available in the app. Every populated month is represented as a fieldbook folio with income, expenses, net savings, average daily outflow, and a compact transaction excerpt. The current seed data contains August 2026 entries only, so the interface intentionally shows one month until additional historic records are created or imported; no artificial historical values have been introduced.
+
+The Insights workspace now includes a **budget pacing sheet** for every top-level expense category with a monthly budget. It calculates amount spent, amount remaining, average daily outflow, a projected month-end spend, and an early warning when spending has exceeded the safe pace for the current day of the month. These calculations are transaction-derived and will update as the local ledger changes.
+
 ### Phase 2: Debt & Loan Management Workspace
 - **Loan Entities:** Introduce `Loan` data structures (`title`, `type: borrowed/lent`, `totalAmount`, `paidAmount`, `dueDate`, `counterparty`).
 - **Horizon Tab Extension:** Add a dedicated loan tracking card within the Goals & Plans workspace, complete with progress meters and quick payment logging.

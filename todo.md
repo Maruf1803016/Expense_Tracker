@@ -49,3 +49,21 @@
 - [x] Keep subcategory selection and creation available from the parent category interaction.
 - [x] Preserve selected values and Settings synchronization.
 - [x] Verify mobile layout, checks, production build, and checkpoint.
+
+
+## Screenshot roadmap — first implementation slice
+- [x] Add a collapsible multi-month overview ledger with current and recent month summaries.
+- [x] Add average daily expense/income and net-savings summaries to month rows.
+- [x] Add category budget pacing with remaining amount, progress, daily burn rate, and projection warning.
+- [x] Update the roadmap report with completed and remaining feature groups.
+- [x] Verify responsive behavior, TypeScript check, production build, and checkpoint.
+
+## Controlled feature planning
+- [x] Reconcile the live web app with every screenshot-derived feature group.
+- [x] Publish a completed-versus-remaining feature map with navigation placement and data dependencies.
+- [ ] Agree the next focused build slice before adding further capabilities.
+
+## Approved slice 1 — finish and verify
+- [x] Style and verify the collapsible monthly ledger on desktop and mobile.
+- [x] Style and verify the category budget pacing and projection states.
+- [x] Mark the completed dashboard slice in the feature roadmap before checkpointing.
