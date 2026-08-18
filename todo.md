@@ -89,7 +89,7 @@
 ## Reported mobile visual regression and final review discipline
 - [x] Fix the Net Worth header collision between the “Assets − debts” label and the “Account folio” stamp on narrow mobile screens.
 - [x] Re-check the complete mobile scroll path after the layout repair, including bottom navigation clearance and long-card spacing.
-- [ ] Build and retain a strict final review matrix for each requested feature flow before the final product handoff.
+- [x] Build and retain a strict final review matrix for each requested feature flow before the final product handoff.
 
 ## Recurring income and bills
 - [x] Add recurring income and recurring expense schedule records with name, amount, frequency, account, category, and next due date.
@@ -126,3 +126,10 @@
 - [x] Restyle the Recent Ledger “Open full history” control as an obvious touch-sized destination button.
 - [x] Include visible arrow, pressed, hover, and keyboard-focus feedback while preserving the Ink & Ledger visual system.
 - [x] Verify the controls and their navigation on mobile and desktop, type-check, build, and checkpoint the refinement.
+
+## Reports and export
+- [x] Create a dedicated Reports destination with date range, account, category, and transaction-type filters.
+- [x] Calculate filtered inflow, outflow, net movement, transaction count, and category allocation from the selected ledger records.
+- [x] Add a readable filtered-register preview with clearly visible active filter context and reset behavior.
+- [x] Generate a client-side CSV file and a print-ready PDF report from the filtered ledger without sending data to an external service.
+- [x] Verify filter accuracy, exported file content, mobile/desktop controls, TypeScript, production build, and checkpoint the slice.

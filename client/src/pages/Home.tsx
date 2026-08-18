@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
 
 // Ink & Ledger IA note: the Overview is a daily field note; accounts and deep history live in dedicated destinations.
 
@@ -237,7 +238,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 ];
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "horizon" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -751,13 +752,14 @@ export default function Home() {
           <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
           <button className={`rail-button ${activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("accounts")}><HandCoins size={16} /> Accounts & Assets</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
+          <button className={`rail-button ${activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("reports")}><FileText size={16} /> Reports & Export</button>
           <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Goals & Plans</button>
           <button className={`rail-button ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
         </nav>
         <div className="rail-footer">
           <div className="rail-kicker">August close</div>
           <div className="rail-metric"><strong>16 days left</strong><span>{fmt.format(totals.expense)} recorded against budget plans.</span></div>
-          <button className="text-link" onClick={() => alert("Statement export generated: CSV & PDF downloaded.")} style={{ marginTop: 12, display: "inline-block" }}>Export ledger</button>
+          <button className="text-link" onClick={() => setActiveTab("reports")} style={{ marginTop: 12, display: "inline-block" }}>Open reports</button>
         </div>
       </aside>
 
@@ -828,6 +830,17 @@ export default function Home() {
               categories={categories}
               categorySpent={categorySpent}
               onOpenCategory={(id) => { setCategoryFilterId(id); setActiveTab("history"); }}
+              onOpenReports={() => setActiveTab("reports")}
+            />
+          )}
+
+          {activeTab === "reports" && (
+            <ReportsView
+              transactions={transactions}
+              categories={categories}
+              accounts={accountsWithBalance}
+              onSelectTransaction={(tx) => setTransactionDetail(tx)}
+              onBack={() => setActiveTab("insights")}
             />
           )}
 
@@ -863,7 +876,7 @@ export default function Home() {
 
       <nav className="mobile-bottom-nav">
         <button className={`mobile-nav-item ${activeTab === "overview" || activeTab === "history" || activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={18} /><span>Overview</span></button>
-        <button className={`mobile-nav-item ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
+        <button className={`mobile-nav-item ${activeTab === "insights" || activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
         <button className="mobile-fab" onClick={startCreatingTransaction} aria-label="Add transaction"><Plus size={22} /></button>
         <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={18} /><span>Goals & Plans</span></button>
         <button className={`mobile-nav-item ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
@@ -1197,7 +1210,7 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
   return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span>{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
 }
 
-function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
+function InsightsView({ transactions, categories, categorySpent, onOpenCategory, onOpenReports }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void; onOpenReports: () => void }) {
   const [statsTab, setStatsTab] = useState<"insight" | "summary">("insight");
   const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug"].map((label, index) => {
     const month = String(index + 3).padStart(2, "0");
@@ -1223,8 +1236,93 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
     return { category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining: Math.max(0, category.monthlyBudget - spentAmount) };
   });
   return <>
-    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div></div></header>
+    <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div><button className="analytics-report-link" onClick={onOpenReports}><FileText size={14} /> Reports & export <ChevronRight size={14} /></button></div></header>
     {statsTab === "insight" ? <><div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><i className="account-dot" style={{ background: category.color }} /><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div><section className="paper-card budget-pacing-sheet"><div className="section-head"><div><div className="page-kicker">Budget pacing</div><h2>Are your categories on track?</h2></div><span className="month-hand-date">Day {elapsedDays} of {daysInCurrentMonth}</span></div><p className="budget-note">Daily burn rate and projected month-end spend make pressure visible before the month closes.</p><div className="budget-pacing-list">{budgetPacing.map(({ category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining }) => { const percentage = category.monthlyBudget ? Math.min(100, (spentAmount / category.monthlyBudget) * 100) : 0; const statusClass = status === "On pace" ? "on-pace" : "warning"; return <div className="budget-pacing-row" key={category.id}><div className="budget-pacing-top"><span><i className="account-dot" style={{ background: category.color }} /><strong>{category.name}</strong></span><b>{fmt.format(spentAmount)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${percentage}%`, background: category.color }} /></div><div className="budget-pacing-meta"><span className={`pacing-status ${statusClass}`}>{status}</span><span>{fmt.format(averageDaily)} / day</span><span>Projected {fmt.format(projected)}</span><span>{fmt.format(remaining)} left</span></div>{spentAmount > safeSpendToDate && <div className="pacing-warning">Spending is above the safe pace for day {elapsedDays}.</div>}</div>; })}</div></section></> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Monthly summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>Income less recorded expenses. Transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">August 2026</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span><i className="account-dot" style={{ background: category.color }} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
+  </>;
+}
+
+function ReportsView({ transactions, categories, accounts, onSelectTransaction, onBack }: { transactions: Transaction[]; categories: Category[]; accounts: Array<Account & { balance: number }>; onSelectTransaction: (transaction: Transaction) => void; onBack: () => void }) {
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [accountId, setAccountId] = useState("all");
+  const [categoryId, setCategoryId] = useState("all");
+  const [transactionType, setTransactionType] = useState<"all" | TransactionType>("all");
+
+  const categoryName = (id?: string) => categories.find((category) => category.id === id)?.name ?? "Uncategorised";
+  const accountName = (id: string) => accounts.find((account) => account.id === id)?.name ?? "Unknown account";
+  const filteredLedger = useMemo(() => transactions.filter((transaction) => {
+    if (startDate && transaction.date < startDate) return false;
+    if (endDate && transaction.date > endDate) return false;
+    if (accountId !== "all" && transaction.accountId !== accountId && transaction.destinationAccountId !== accountId) return false;
+    if (categoryId !== "all" && transaction.categoryId !== categoryId) return false;
+    if (transactionType !== "all" && transaction.type !== transactionType) return false;
+    return true;
+  }).slice().sort((a, b) => b.date.localeCompare(a.date)), [transactions, startDate, endDate, accountId, categoryId, transactionType]);
+  const summary = useMemo(() => {
+    const income = filteredLedger.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0);
+    const expense = filteredLedger.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0);
+    const transfers = filteredLedger.filter((transaction) => transaction.type === "transfer").reduce((sum, transaction) => sum + transaction.amount, 0);
+    return { income, expense, transfers, net: income - expense, count: filteredLedger.length };
+  }, [filteredLedger]);
+  const allocation = useMemo(() => {
+    const values: Record<string, number> = {};
+    filteredLedger.filter((transaction) => transaction.type === "expense").forEach((transaction) => {
+      const category = categories.find((item) => item.id === transaction.categoryId);
+      const id = category?.parentId ?? category?.id ?? "uncategorised";
+      values[id] = (values[id] ?? 0) + transaction.amount;
+    });
+    return Object.entries(values).map(([id, amount]) => ({ id, amount, name: categoryName(id) })).sort((a, b) => b.amount - a.amount).slice(0, 4);
+  }, [filteredLedger, categories]);
+  const reportPeriod = `${startDate || "All dates"} → ${endDate || "Today"}`;
+  const reportFileName = `expense-ledger-${startDate || "all"}-${endDate || "to-date"}`;
+  const resetFilters = () => { setStartDate(""); setEndDate(""); setAccountId("all"); setCategoryId("all"); setTransactionType("all"); };
+  const downloadBlob = (blob: Blob, extension: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${reportFileName}.${extension}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCsv = () => {
+    const rows: Array<Array<string | number>> = [["Expense Tracker report"], ["Period", reportPeriod], ["Records", summary.count], ["Inflow", summary.income], ["Outflow", summary.expense], ["Net movement", summary.net], [], ["Date", "Type", "Description", "Category", "Account", "Amount"], ...filteredLedger.map((transaction) => [transaction.date, transaction.type, transaction.merchantNote, transaction.type === "transfer" ? "Transfer" : categoryName(transaction.categoryId), accountName(transaction.accountId), transaction.amount])];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "csv");
+  };
+  const exportPdf = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const width = doc.internal.pageSize.getWidth();
+    const height = doc.internal.pageSize.getHeight();
+    let y = 54;
+    const pageHeader = () => {
+      doc.setFillColor(27, 58, 43); doc.rect(0, 0, width, 102, "F");
+      doc.setTextColor(210, 168, 76); doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text("EXPENSE · FINANCIAL FIELDBOOK", 44, 31);
+      doc.setTextColor(255, 255, 255); doc.setFontSize(24); doc.text("Report, on record.", 44, 66);
+      doc.setTextColor(102, 96, 84); doc.setFontSize(9); doc.text(reportPeriod, 44, 124);
+      doc.setDrawColor(222, 214, 198); doc.line(44, 136, width - 44, 136);
+    };
+    pageHeader(); y = 165;
+    doc.setTextColor(35, 43, 39); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+    doc.text(`INFLOW ${fmt.format(summary.income)}`, 44, y); doc.text(`OUTFLOW ${fmt.format(summary.expense)}`, 200, y); doc.text(`NET ${fmt.format(summary.net)}`, 380, y);
+    y += 34; doc.setTextColor(112, 102, 88); doc.setFontSize(8); doc.text("DATE", 44, y); doc.text("RECORD", 116, y); doc.text("ACCOUNT", 362, y); doc.text("AMOUNT", width - 44, y, { align: "right" }); y += 15;
+    filteredLedger.forEach((transaction) => {
+      if (y > height - 50) { doc.addPage(); pageHeader(); y = 165; }
+      doc.setDrawColor(229, 221, 208); doc.line(44, y, width - 44, y); y += 16;
+      const sign = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔";
+      doc.setTextColor(72, 66, 56); doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text(transaction.date, 44, y);
+      doc.setTextColor(31, 40, 36); doc.setFontSize(9); doc.text(transaction.merchantNote.slice(0, 34), 116, y);
+      doc.setTextColor(112, 102, 88); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(accountName(transaction.accountId).slice(0, 22), 362, y);
+      doc.setTextColor(transaction.type === "income" ? 44 : 128, transaction.type === "income" ? 99 : 59, transaction.type === "income" ? 59 : 47); doc.setFont("helvetica", "bold"); doc.text(`${sign}${fmt.format(transaction.amount)}`, width - 44, y, { align: "right" }); y += 18;
+    });
+    if (!filteredLedger.length) { doc.setTextColor(112, 102, 88); doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("No records match the selected filters.", 44, y + 18); }
+    doc.save(`${reportFileName}.pdf`);
+  };
+
+  return <>
+    <header className="page-header reports-page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Insights</button></div><div className="page-kicker">Reports & export</div><h1>Report, on record.</h1><p className="page-subtitle">Cut the ledger to the period and context that needs an answer.</p></div></header>
+    <section className="paper-card report-filter-sheet"><div className="section-head report-filter-head"><div><div className="page-kicker">Ledger scope</div><h2>Filter the record</h2></div><button className="text-link report-reset" onClick={resetFilters}>Reset filters <X size={13} /></button></div><div className="report-filter-grid"><label><span>From date</span><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label><span>To date</span><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label><label><span>Account</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="all">All accounts</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label><label><span>Category</span><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="all">All categories</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `↳ ${category.name}` : category.name}</option>)}</select></label><label><span>Movement</span><select value={transactionType} onChange={(event) => setTransactionType(event.target.value as "all" | TransactionType)}><option value="all">All movement</option><option value="income">Inflow</option><option value="expense">Outflow</option><option value="transfer">Transfer</option></select></label></div><div className="report-scope-line"><span>Viewing <b>{summary.count}</b> matching record{summary.count === 1 ? "" : "s"}</span><span>{reportPeriod}</span></div></section>
+    <section className="report-summary-grid"><article className="paper-card report-stat income"><span>Filtered inflow</span><strong>{fmt.format(summary.income)}</strong><small>Income entries only</small></article><article className="paper-card report-stat expense"><span>Filtered outflow</span><strong>{fmt.format(summary.expense)}</strong><small>Expense entries only</small></article><article className="paper-card report-stat net"><span>Net movement</span><strong>{summary.net >= 0 ? "+" : "−"}{fmt.format(Math.abs(summary.net))}</strong><small>Transfers remain neutral</small></article><article className="paper-card report-stat allocation"><span>Records held</span><strong>{summary.count}</strong><small>{summary.transfers ? `${fmt.format(summary.transfers)} in transfers` : "No transfers in scope"}</small></article></section>
+    <section className="paper-card report-register"><div className="section-head report-register-head"><div><div className="page-kicker">Filtered register</div><h2>Entries ready to export</h2></div><div className="report-export-actions"><button className="report-export-button csv" onClick={exportCsv}><Download size={14} /> Download CSV</button><button className="report-export-button pdf" onClick={exportPdf}><FileText size={14} /> Download PDF</button></div></div>{allocation.length > 0 && <div className="report-allocation"><span>Expense allocation</span>{allocation.map((item) => <b key={item.id}>{item.name} <em>{fmt.format(item.amount)}</em></b>)}</div>}<div className="transaction-list report-transaction-list">{filteredLedger.length ? filteredLedger.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <div className="horizon-empty"><strong>No records in this scope.</strong>Change the date, account, category, or movement filter to reopen the register.</div>}</div></section>
   </>;
 }
 

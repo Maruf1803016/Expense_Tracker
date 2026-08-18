@@ -1194,3 +1194,63 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .lower-grid .transaction-title strong { font-size: 13px; }
   .schedule-register-row { padding-right: 1px; }
 }
+
+/* Reports & export — a filterable record room, using the ledger grammar rather than generic dashboard cards. */
+.reports-page-header { margin-bottom: 24px; }
+.report-filter-sheet { padding: 22px; border-radius: 3px; box-shadow: none; }
+.report-filter-head { align-items: end; margin-bottom: 18px; padding-bottom: 13px; border-bottom: 1px solid #ded8ca; }
+.report-filter-head h2, .report-register h2 { margin: 5px 0 0; color: #202a25; font: 500 clamp(23px, 3vw, 30px)/1 "Fraunces", Georgia, serif; letter-spacing: -.04em; }
+.report-reset { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; }
+.report-filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.report-filter-grid label { display: grid; gap: 6px; min-width: 0; }
+.report-filter-grid label > span { color: #827766; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.report-filter-grid input, .report-filter-grid select { width: 100%; min-height: 38px; padding: 0 9px; color: #26312c; border: 1px solid #dcd3c3; border-radius: 2px; outline: none; background: #fbf8f1; font: 600 11px/1 "Space Grotesk", sans-serif; }
+.report-filter-grid input:focus, .report-filter-grid select:focus { border-color: #a77b2d; box-shadow: 0 0 0 2px rgba(183,138,61,.15); }
+.report-scope-line { display: flex; justify-content: space-between; gap: 12px; margin-top: 17px; padding: 10px 11px; color: #796e5e; border-left: 3px solid #b78a3d; background: #f5f0e6; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
+.report-scope-line b { color: #29362f; }
+.report-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 22px; }
+.report-stat { position: relative; min-height: 121px; padding: 17px; overflow: hidden; border-radius: 3px; box-shadow: none; }
+.report-stat::before { content: ""; display: block; width: 31px; height: 2px; margin-bottom: 12px; background: #b78a3d; }
+.report-stat > span { display: block; color: #847867; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.report-stat > strong { display: block; margin: 7px 0 6px; color: #1d2822; font: 600 clamp(19px, 2.3vw, 28px)/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.report-stat > small { display: block; color: #8b8172; font-size: 10px; line-height: 1.3; }
+.report-stat.income::before { background: #3d7456; }
+.report-stat.expense::before { background: #a05d46; }
+.report-stat.net { background: #1d2524; border-color: #1d2524; }
+.report-stat.net > span, .report-stat.net > small { color: rgba(255,253,247,.62); }
+.report-stat.net > strong { color: #fffdf7; }
+.report-register { padding: 23px; border-radius: 3px; box-shadow: none; }
+.report-register-head { align-items: end; gap: 18px; padding-bottom: 15px; border-bottom: 1px solid #ded8ca; }
+.report-export-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.report-export-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 11px; color: #fffdf7; border: 1px solid #1d2524; border-radius: 2px; background: #1d2524; cursor: pointer; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; transition: transform .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), color .16s cubic-bezier(.23,1,.32,1); }
+.report-export-button.pdf { color: #573f19; border-color: #c8a65c; background: #f4e4bb; }
+.report-export-button:hover { color: #1d2524; background: #e9dfcc; }
+.report-export-button:active { transform: scale(.96); }
+.report-export-button:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
+.report-allocation { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 14px 0; border-bottom: 1px solid #e6ded0; }
+.report-allocation > span { color: #857967; margin-right: 3px; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.report-allocation b { display: inline-flex; gap: 5px; padding: 5px 7px; color: #4e554d; border: 1px solid #ded4c3; background: #faf7f0; font-size: 9px; font-weight: 800; }
+.report-allocation em { color: #927339; font-style: normal; }
+.report-transaction-list { margin-top: 0; border-top: 0; }
+.report-transaction-list .transaction-row { padding-left: 17px; }
+.analytics-report-link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-end; margin-top: 10px; padding: 7px 0; color: #8a692e; border: 0; border-bottom: 1px solid #c9ad74; background: transparent; cursor: pointer; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.analytics-report-link:hover { color: #273a2f; border-bottom-color: #273a2f; }
+.analytics-report-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
+
+@media (max-width: 960px) {
+  .report-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .report-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .report-filter-sheet, .report-register { padding: 18px 16px; }
+  .report-filter-head, .report-register-head { align-items: flex-start; flex-direction: column; gap: 13px; }
+  .report-filter-grid { grid-template-columns: 1fr 1fr; gap: 11px 8px; }
+  .report-filter-grid label:last-child { grid-column: 1 / -1; }
+  .report-scope-line { align-items: flex-start; flex-direction: column; gap: 5px; margin-top: 15px; }
+  .report-summary-grid { gap: 8px; margin-bottom: 17px; }
+  .report-stat { min-height: 111px; padding: 14px; }
+  .report-stat > strong { font-size: 20px; }
+  .report-export-actions { width: 100%; justify-content: stretch; }
+  .report-export-button { flex: 1; padding-inline: 8px; }
+  .analytics-report-link { align-self: stretch; justify-content: center; min-height: 34px; border: 1px solid #d4bf90; background: #fbf7ed; }
+}

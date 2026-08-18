@@ -17,6 +17,7 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Trip and event plans | Create a plan, link eligible expenses, inspect planned versus actual spending | Implemented; requires final end-to-end review |
 | Debt and loans | Create borrowed/lent record, add repayment, select payment method, store note/reference, inspect repayment history and remaining balance | Implemented; requires final end-to-end review |
 | Recurring income and bills | Create/edit bill or income schedule; select amount, cadence, account, category, and due date; mark paid/received; confirm ledger entry and forward next date; pause/resume; inspect occurrence history | Implemented; requires final end-to-end review |
+| Reports and export | Set date/account/category/movement filters; check recalculated totals, active filter context, and reset behavior; download CSV and PDF reports | Implemented; requires final end-to-end review |
 | Insights and budgets | Switch trend/summary views, inspect category mix, open a category context, verify monthly budget pace and warnings | Implemented; requires final end-to-end review |
 | Profile and settings | Open profile, edit personal fields, access categories, accounts/assets, preferences, recycle bin, and export actions | Implemented as a local prototype; requires final end-to-end review |
 | Responsiveness | Verify compact header, scrolling, raised center action, bottom-navigation clearance, drawers, long labels, and no overlapping controls at mobile and desktop widths | Regression repaired; requires final broad review |
@@ -25,10 +26,9 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 
 | Priority | Remaining slice | Why it remains | Acceptance criteria |
 |---|---|---|---|
-| 1 | Advanced reports and real exports | Current export feedback is a local placeholder, not a user-downloadable reporting workflow | Date-range/account/category filters; CSV and PDF file generation; accurate totals matching the filtered ledger |
-| 2 | Firebase authentication and Firestore persistence | The current implementation is intentionally local-state only, so data is not durable or synchronized | Email/password authentication; protected user scope; Firestore CRUD; loading/error/retry states; existing Flutter data-model alignment |
-| 3 | Import and robust account management | The app needs an onboarding/import path for real accounts, balances, and historical transactions | CSV import preview and validation; duplicate handling; account number masking; safe balance reconciliation |
-| 4 | Final release audit | Visual and functional quality must be tested as a complete product rather than as isolated feature slices | Complete every row in this document on mobile and desktop; log defects; re-test fixes; only then mark release-ready |
+| 1 | Firebase authentication and Firestore persistence | The current implementation is intentionally local-state only, so data is not durable or synchronized | Email/password authentication; protected user scope; Firestore CRUD; loading/error/retry states; existing Flutter data-model alignment |
+| 2 | Import and robust account management | The app needs an onboarding/import path for real accounts, balances, and historical transactions | CSV import preview and validation; duplicate handling; account number masking; safe balance reconciliation |
+| 3 | Final release audit | Visual and functional quality must be tested as a complete product rather than as isolated feature slices | Complete every row in this document on mobile and desktop; log defects; re-test fixes; only then mark release-ready |
 
 ## Final Test Record
 
@@ -44,5 +44,6 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Compact header back control | **Passed.** The long mobile return line was replaced by an accessible circular back arrow in the page-header eyebrow row, preserving the Overview return action without competing with the page label or title. |
 | Titled back-button hierarchy | **Passed.** The final header order is now Back to Overview button, destination label, then page title. This preserves both a labeled escape route and independent editorial hierarchy in Accounts & Assets and History. |
 | Dashboard destination affordance | **Passed.** The Accounts & Assets and Open full history destinations are now separately placed, outlined, touch-sized buttons with directional arrows and active/focus feedback rather than editorial text links. |
+| Reports filters and export | **Passed.** An expense-only filter reduced the register to three records and recalculated inflow, outflow, net movement, and record count correctly. Both exports downloaded successfully: the CSV contains the filtered ledger, and the PDF is a one-page A4 report containing the expected report heading, totals, and ledger rows. |
 
 > The final release review is intentionally still open. It will be completed after the remaining product slices are implemented, so that the review measures the complete product rather than a temporary subset of it.
