@@ -895,6 +895,15 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .loan-detail-panel { max-width: 560px; }
 .loan-detail-hero { background: #f8f2e6; border-color: #dccdac; }
 .loan-payment-panel { border-left: 3px solid #b78a3d; }
+.loan-payment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin-top: 13px; }
+.loan-payment-full { grid-column: 1 / -1; }
+.loan-payment-panel select,
+.loan-payment-panel textarea { width: 100%; border: 1px solid #d9d0c2; border-radius: 2px; background: #fffdf8; color: #313833; font: 500 13px/1.45 "Space Grotesk", sans-serif; outline: none; }
+.loan-payment-panel select { height: 47px; padding: 0 12px; }
+.loan-payment-panel textarea { min-height: 69px; padding: 11px 12px; resize: vertical; }
+.loan-payment-panel select:focus,
+.loan-payment-panel textarea:focus { border-color: #b78a3d; box-shadow: 0 0 0 3px rgba(183, 138, 61, .12); }
+.loan-payment-panel .form-field em { color: #9b907f; font-style: normal; font-weight: 500; }
 .loan-settled-note { display: flex; align-items: center; gap: 9px; margin-top: 18px; padding: 15px 16px; background: #eff5ee; border: 1px solid #d4e2d3; color: #3e6c4f; font-size: 12px; font-weight: 700; }
 .loan-history { margin-top: 23px; border-top: 1px solid #d9d0c2; }
 .section-mini-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0 10px; color: #826f50; font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
@@ -903,6 +912,8 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .loan-history-row > div { display: grid; gap: 4px; }
 .loan-history-row strong { color: #363c37; font-size: 12px; }
 .loan-history-row span { color: #8b8174; font-size: 10px; }
+.loan-payment-meta { display: flex; flex-wrap: wrap; gap: 5px 10px; }
+.loan-payment-meta span + span { color: #a08047; }
 .loan-history-row > b { color: #313833; font: 600 13px/1 "Space Grotesk", sans-serif; }
 .empty-hint { padding: 17px 0; color: #857b6f; font-size: 12px; }
 
@@ -914,4 +925,6 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .loan-workspace-summary { grid-template-columns: 1fr; }
   .loan-detail-hero { padding: 18px; }
   .loan-history-row { align-items: flex-start; }
+  .loan-payment-grid { grid-template-columns: 1fr; }
+  .loan-payment-full { grid-column: auto; }
 }

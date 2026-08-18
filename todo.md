@@ -73,3 +73,9 @@
 - [x] Add loan summary calculations for original amount, paid amount, remaining balance, and next payment.
 - [x] Create Goals & Plans views for loan cards, detail history, add/edit, and record-payment flows.
 - [x] Verify Debt & Loans on mobile and desktop, type-check, build, and checkpoint.
+
+## Loan repayment method and note
+- [x] Add a payment-method selector for cash, card, bank transfer, bKash, Nagad, and custom methods.
+- [x] Add optional repayment notes and reference fields to payment records.
+- [x] Show repayment method and note context in each loan history entry.
+- [x] Verify payment recording on mobile and desktop, type-check, build, and checkpoint.

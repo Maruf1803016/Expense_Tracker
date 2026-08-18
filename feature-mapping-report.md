@@ -49,6 +49,8 @@ The Insights workspace now includes a **budget pacing sheet** for every top-leve
 
 The Goals & Plans workspace now includes a prominent **Debt & Loans** tab. It distinguishes money **you owe** from money **owed to you**, summarizes both outstanding balances, and presents each record with a counterparty, due date, terms, settlement progress, and remaining amount. Users can create or edit a loan record, open its detail sheet, record repayments, and review the local payment history. The initial web implementation uses the app’s local-first state; Firebase persistence remains a future integration.
 
+Each repayment record now also captures its **payment method** (Cash in hand, Card, Bank transfer, bKash, Nagad, or a custom method), an optional explanatory note, and an optional receipt or transaction reference. This context is shown in the payment-history ledger.
+
 ### Phase 3: Advanced Analytics & Statement Export
 - **Category Drill-Downs:** Tap any category spend breakdown to view historical subcategory trends across selected months.
 - **Statement Generation:** Wire CSV and PDF export handlers to filter transactions by date range and account.

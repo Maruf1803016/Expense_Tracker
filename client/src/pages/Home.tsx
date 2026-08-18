@@ -54,6 +54,8 @@ interface LoanPayment {
   amount: number;
   date: string;
   note: string;
+  method: string;
+  reference?: string;
 }
 
 interface Loan {
@@ -134,7 +136,7 @@ const INITIAL_LOANS: Loan[] = [
     paidAmount: 600,
     dueDate: "2026-11-15",
     terms: "$200 monthly through November",
-    paymentHistory: [{ id: "loan-payment-1", amount: 600, date: "2026-08-05", note: "First repayment" }],
+    paymentHistory: [{ id: "loan-payment-1", amount: 600, date: "2026-08-05", note: "First repayment", method: "Bank transfer", reference: "TRX-240805" }],
   },
 ];
 
@@ -159,6 +161,10 @@ export default function Home() {
   const [goalAdjustment, setGoalAdjustment] = useState<"deposit" | "withdraw" | null>(null);
   const [goalAdjustmentAmount, setGoalAdjustmentAmount] = useState("");
   const [loanPaymentAmount, setLoanPaymentAmount] = useState("");
+  const [loanPaymentMethod, setLoanPaymentMethod] = useState("Cash in hand");
+  const [loanCustomPaymentMethod, setLoanCustomPaymentMethod] = useState("");
+  const [loanPaymentNote, setLoanPaymentNote] = useState("");
+  const [loanPaymentReference, setLoanPaymentReference] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
@@ -338,6 +344,14 @@ export default function Home() {
     setGoalAdjustmentAmount("");
   };
 
+  const resetLoanPaymentDraft = () => {
+    setLoanPaymentAmount("");
+    setLoanPaymentMethod("Cash in hand");
+    setLoanCustomPaymentMethod("");
+    setLoanPaymentNote("");
+    setLoanPaymentReference("");
+  };
+
   const submitLoanPayment = () => {
     const parsed = parseFloat(loanPaymentAmount);
     if (!loanDetail || isNaN(parsed) || parsed <= 0) {
@@ -346,11 +360,14 @@ export default function Home() {
     }
     const remaining = Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount);
     const applied = Math.min(parsed, remaining);
+    const method = loanPaymentMethod === "Custom" ? loanCustomPaymentMethod.trim() || "Custom method" : loanPaymentMethod;
     const payment: LoanPayment = {
       id: `loan-payment-${Date.now()}`,
       amount: applied,
       date: new Date().toISOString().slice(0, 10),
-      note: loanDetail.direction === "borrowed" ? "Payment made" : "Payment received",
+      note: loanPaymentNote.trim() || (loanDetail.direction === "borrowed" ? "Payment made" : "Payment received"),
+      method,
+      reference: loanPaymentReference.trim() || undefined,
     };
     const nextLoan: Loan = {
       ...loanDetail,
@@ -359,7 +376,7 @@ export default function Home() {
     };
     setLoans((current) => current.map((loan) => loan.id === nextLoan.id ? nextLoan : loan));
     setLoanDetail(nextLoan);
-    setLoanPaymentAmount("");
+    resetLoanPaymentDraft();
   };
 
   const startCreatingTransaction = () => {
@@ -691,9 +708,9 @@ export default function Home() {
 
       {/* Debt & Loan Detail */}
       {loanDetail && (
-        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${loanDetail.title} debt and loan record`} onMouseDown={() => { setLoanDetail(null); setLoanPaymentAmount(""); }}>
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${loanDetail.title} debt and loan record`} onMouseDown={() => { setLoanDetail(null); resetLoanPaymentDraft(); }}>
           <aside className="draft-panel plan-detail-panel loan-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="draft-top"><div><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Debt you owe" : "Money owed to you"}</div><h2>{loanDetail.title}</h2></div><button className="close-button" onClick={() => { setLoanDetail(null); setLoanPaymentAmount(""); }} aria-label="Close"><X size={17} /></button></div>
+            <div className="draft-top"><div><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Debt you owe" : "Money owed to you"}</div><h2>{loanDetail.title}</h2></div><button className="close-button" onClick={() => { setLoanDetail(null); resetLoanPaymentDraft(); }} aria-label="Close"><X size={17} /></button></div>
             <div className="plan-detail-hero paper-card loan-detail-hero">
               <div className="plan-detail-kicker">{loanDetail.counterparty} · due {shortDate(loanDetail.dueDate)}</div>
               <strong>{fmt.format(Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount))} <span>remaining of {fmt.format(loanDetail.totalAmount)}</span></strong>
@@ -701,8 +718,8 @@ export default function Home() {
               <div className="horizon-card-foot"><span>{loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}% settled</span><span>{loanDetail.terms}</span></div>
             </div>
             <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
-            {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
-            <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><span>{shortDate(payment.date)}</span></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
+            {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><div className="loan-payment-grid"><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><label className="form-field"><span>How was it paid?</span><select value={loanPaymentMethod} onChange={(event) => setLoanPaymentMethod(event.target.value)}><option>Cash in hand</option><option>Card</option><option>Bank transfer</option><option>bKash</option><option>Nagad</option><option>Custom</option></select></label>{loanPaymentMethod === "Custom" && <label className="form-field loan-payment-full"><span>Custom payment method</span><input value={loanCustomPaymentMethod} onChange={(event) => setLoanCustomPaymentMethod(event.target.value)} placeholder="e.g., Rocket" /></label>}<label className="form-field loan-payment-full"><span>Note <em>optional</em></span><textarea value={loanPaymentNote} onChange={(event) => setLoanPaymentNote(event.target.value)} placeholder="What was this payment for?" rows={2} /></label><label className="form-field loan-payment-full"><span>Reference <em>optional</em></span><input value={loanPaymentReference} onChange={(event) => setLoanPaymentReference(event.target.value)} placeholder="Transaction ID, last four digits, or receipt" /></label></div><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
+            <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><div className="loan-payment-meta"><span>{shortDate(payment.date)} · {payment.method}</span>{payment.reference && <span>Ref · {payment.reference}</span>}</div></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
             <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button></div>
           </aside>
         </div>
