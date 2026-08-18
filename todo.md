@@ -165,3 +165,10 @@
 - [x] Create editable starter expense categories, one-level expense subcategories, and income categories when a signed-in ledger has no categories.
 - [x] Make the initialization idempotent so reconnecting, refreshing, or retrying never duplicates starter records.
 - [x] Verify the starter records make transaction and recurring-schedule selectors immediately usable.
+
+## Category and subcategory icon system
+- [ ] Define a curated, sufficiently broad Lucide icon catalogue for finance categories and subcategories.
+- [ ] Give every starter category and subcategory an appropriate default icon.
+- [ ] Add a searchable icon picker to custom category and subcategory create/edit flows.
+- [ ] Persist selected icons and show them consistently in Settings, selectors, schedules, transactions, budgets, and reports.
+- [ ] Verify icon selection and display on both mobile and desktop before checkpointing.

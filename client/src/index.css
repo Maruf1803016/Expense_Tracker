@@ -1254,3 +1254,22 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .report-export-button { flex: 1; padding-inline: 8px; }
   .analytics-report-link { align-self: stretch; justify-content: center; min-height: 34px; border: 1px solid #d4bf90; background: #fbf7ed; }
 }
+
+/* Ink & Ledger category symbols: compact, softly framed, and legible in dense financial registers. */
+.category-picker-label { display: inline-flex; align-items: center; gap: 7px; }
+.category-symbol, .category-icon-preview { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.category-symbol { width: 28px; height: 28px; border: 1px solid currentColor; border-radius: 50%; background: #fffdf7; }
+.category-icon-picker { display: grid; gap: 12px; padding: 13px; border: 1px solid #ded4c3; background: #fcfaf6; }
+.icon-picker-selected { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid #e8e0d3; }
+.category-icon-preview { width: 36px; height: 36px; color: #8a692e; border: 1px solid #c9ad74; background: #fbf5e8; }
+.icon-picker-selected b { display: block; color: #26382f; font: 800 10px/1.1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.icon-picker-selected small { display: block; margin-top: 4px; color: #796f61; font-size: 11px; line-height: 1.25; }
+.icon-picker-group { display: grid; gap: 7px; }
+.icon-picker-group > span { color: #8a7c67; font: 800 8px/1 "Space Grotesk", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.icon-picker-group > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.icon-picker-option { display: inline-flex; align-items: center; justify-content: center; width: 33px; height: 33px; color: #516056; border: 1px solid #ded4c3; border-radius: 2px; background: #fffdf7; cursor: pointer; transition: transform .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), color .16s cubic-bezier(.23,1,.32,1); }
+.icon-picker-option:hover { color: #1b3a2b; border-color: #b78a3d; background: #fbf1d9; }
+.icon-picker-option.active { color: #fffdf7; border-color: #1b3a2b; background: #1b3a2b; box-shadow: inset 0 0 0 1px #d0a754; }
+.icon-picker-option:active { transform: scale(.95); }
+.icon-picker-option:focus-visible { outline: 2px solid #b78a3d; outline-offset: 2px; }
+.selected-category-caption { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; color: #766b5d; font-size: 10px; line-height: 1.2; }
