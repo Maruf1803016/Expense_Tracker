@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, type LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
@@ -39,6 +39,8 @@ interface Transaction {
   date: string;
   tag?: { goalId?: string; tripId?: string };
   icon: string;
+  loanId?: string;
+  cashFlowKind?: "loan-disbursement" | "loan-settlement";
 }
 
 interface Goal {
@@ -73,6 +75,7 @@ interface LoanPayment {
   note: string;
   method: string;
   reference?: string;
+  transactionId?: string;
 }
 
 interface Loan {
@@ -85,6 +88,8 @@ interface Loan {
   dueDate: string;
   terms: string;
   paymentHistory: LoanPayment[];
+  cashAccountId?: string;
+  disbursementTransactionId?: string;
 }
 
 type ScheduleFrequency = "weekly" | "biweekly" | "monthly";
@@ -191,7 +196,8 @@ function normaliseTransaction(record: StoredRecord): Transaction {
   const tag = (record.tag ?? {}) as StoredRecord;
   const planId = storedString(record.planId);
   const rawType = record.type;
-  return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart") };
+  const cashFlowKind = record.cashFlowKind === "loan-disbursement" || record.cashFlowKind === "loan-settlement" ? record.cashFlowKind : undefined;
+  return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart"), loanId: storedString(record.loanId) || undefined, cashFlowKind };
 }
 
 function normaliseGoal(record: StoredRecord): Goal {
@@ -209,9 +215,9 @@ function normaliseTrip(record: StoredRecord): Trip {
 function normaliseLoan(record: StoredRecord): Loan {
   const paymentHistory = storedArray(record.paymentHistory).map((item, index) => {
     const payment = (item ?? {}) as StoredRecord;
-    return { id: storedString(payment.id, `loan-payment-${index}`), amount: storedNumber(payment.amount), date: storedDate(payment.date, dateInputValue(new Date())), note: storedString(payment.note, "Payment recorded"), method: storedString(payment.method, "Cash in hand"), reference: storedString(payment.reference) || undefined };
+    return { id: storedString(payment.id, `loan-payment-${index}`), amount: storedNumber(payment.amount), date: storedDate(payment.date, dateInputValue(new Date())), note: storedString(payment.note, "Payment recorded"), method: storedString(payment.method, "Cash in hand"), reference: storedString(payment.reference) || undefined, transactionId: storedString(payment.transactionId) || undefined };
   });
-  return { id: storedString(record.id), title: storedString(record.title, "Untitled loan"), direction: record.direction === "lent" ? "lent" : "borrowed", counterparty: storedString(record.counterparty), totalAmount: storedNumber(record.totalAmount), paidAmount: storedNumber(record.paidAmount), dueDate: storedDate(record.dueDate, dateInputValue(new Date())), terms: storedString(record.terms, "Due in full by the due date"), paymentHistory };
+  return { id: storedString(record.id), title: storedString(record.title, "Untitled loan"), direction: record.direction === "lent" ? "lent" : "borrowed", counterparty: storedString(record.counterparty), totalAmount: storedNumber(record.totalAmount), paidAmount: storedNumber(record.paidAmount), dueDate: storedDate(record.dueDate, dateInputValue(new Date())), terms: storedString(record.terms, "Due in full by the due date"), paymentHistory, cashAccountId: storedString(record.cashAccountId) || undefined, disbursementTransactionId: storedString(record.disbursementTransactionId) || undefined };
 }
 
 function normaliseSchedule(record: StoredRecord): RecurringSchedule {
@@ -466,6 +472,7 @@ export default function Home() {
   const [loanDirectionInput, setLoanDirectionInput] = useState<Loan["direction"]>("borrowed");
   const [loanCounterpartyInput, setLoanCounterpartyInput] = useState("");
   const [loanTermsInput, setLoanTermsInput] = useState("");
+  const [loanAccountInput, setLoanAccountInput] = useState("");
   const [goalFinancingInput, setGoalFinancingInput] = useState("");
   const [scheduleTypeInput, setScheduleTypeInput] = useState<RecurringSchedule["type"]>("expense");
   const [scheduleFrequencyInput, setScheduleFrequencyInput] = useState<ScheduleFrequency>("monthly");
@@ -478,6 +485,7 @@ export default function Home() {
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [cloudPrerequisitesLoaded, setCloudPrerequisitesLoaded] = useState({ accounts: false, categories: false });
   const [starterRequestedFor, setStarterRequestedFor] = useState<string | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -632,11 +640,19 @@ export default function Home() {
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
+    let ordinaryIncome = 0;
+    let ordinaryExpense = 0;
     for (const transaction of transactions) {
-      if (transaction.type === "income") income += transaction.amount;
-      if (transaction.type === "expense") expense += transaction.amount;
+      if (transaction.type === "income") {
+        income += transaction.amount;
+        if (!transaction.cashFlowKind) ordinaryIncome += transaction.amount;
+      }
+      if (transaction.type === "expense") {
+        expense += transaction.amount;
+        if (!transaction.cashFlowKind) ordinaryExpense += transaction.amount;
+      }
     }
-    return { income, expense };
+    return { income, expense, ordinaryIncome, ordinaryExpense, loanInflow: income - ordinaryIncome, loanOutflow: expense - ordinaryExpense };
   }, [transactions]);
 
   const accountsWithBalance = useMemo(() => {
@@ -654,9 +670,22 @@ export default function Home() {
     });
   }, [accounts, transactions]);
 
+  const loanNetPosition = useMemo(() => loans.reduce((sum, loan) => {
+    const outstanding = Math.max(0, loan.totalAmount - loan.paidAmount);
+    return sum + (loan.direction === "lent" ? outstanding : -outstanding);
+  }, 0), [loans]);
+
   const netWorth = useMemo(() => {
-    return accountsWithBalance.reduce((sum, account) => account.kind === "liability" ? sum - account.balance : sum + account.balance, 0);
-  }, [accountsWithBalance]);
+    return accountsWithBalance.reduce((sum, account) => account.kind === "liability" ? sum - account.balance : sum + account.balance, 0) + loanNetPosition;
+  }, [accountsWithBalance, loanNetPosition]);
+
+  const notificationItems = useMemo(() => {
+    const today = dateInputValue(new Date());
+    const inSevenDays = dateInputValue(new Date(Date.now() + 7 * 86400000));
+    const loanItems = loans.filter((loan) => loan.paidAmount < loan.totalAmount && loan.dueDate <= inSevenDays).map((loan) => ({ id: `loan-${loan.id}`, tone: loan.dueDate < today ? "urgent" : "notice", title: loan.dueDate < today ? `${loan.title} is overdue` : `${loan.title} is due soon`, detail: `${fmt.format(Math.max(0, loan.totalAmount - loan.paidAmount))} ${loan.direction === "borrowed" ? "owed" : "to collect"}` }));
+    const scheduleItems = schedules.filter((schedule) => schedule.status === "active" && schedule.nextDueDate <= inSevenDays).map((schedule) => ({ id: `schedule-${schedule.id}`, tone: schedule.nextDueDate < today ? "urgent" : "notice", title: schedule.nextDueDate < today ? `${schedule.name} is overdue` : `${schedule.name} is due soon`, detail: `${fmt.format(schedule.amount)} · ${schedule.type === "income" ? "income" : "bill"}` }));
+    return [...loanItems, ...scheduleItems].slice(0, 5);
+  }, [loans, schedules]);
 
   const availableBalance = useMemo(() => {
     return accountsWithBalance.filter(a => a.kind === "asset").reduce((sum, a) => sum + a.balance, 0);
@@ -727,6 +756,7 @@ export default function Home() {
     setLoanDirectionInput("borrowed");
     setLoanCounterpartyInput("");
     setLoanTermsInput("Monthly repayment");
+    setLoanAccountInput(accounts[0]?.id ?? "");
     setDraftTitle("");
     setDraftAmount("");
     setDraftDate("2026-12-31");
@@ -771,6 +801,7 @@ export default function Home() {
     setLoanDirectionInput(loan.direction);
     setLoanCounterpartyInput(loan.counterparty);
     setLoanTermsInput(loan.terms);
+    setLoanAccountInput(loan.cashAccountId ?? accounts[0]?.id ?? "");
     setDraftTitle(loan.title);
     setDraftAmount(String(loan.totalAmount));
     setDraftDate(loan.dueDate);
@@ -830,6 +861,18 @@ export default function Home() {
     const remaining = Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount);
     const applied = Math.min(parsed, remaining);
     const method = loanPaymentMethod === "Custom" ? loanCustomPaymentMethod.trim() || "Custom method" : loanPaymentMethod;
+    const transactionId = `tx-loan-settlement-${Date.now()}`;
+    const settlementTransaction: Transaction = {
+      id: transactionId,
+      merchantNote: loanDetail.direction === "borrowed" ? `Loan repayment · ${loanDetail.title}` : `Loan collection · ${loanDetail.title}`,
+      amount: applied,
+      type: loanDetail.direction === "borrowed" ? "expense" : "income",
+      accountId: loanDetail.cashAccountId ?? accounts[0]?.id ?? "acc-1",
+      date: new Date().toISOString().slice(0, 10),
+      icon: loanDetail.direction === "borrowed" ? "ArrowUpRight" : "ArrowDownRight",
+      loanId: loanDetail.id,
+      cashFlowKind: "loan-settlement",
+    };
     const payment: LoanPayment = {
       id: `loan-payment-${Date.now()}`,
       amount: applied,
@@ -837,6 +880,7 @@ export default function Home() {
       note: loanPaymentNote.trim() || (loanDetail.direction === "borrowed" ? "Payment made" : "Payment received"),
       method,
       reference: loanPaymentReference.trim() || undefined,
+      transactionId,
     };
     const nextLoan: Loan = {
       ...loanDetail,
@@ -844,7 +888,9 @@ export default function Home() {
       paymentHistory: [payment, ...loanDetail.paymentHistory],
     };
     setLoans((current) => current.map((loan) => loan.id === nextLoan.id ? nextLoan : loan));
+    setTransactions((current) => [settlementTransaction, ...current]);
     void persistRecord("loans", nextLoan);
+    void persistRecord("expenses", { ...settlementTransaction, title: settlementTransaction.merchantNote });
     setLoanDetail(nextLoan);
     resetLoanPaymentDraft();
   };
@@ -999,10 +1045,31 @@ export default function Home() {
         alert("Please enter a loan name, counterparty, original amount, and due date.");
         return;
       }
+      if (!loanAccountInput) {
+        alert("Choose the cash account that received or provided this loan.");
+        return;
+      }
       const previousLoan = editingLoanId ? loans.find((loan) => loan.id === editingLoanId) : undefined;
-      const nextLoan: Loan = previousLoan ? { ...previousLoan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(previousLoan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date" } : { id: `loan-${Date.now()}`, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [] };
+      const createdLoanId = `loan-${Date.now()}`;
+      const disbursementTransactionId = `tx-loan-disbursement-${Date.now()}`;
+      const nextLoan: Loan = previousLoan ? { ...previousLoan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(previousLoan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", cashAccountId: loanAccountInput } : { id: createdLoanId, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [], cashAccountId: loanAccountInput, disbursementTransactionId };
       setLoans((current) => editingLoanId ? current.map((loan) => loan.id === editingLoanId ? nextLoan : loan) : [nextLoan, ...current]);
       void persistRecord("loans", nextLoan);
+      if (!previousLoan) {
+        const disbursementTransaction: Transaction = {
+          id: disbursementTransactionId,
+          merchantNote: loanDirectionInput === "borrowed" ? `Loan received · ${nextLoan.title}` : `Loan advanced · ${nextLoan.title}`,
+          amount: parsed,
+          type: loanDirectionInput === "borrowed" ? "income" : "expense",
+          accountId: loanAccountInput,
+          date: dateInputValue(new Date()),
+          icon: loanDirectionInput === "borrowed" ? "ArrowDownRight" : "ArrowUpRight",
+          loanId: nextLoan.id,
+          cashFlowKind: "loan-disbursement",
+        };
+        setTransactions((current) => [disbursementTransaction, ...current]);
+        void persistRecord("expenses", { ...disbursementTransaction, title: disbursementTransaction.merchantNote });
+      }
       resetDraft();
     } else if (draft === "schedule") {
       const parsed = parseFloat(draftAmount);
@@ -1102,7 +1169,7 @@ export default function Home() {
         </nav>
         <div className="rail-footer">
           <div className="rail-kicker">August close</div>
-          <div className="rail-metric"><strong>16 days left</strong><span>{fmt.format(totals.expense)} recorded against budget plans.</span></div>
+          <div className="rail-metric"><strong>16 days left</strong><span>{fmt.format(totals.ordinaryExpense)} recorded against budget plans.</span></div>
           <button className="text-link" onClick={() => setActiveTab("reports")} style={{ marginTop: 12, display: "inline-block" }}>Open reports</button>
         </div>
       </aside>
@@ -1112,7 +1179,10 @@ export default function Home() {
           <div className="mobile-brand-lockup"><span className="mobile-brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
           <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
-            <button className="icon-badge" onClick={() => alert("No pending alerts.")} aria-label="Notifications"><Calendar size={16} /></button>
+            <div className="notification-wrap">
+              <button className={`icon-badge ${notificationItems.length ? "has-notifications" : ""}`} onClick={() => setNotificationsOpen((current) => !current)} aria-label="Open notifications" aria-expanded={notificationsOpen}><Bell size={16} />{notificationItems.length > 0 && <i aria-hidden="true">{notificationItems.length}</i>}</button>
+              {notificationsOpen && <section className="notification-panel" role="dialog" aria-label="Notifications"><div className="notification-panel-head"><div><span>Ledger notices</span><h2>{notificationItems.length ? "Needs your attention" : "All clear for now"}</h2></div><button className="close-button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>{notificationItems.length ? <div className="notification-list">{notificationItems.map((item) => <article className={`notification-item ${item.tone}`} key={item.id}><b>{item.title}</b><span>{item.detail}</span></article>)}</div> : <p className="notification-empty">Upcoming bills, income, and loan due dates will appear here when they need attention.</p>}</section>}
+            </div>
             <button className="profile-pill" onClick={() => setDraft("profile")} aria-label={user ? "Open signed-in profile" : "Sign in to cloud ledger"}>{authLoading ? "··" : (user?.email?.slice(0, 2) || "IL").toUpperCase()}</button>
           </div>
         </header>
@@ -1242,6 +1312,7 @@ export default function Home() {
               <div className="field-note-row"><span>Account</span><b>{accounts.find(a => a.id === transactionDetail.accountId)?.name ?? transactionDetail.accountId}</b></div>
               {transactionDetail.destinationAccountId && <div className="field-note-row"><span>To account</span><b>{accounts.find(a => a.id === transactionDetail.destinationAccountId)?.name}</b></div>}
               {transactionDetail.categoryId && <div className="field-note-row"><span>Category</span><b>{categories.find(c => c.id === transactionDetail.categoryId)?.name ?? transactionDetail.categoryId}</b></div>}
+              {transactionDetail.cashFlowKind && <div className="field-note-row"><span>Cash-flow source</span><b>{transactionDetail.cashFlowKind === "loan-disbursement" ? "Loan original amount" : "Loan repayment or collection"}</b></div>}
               {transactionDetail.tag?.goalId && <div className="field-note-row"><span>Tagged goal</span><b>{goals.find(g => g.id === transactionDetail.tag?.goalId)?.name}</b></div>}
               {transactionDetail.tag?.tripId && <div className="field-note-row"><span>Tagged trip</span><b>{trips.find(t => t.id === transactionDetail.tag?.tripId)?.name}</b></div>}
             </div>
@@ -1320,9 +1391,9 @@ export default function Home() {
               <div className="budget-track horizon-progress"><div className="budget-fill" style={{ width: `${loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}%`, background: loanDetail.direction === "borrowed" ? "#a65a3b" : "#2e654f" }} /></div>
               <div className="horizon-card-foot"><span>{loanDetail.totalAmount ? Math.min(100, Math.round((loanDetail.paidAmount / loanDetail.totalAmount) * 100)) : 0}% settled</span><span>{loanDetail.terms}</span></div>
             </div>
-            <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
+            <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Cash account</span><b>{accounts.find((account) => account.id === loanDetail.cashAccountId)?.name ?? "No cash account linked"}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
             {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><div className="loan-payment-grid"><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><label className="form-field"><span>How was it paid?</span><select value={loanPaymentMethod} onChange={(event) => setLoanPaymentMethod(event.target.value)}><option>Cash in hand</option><option>Card</option><option>Bank transfer</option><option>bKash</option><option>Nagad</option><option>Custom</option></select></label>{loanPaymentMethod === "Custom" && <label className="form-field loan-payment-full"><span>Custom payment method</span><input value={loanCustomPaymentMethod} onChange={(event) => setLoanCustomPaymentMethod(event.target.value)} placeholder="e.g., Rocket" /></label>}<label className="form-field loan-payment-full"><span>Note <em>optional</em></span><textarea value={loanPaymentNote} onChange={(event) => setLoanPaymentNote(event.target.value)} placeholder="What was this payment for?" rows={2} /></label><label className="form-field loan-payment-full"><span>Reference <em>optional</em></span><input value={loanPaymentReference} onChange={(event) => setLoanPaymentReference(event.target.value)} placeholder="Transaction ID, last four digits, or receipt" /></label></div><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
-            <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><div className="loan-payment-meta"><span>{shortDate(payment.date)} · {payment.method}</span>{payment.reference && <span>Ref · {payment.reference}</span>}</div></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
+            <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><div className="loan-payment-meta"><span>{shortDate(payment.date)} · {payment.method}</span>{payment.reference && <span>Ref · {payment.reference}</span>}{payment.transactionId && <span>Cash flow recorded</span>}</div></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
             <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button></div>
           </aside>
         </div>
@@ -1413,6 +1484,7 @@ export default function Home() {
           loanDirection={loanDirectionInput}
           loanCounterparty={loanCounterpartyInput}
           loanTerms={loanTermsInput}
+          loanAccount={loanAccountInput}
           goalFinancing={goalFinancingInput}
           scheduleType={scheduleTypeInput}
           scheduleFrequency={scheduleFrequencyInput}
@@ -1436,6 +1508,7 @@ export default function Home() {
           onLoanDirection={setLoanDirectionInput}
           onLoanCounterparty={setLoanCounterpartyInput}
           onLoanTerms={setLoanTermsInput}
+          onLoanAccount={setLoanAccountInput}
           onGoalFinancing={setGoalFinancingInput}
           onScheduleType={setScheduleTypeInput}
           onScheduleFrequency={setScheduleFrequencyInput}
@@ -1452,10 +1525,10 @@ export default function Home() {
 }
 
 function OverviewView({ balance, netWorth, accounts, totals, categories, transactions, schedules, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onSelectTransaction, onOpenSchedule, onOpenAccounts, onOpenHistory }: {
-  balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number }; categories: Category[]; transactions: Transaction[]; schedules: RecurringSchedule[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
+  balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; transactions: Transaction[]; schedules: RecurringSchedule[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
   onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onSelectTransaction: (transaction: Transaction) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onOpenAccounts: () => void; onOpenHistory: () => void;
 }) {
-  const savingsRate = totals.income ? Math.round(((totals.income - totals.expense) / totals.income) * 100) : 0;
+  const savingsRate = totals.ordinaryIncome ? Math.round(((totals.ordinaryIncome - totals.ordinaryExpense) / totals.ordinaryIncome) * 100) : 0;
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
   const upcomingSchedules = schedules.filter((schedule) => schedule.status === "active").slice().sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
   const upcomingIncome = upcomingSchedules.filter((schedule) => schedule.type === "income").slice(0, 3);
@@ -1473,18 +1546,18 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
             <div className="balance-label"><span /> Available balance</div>
             <div className="balance-number">{fmt.format(balance)}</div>
             <p className="balance-caption">Across your asset accounts, with liabilities held apart for a truthful net worth.</p>
-            <div className="balance-foot"><div><span>Income, August</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Expenses, August</span><strong>{fmt.format(totals.expense)}</strong></div></div>
+            <div className="balance-foot"><div><span>Cash in, August</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Cash out, August</span><strong>{fmt.format(totals.expense)}</strong></div></div>
           </div>
         </section>
         <div className="summary-strip">
-          <article className="mini-stat"><div className="stat-top">Inflow <span className="stat-icon up"><ArrowDownRight size={14} /></span></div><strong>{fmt.format(totals.income)}</strong><p>Derived from monthly income</p></article>
-          <article className="mini-stat"><div className="stat-top">Outflow <span className="stat-icon down"><ArrowUpRight size={14} /></span></div><strong>{fmt.format(totals.expense)}</strong><p>Derived from recorded expenses</p></article>
-          <article className="mini-stat"><div className="stat-top">Savings rate <span className="stat-icon gold"><CheckCircle2 size={14} /></span></div><strong>{savingsRate}%</strong><p>Transfers stay neutral</p></article>
+          <article className="mini-stat"><div className="stat-top">Inflow <span className="stat-icon up"><ArrowDownRight size={14} /></span></div><strong>{fmt.format(totals.income)}</strong><p>{totals.loanInflow ? `${fmt.format(totals.loanInflow)} from loan cash` : "Income and received funds"}</p></article>
+          <article className="mini-stat"><div className="stat-top">Outflow <span className="stat-icon down"><ArrowUpRight size={14} /></span></div><strong>{fmt.format(totals.expense)}</strong><p>{totals.loanOutflow ? `${fmt.format(totals.loanOutflow)} to loans` : "Recorded expenses and payments"}</p></article>
+          <article className="mini-stat"><div className="stat-top">Savings rate <span className="stat-icon gold"><CheckCircle2 size={14} /></span></div><strong>{savingsRate}%</strong><p>Based on regular income and spending</p></article>
         </div>
       </div>
       <aside className="paper-card side-summary overview-net-worth">
         <div className="card-head"><h2>Net worth</h2></div>
-        <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> calculated from accounts</span></div>
+        <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> accounts plus loan position</span></div>
         <div className="overview-account-glance"><span>{assetCount} asset folio{assetCount === 1 ? "" : "s"}</span><span>{liabilityCount ? `${liabilityCount} liability` : "No liabilities"}</span></div>
         <button className="destination-button overview-accounts-action" onClick={onOpenAccounts}>View accounts & assets <ArrowUpRight size={14} /></button>
       </aside>
@@ -1523,7 +1596,7 @@ function AccountsAssetsView({ accounts, netWorth, onOpenAddAccount, onBack }: { 
   </>;
 }
 
-function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, onBack }: { totals: { income: number; expense: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; onBack: () => void }) {
+function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, onBack }: { totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; onBack: () => void }) {
   const expenseTopCategories = categories.filter((category) => category.type === "expense" && !category.parentId);
   const plannedBudget = expenseTopCategories.reduce((sum, category) => sum + category.monthlyBudget, 0);
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
@@ -1544,7 +1617,7 @@ function HistoryView({ totals, categories, categorySpent, transactions, visibleT
   }, [currentMonthKey, transactions]);
   return <>
     <header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Overview</button></div><div className="page-kicker">Recorded movement</div><h1>History, held to account.</h1><p className="page-subtitle">Follow every month, category, and entry without crowding the daily overview.</p></div></header>
-    <section className="paper-card month-hand-section history-budget-section"><div className="section-head month-hand-head"><div><div className="page-kicker">Monthly allocation</div><h2>Month in hand</h2></div><span className="month-hand-date">August 2026</span></div><div className="month-hand-grid"><div className="month-hand-summary"><div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense").length} records</b></div></div><p className="budget-note">A single view of planned capital, recorded outflow, and category-level pressure.</p></div><div className="month-hand-progress"><div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.expense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, plannedBudget ? (totals.expense / plannedBudget) * 100 : 0)}%` }} /></div></div><div className="month-hand-progress-note"><strong>{plannedBudget ? Math.round((totals.expense / plannedBudget) * 100) : 0}% committed</strong><span>Transfers remain neutral.</span></div></div></div><div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to filter its register</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div></section>
+    <section className="paper-card month-hand-section history-budget-section"><div className="section-head month-hand-head"><div><div className="page-kicker">Monthly allocation</div><h2>Month in hand</h2></div><span className="month-hand-date">August 2026</span></div><div className="month-hand-grid"><div className="month-hand-summary"><div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense" && !transaction.cashFlowKind).length} records</b></div></div><p className="budget-note">Budget pacing uses regular spending only. Loan movements remain visible in the cash ledger, not in category budgets.</p></div><div className="month-hand-progress"><div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.ordinaryExpense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, plannedBudget ? (totals.ordinaryExpense / plannedBudget) * 100 : 0)}%` }} /></div></div><div className="month-hand-progress-note"><strong>{plannedBudget ? Math.round((totals.ordinaryExpense / plannedBudget) * 100) : 0}% committed</strong><span>Loan cash flow is tracked separately.</span></div></div></div><div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to filter its register</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div></section>
     <section className="paper-card month-history-section"><div className="section-head month-history-head"><div><div className="page-kicker">Historical overview</div><h2>Ledger by month</h2></div><span className="month-hand-date">{monthRows.length} month{monthRows.length === 1 ? "" : "s"} with records</span></div><div className="month-history-list">{monthRows.map((month) => { const isOpen = Boolean(openMonths[month.key]); return <div className={`month-history-item ${isOpen ? "open" : ""}`} key={month.key}><button type="button" className="month-history-toggle" onClick={() => setOpenMonths((current) => ({ ...current, [month.key]: !current[month.key] }))} aria-expanded={isOpen} aria-controls={`history-month-${month.key}`}><span className="month-history-title"><b>{month.label}</b><small>{month.isCurrent ? "Current month" : `${month.entries.length} ledger entries`}</small></span><span className="month-history-net"><strong className={month.net >= 0 ? "amount-income" : "amount-expense"}>{month.net >= 0 ? "+" : "−"}{fmt.format(Math.abs(month.net))}</strong><small>{isOpen ? "Tap to close" : "Tap to view"}</small></span><ChevronRight size={17} className="month-history-chevron" /></button>{isOpen && <div className="month-history-detail" id={`history-month-${month.key}`}><div className="month-history-metrics"><div><span>Income</span><b className="amount-income">{fmt.format(month.income)}</b></div><div><span>Expenses</span><b className="amount-expense">{fmt.format(month.expense)}</b></div><div><span>Daily outflow</span><b>{fmt.format(month.averageDailyExpense)}</b></div></div><div className="month-history-entry-list">{month.entries.length ? month.entries.slice(0, 5).map((entry) => <div className="month-history-entry" key={entry.id}><span>{entry.merchantNote}</span><b className={entry.type === "income" ? "amount-income" : entry.type === "expense" ? "amount-expense" : "amount-transfer"}>{entry.type === "income" ? "+" : entry.type === "expense" ? "−" : "↔"}{fmt.format(entry.amount)}</b></div>) : <span className="budget-note">No transactions recorded for this month.</span>}</div></div>}</div>; })}</div></section>
     <section className="paper-card section-card history-register"><div className="section-head"><div><div className="page-kicker">Complete register</div><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "All entries"}</h2></div><div className="filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item ? "active" : ""}`} onClick={() => onFilter(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div></div>{selectedCategory && <button className="filter-note" onClick={onClearCategory}>Viewing {selectedCategory.name} <X size={12} /></button>}<div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search a merchant or category" /></div><div className="transaction-list">{visibleTransactions.length ? visibleTransactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">No entries match this view. Try another filter or clear the category context.</p>}</div></section>
   </>;
@@ -1552,10 +1625,10 @@ function HistoryView({ totals, categories, categorySpent, transactions, visibleT
 
 function TransactionRow({ transaction, categories, onSelect }: { transaction: Transaction; categories: Category[]; onSelect: (transaction: Transaction) => void }) {
   const category = categories.find((item) => item.id === transaction.categoryId);
-  const descriptor = transaction.type === "transfer" ? "Transfer between your accounts" : category?.name ?? "Uncategorised";
+  const descriptor = transaction.cashFlowKind === "loan-disbursement" ? "Loan cash movement · original amount" : transaction.cashFlowKind === "loan-settlement" ? "Loan cash movement · settlement" : transaction.type === "transfer" ? "Transfer between your accounts" : category?.name ?? "Uncategorised";
   const signed = transaction.type === "income" ? "+" : transaction.type === "expense" ? "−" : "↔";
   const amountClass = transaction.type === "income" ? "amount-income" : transaction.type === "expense" ? "amount-expense" : "amount-transfer";
-  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span className="category-picker-label">{category && <CategoryIcon icon={category.icon} size={14} />}{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
+  return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.cashFlowKind ? "Loan flow" : transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span className="category-picker-label">{category && <CategoryIcon icon={category.icon} size={14} />}{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount"><strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
 }
 
 function InsightsView({ transactions, categories, categorySpent, onOpenCategory, onOpenReports }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void; onOpenReports: () => void }) {
@@ -1844,9 +1917,9 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; loanAccount: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "schedule" ? (editingScheduleId ? "Edit recurring schedule" : "Add recurring schedule") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "schedule" ? "Keep regular income and bills visible before their next due date." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
@@ -1946,6 +2019,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Loan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Family bridge loan" autoFocus /></div>
           <div className="form-field"><label>{loanDirection === "borrowed" ? "Lender" : "Borrower"}</label><input value={loanCounterparty} onChange={(event) => onLoanCounterparty(event.target.value)} placeholder={loanDirection === "borrowed" ? "e.g. Morgan" : "e.g. Alex"} /></div>
           <div className="form-field"><label>Original amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="2,400" inputMode="decimal" /></div>
+          <div className="form-field"><label>{loanDirection === "borrowed" ? "Cash received into" : "Cash advanced from"}</label><select value={loanAccount} onChange={(event) => onLoanAccount(event.target.value)} disabled={!accounts.length}>{accounts.length ? accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>) : <option value="">Preparing your Main Account…</option>}</select><small>{loanDirection === "borrowed" ? "Saving creates an income cash movement in this account." : "Saving creates an expense cash movement from this account."}</small></div>
           <div className="form-field"><label>Due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
           <div className="form-field"><label>Repayment terms <em>optional</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
         </>}

@@ -185,3 +185,9 @@
 - [x] Clarify signed-in and signed-out account states while keeping implementation language out of user-facing copy.
 - [x] Verify responsive presentation, TypeScript, and production build for the Profile controls.
 - [ ] Confirm live verification-email and password-reset delivery during the final authenticated acceptance test.
+
+## Loan money flow and notifications
+- [x] Create ledger cash movements when a loan is borrowed, lent, repaid, or collected, without double-counting loan balances in net worth.
+- [x] Show loan cash movements in Overview, History, and relevant money-flow totals with clear source context.
+- [x] Replace the temporary browser alert on the notification icon with an in-app notification panel.
+- [x] Validate loan/account cash effects, mobile interactions, TypeScript, production build, and checkpoint.

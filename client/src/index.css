@@ -251,6 +251,22 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .breadcrumb strong { color: #383d39; font-size: 11px; }
 .top-nav-actions { display: flex; align-items: center; gap: 10px; }
 .icon-badge { width: 36px; height: 36px; border: 1px solid #ded8ca; border-radius: 50%; display: grid; place-items: center; background: #fffdf9; color: #59554e; cursor: pointer; }
+.notification-wrap { position: relative; }
+.icon-badge.has-notifications { position: relative; border-color: #b78a3d; color: #1d2524; }
+.icon-badge.has-notifications > i { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border-radius: 50%; background: #a65a3b; color: #fffdf9; border: 2px solid #f8f4ec; font: 700 8px/1 "Space Grotesk", sans-serif; font-style: normal; }
+.notification-panel { position: absolute; z-index: 25; top: calc(100% + 10px); right: 0; width: min(344px, calc(100vw - 34px)); overflow: hidden; background: #fffdf9; border: 1px solid #d8d0c2; box-shadow: 0 20px 45px rgba(39, 45, 39, .16); border-radius: 4px; }
+.notification-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 17px 13px; border-bottom: 1px solid #e7dfd3; background: #f8f4ec; }
+.notification-panel-head span { display: block; margin-bottom: 4px; color: #a77a34; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.notification-panel-head h2 { color: #1d2524; font: 600 20px/1.1 "DM Serif Display", Georgia, serif; }
+.notification-panel-head .close-button { width: 28px; height: 28px; }
+.notification-list { display: grid; }
+.notification-item { display: grid; gap: 4px; padding: 14px 17px; border-bottom: 1px solid #eee8dd; }
+.notification-item:last-child { border-bottom: 0; }
+.notification-item b { color: #343733; font-size: 12px; }
+.notification-item span { color: #756e64; font-size: 11px; }
+.notification-item.urgent { border-left: 3px solid #a65a3b; }
+.notification-item.notice { border-left: 3px solid #b78a3d; }
+.notification-empty { margin: 0; padding: 19px 17px 21px; color: #756e64; font-size: 12px; line-height: 1.55; }
 .profile-pill { width: 36px; height: 36px; border: 1px solid #ded8ca; border-radius: 50%; display: grid; place-items: center; background: #d5c2a4; color: #1d2524; font: 700 11px/1 "Space Grotesk", sans-serif; cursor: pointer; }
 .page-header { max-width: 760px; }
 .page-header h1 { max-width: 720px; }
