@@ -20,6 +20,14 @@ button, input, select { font: inherit; }
 button { border: 0; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(183, 138, 61, .35); outline-offset: 3px; }
 
+/* Ink & Ledger navigation: destination actions are outlined folio controls, not decorative text links. */
+.destination-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 38px; padding: 9px 12px; color: #fffdf8; border: 1px solid #1d2524; border-radius: 2px; background: #1d2524; box-shadow: inset 3px 0 0 #c59643; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .09em; text-transform: uppercase; cursor: pointer; transition: color .16s cubic-bezier(.23,1,.32,1), border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.destination-button:hover { color: #1d2524; border-color: #9c792f; background: #f2deac; }
+.destination-button:active { transform: scale(.97); }
+.destination-button svg { flex: 0 0 auto; }
+.overview-accounts-action { margin-top: 11px; }
+.overview-history-action { margin: 12px 0 14px; }
+
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 264px minmax(0, 1fr); }
 .sidebar { background: #f4f0e8; border-right: 1px solid #ded8ca; display: flex; flex-direction: column; min-height: 100vh; position: sticky; top: 0; height: 100vh; padding: 28px 18px 22px; }
 .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 34px; color: #1d2524; }

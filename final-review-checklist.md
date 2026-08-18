@@ -43,5 +43,6 @@ This checklist is the release gate for the responsive Ink & Ledger web prototype
 | Accounts & Assets and History navigation repair | **Passed.** Both dedicated destinations now include a visible “Return to Overview” control. The History month record was manually expanded, collapsed, and expanded again in the live interface; labels now clearly state “Tap to view” and “Tap to close.” |
 | Compact header back control | **Passed.** The long mobile return line was replaced by an accessible circular back arrow in the page-header eyebrow row, preserving the Overview return action without competing with the page label or title. |
 | Titled back-button hierarchy | **Passed.** The final header order is now Back to Overview button, destination label, then page title. This preserves both a labeled escape route and independent editorial hierarchy in Accounts & Assets and History. |
+| Dashboard destination affordance | **Passed.** The Accounts & Assets and Open full history destinations are now separately placed, outlined, touch-sized buttons with directional arrows and active/focus feedback rather than editorial text links. |
 
 > The final release review is intentionally still open. It will be completed after the remaining product slices are implemented, so that the review measures the complete product rather than a temporary subset of it.

@@ -1122,9 +1122,10 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
         </div>
       </div>
       <aside className="paper-card side-summary overview-net-worth">
-        <div className="card-head"><h2>Net worth</h2><button className="text-link" onClick={onOpenAccounts}>Accounts & assets</button></div>
+        <div className="card-head"><h2>Net worth</h2></div>
         <div className="net-worth"><div className="net-worth-value">{fmt.format(netWorth)}</div><span className="change-tag"><ArrowUpRight size={11} /> calculated from accounts</span></div>
         <div className="overview-account-glance"><span>{assetCount} asset folio{assetCount === 1 ? "" : "s"}</span><span>{liabilityCount ? `${liabilityCount} liability` : "No liabilities"}</span></div>
+        <button className="destination-button overview-accounts-action" onClick={onOpenAccounts}>View accounts & assets <ArrowUpRight size={14} /></button>
       </aside>
     </div>
     <section className="paper-card dashboard-schedule-register">
@@ -1136,7 +1137,8 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
     </section>
     <div className="lower-grid">
       <section className="paper-card section-card">
-        <div className="section-head"><div><div className="page-kicker">Last recorded</div><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2></div><button className="text-link overview-history-link" onClick={onOpenHistory}>Open full history <ChevronRight size={14} /></button></div>
+        <div className="section-head"><div><div className="page-kicker">Last recorded</div><h2>{selectedCategory ? `${selectedCategory.name} ledger` : "Recent ledger"}</h2></div></div>
+        <button className="destination-button overview-history-action" onClick={onOpenHistory}>Open full history <ChevronRight size={14} /></button>
         <div className="filter-row overview-filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item ? "active" : ""}`} onClick={() => onFilter(item)}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div>
         {selectedCategory && <button className="filter-note" onClick={onClearCategory}>Viewing {selectedCategory.name} <X size={12} /></button>}
         <div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search a merchant or category" /></div>

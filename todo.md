@@ -120,3 +120,9 @@
 - [x] Put a compact titled “Back to Overview” button on its own line in Accounts & Assets and History.
 - [x] Place the destination label (Account register or Recorded movement) on the following line before the page title.
 - [x] Verify the revised header order on mobile and desktop, type-check, build, and checkpoint it.
+
+## Reported dashboard action-affordance defect
+- [x] Restyle the Net Worth “Accounts & Assets” control as an obvious touch-sized destination button.
+- [x] Restyle the Recent Ledger “Open full history” control as an obvious touch-sized destination button.
+- [x] Include visible arrow, pressed, hover, and keyboard-focus feedback while preserving the Ink & Ledger visual system.
+- [x] Verify the controls and their navigation on mobile and desktop, type-check, build, and checkpoint the refinement.
