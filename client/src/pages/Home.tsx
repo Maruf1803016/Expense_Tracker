@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCh
 import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
+import { enableExpenseReminderPush } from "@/lib/firebase";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -112,6 +113,24 @@ interface RecurringSchedule {
   nextDueDate: string;
   status: "active" | "paused";
   history: ScheduleOccurrence[];
+}
+
+type NotificationTone = "urgent" | "notice" | "reminder";
+
+interface AppNotification {
+  id: string;
+  title: string;
+  detail: string;
+  tone: NotificationTone;
+  createdAt: string;
+  read: boolean;
+}
+
+interface ReminderSettings {
+  id: string;
+  enabled: boolean;
+  time: string;
+  timezone: string;
 }
 
 type StoredRecord = Record<string, unknown>;
@@ -226,6 +245,28 @@ function normaliseSchedule(record: StoredRecord): RecurringSchedule {
     return { id: storedString(occurrence.id, `schedule-occurrence-${index}`), scheduledFor: storedDate(occurrence.scheduledFor, dateInputValue(new Date())), recordedAt: storedDate(occurrence.recordedAt, dateInputValue(new Date())), transactionId: storedString(occurrence.transactionId) };
   });
   return { id: storedString(record.id), name: storedString(record.name, "Untitled schedule"), amount: storedNumber(record.amount ?? record.expectedAmount), type: record.type === "income" ? "income" : "expense", frequency: record.frequency === "weekly" || record.frequency === "biweekly" ? record.frequency : "monthly", accountId: storedString(record.accountId, "acc-1"), categoryId: storedString(record.categoryId), nextDueDate: storedDate(record.nextDueDate, dateInputValue(new Date())), status: record.status === "paused" ? "paused" : "active", history };
+}
+
+function normaliseNotification(record: StoredRecord): AppNotification {
+  const tone = record.tone === "urgent" || record.tone === "reminder" ? record.tone : record.kind === "daily-expense-reminder" ? "reminder" : "notice";
+  return {
+    id: storedString(record.id),
+    title: storedString(record.title, "Ledger notice"),
+    detail: storedString(record.detail ?? record.body, "A ledger update needs your attention."),
+    tone,
+    createdAt: storedDate(record.createdAt, new Date().toISOString()),
+    read: record.read === true || record.unread === false,
+  };
+}
+
+function normaliseReminderSettings(record: StoredRecord): ReminderSettings {
+  const time = storedString(record.time, "22:00");
+  return {
+    id: storedString(record.id, "daily-expense-reminder"),
+    enabled: record.enabled === true,
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : "22:00",
+    timezone: storedString(record.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"),
+  };
 }
 
 function normaliseAccount(record: StoredRecord): Account {
@@ -486,6 +527,11 @@ export default function Home() {
   const [cloudPrerequisitesLoaded, setCloudPrerequisitesLoaded] = useState({ accounts: false, categories: false });
   const [starterRequestedFor, setStarterRequestedFor] = useState<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [dismissedFallbackNotificationIds, setDismissedFallbackNotificationIds] = useState<string[]>([]);
+  const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" });
+  const [reminderPushStatus, setReminderPushStatus] = useState<string | null>(null);
+  const [reminderPushBusy, setReminderPushBusy] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -500,6 +546,10 @@ export default function Home() {
       setCloudError(null);
       setCloudPrerequisitesLoaded({ accounts: false, categories: false });
       setStarterRequestedFor(null);
+      setNotifications([]);
+      setDismissedFallbackNotificationIds([]);
+      setReminderSettings({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" });
+      setReminderPushStatus(null);
       return;
     }
 
@@ -520,6 +570,8 @@ export default function Home() {
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "tripPlans", (records) => { setTrips(records.map(normaliseTrip)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "loans", (records) => { setLoans(records.map(normaliseLoan)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "recurringIncomeSources", (records) => { setSchedules(records.map(normaliseSchedule)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "notifications", (records) => { setNotifications(records.map(normaliseNotification)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "reminderSettings", (records) => { const normalized = records.map(normaliseReminderSettings); const saved = normalized.find((record) => record.id === "daily-expense-reminder") ?? normalized[0]; if (saved) setReminderSettings(saved); received(); }, handleError),
     ];
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [user]);
@@ -575,6 +627,41 @@ export default function Home() {
       setCloudError("This record could not be removed from your cloud ledger. Keep this tab open and retry after checking your connection.");
     }
   }, [user]);
+
+  const markNotificationRead = (notificationId: string) => {
+    const persistedNotification = notifications.find((item) => item.id === notificationId);
+    if (persistedNotification) {
+      if (persistedNotification.read) return;
+      const updatedNotification = { ...persistedNotification, read: true };
+      setNotifications((current) => current.map((item) => item.id === notificationId ? updatedNotification : item));
+      void persistRecord("notifications", { ...updatedNotification, unread: false });
+      return;
+    }
+    setDismissedFallbackNotificationIds((current) => current.includes(notificationId) ? current : [...current, notificationId]);
+  };
+
+  const saveReminderSettings = (nextSettings: ReminderSettings) => {
+    setReminderSettings(nextSettings);
+    void persistRecord("reminderSettings", nextSettings);
+  };
+
+  const enableDailyDeviceReminder = async () => {
+    if (!user) {
+      setReminderPushStatus("Sign in first to save reminders to your personal ledger.");
+      return;
+    }
+    setReminderPushBusy(true);
+    const result = await enableExpenseReminderPush(user.uid);
+    setReminderPushStatus(result.message);
+    if (result.status === "enabled") {
+      saveReminderSettings({
+        ...reminderSettings,
+        enabled: true,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+      });
+    }
+    setReminderPushBusy(false);
+  };
 
   const deleteCategory = (categoryId: string) => {
     const category = categories.find((item) => item.id === categoryId);
@@ -679,13 +766,21 @@ export default function Home() {
     return accountsWithBalance.reduce((sum, account) => account.kind === "liability" ? sum - account.balance : sum + account.balance, 0) + loanNetPosition;
   }, [accountsWithBalance, loanNetPosition]);
 
-  const notificationItems = useMemo(() => {
+  const fallbackNotificationItems = useMemo<AppNotification[]>(() => {
     const today = dateInputValue(new Date());
     const inSevenDays = dateInputValue(new Date(Date.now() + 7 * 86400000));
-    const loanItems = loans.filter((loan) => loan.paidAmount < loan.totalAmount && loan.dueDate <= inSevenDays).map((loan) => ({ id: `loan-${loan.id}`, tone: loan.dueDate < today ? "urgent" : "notice", title: loan.dueDate < today ? `${loan.title} is overdue` : `${loan.title} is due soon`, detail: `${fmt.format(Math.max(0, loan.totalAmount - loan.paidAmount))} ${loan.direction === "borrowed" ? "owed" : "to collect"}` }));
-    const scheduleItems = schedules.filter((schedule) => schedule.status === "active" && schedule.nextDueDate <= inSevenDays).map((schedule) => ({ id: `schedule-${schedule.id}`, tone: schedule.nextDueDate < today ? "urgent" : "notice", title: schedule.nextDueDate < today ? `${schedule.name} is overdue` : `${schedule.name} is due soon`, detail: `${fmt.format(schedule.amount)} · ${schedule.type === "income" ? "income" : "bill"}` }));
+    const loanItems = loans.filter((loan) => loan.paidAmount < loan.totalAmount && loan.dueDate <= inSevenDays).map((loan) => ({ id: `loan-${loan.id}-${loan.dueDate}`, tone: loan.dueDate < today ? "urgent" as const : "notice" as const, title: loan.dueDate < today ? `${loan.title} is overdue` : `${loan.title} is due soon`, detail: `${fmt.format(Math.max(0, loan.totalAmount - loan.paidAmount))} ${loan.direction === "borrowed" ? "owed" : "to collect"}`, createdAt: loan.dueDate, read: dismissedFallbackNotificationIds.includes(`loan-${loan.id}-${loan.dueDate}`) }));
+    const scheduleItems = schedules.filter((schedule) => schedule.status === "active" && schedule.nextDueDate <= inSevenDays).map((schedule) => ({ id: `schedule-${schedule.id}-${schedule.nextDueDate}`, tone: schedule.nextDueDate < today ? "urgent" as const : "notice" as const, title: schedule.nextDueDate < today ? `${schedule.name} is overdue` : `${schedule.name} is due soon`, detail: `${fmt.format(schedule.amount)} · ${schedule.type === "income" ? "income" : "bill"}`, createdAt: schedule.nextDueDate, read: dismissedFallbackNotificationIds.includes(`schedule-${schedule.id}-${schedule.nextDueDate}`) }));
     return [...loanItems, ...scheduleItems].slice(0, 5);
-  }, [loans, schedules]);
+  }, [dismissedFallbackNotificationIds, loans, schedules]);
+
+  const notificationItems = useMemo(() => {
+    const persistentIds = new Set(notifications.map((item) => item.id));
+    return [...notifications, ...fallbackNotificationItems.filter((item) => !persistentIds.has(item.id))]
+      .sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+  }, [fallbackNotificationItems, notifications]);
+
+  const unreadNotificationCount = useMemo(() => notificationItems.filter((item) => !item.read).length, [notificationItems]);
 
   const availableBalance = useMemo(() => {
     return accountsWithBalance.filter(a => a.kind === "asset").reduce((sum, a) => sum + a.balance, 0);
@@ -1180,8 +1275,8 @@ export default function Home() {
           <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <div className="notification-wrap">
-              <button className={`icon-badge ${notificationItems.length ? "has-notifications" : ""}`} onClick={() => setNotificationsOpen((current) => !current)} aria-label="Open notifications" aria-expanded={notificationsOpen}><Bell size={16} />{notificationItems.length > 0 && <i aria-hidden="true">{notificationItems.length}</i>}</button>
-              {notificationsOpen && <section className="notification-panel" role="dialog" aria-label="Notifications"><div className="notification-panel-head"><div><span>Ledger notices</span><h2>{notificationItems.length ? "Needs your attention" : "All clear for now"}</h2></div><button className="close-button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>{notificationItems.length ? <div className="notification-list">{notificationItems.map((item) => <article className={`notification-item ${item.tone}`} key={item.id}><b>{item.title}</b><span>{item.detail}</span></article>)}</div> : <p className="notification-empty">Upcoming bills, income, and loan due dates will appear here when they need attention.</p>}</section>}
+              <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""}`} onClick={() => setNotificationsOpen((current) => !current)} aria-label={`Open notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-expanded={notificationsOpen}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
+              {notificationsOpen && <section className="notification-panel" role="dialog" aria-label="Notifications"><div className="notification-panel-head"><div><span>Ledger notices</span><h2>{unreadNotificationCount ? `${unreadNotificationCount} unread notice${unreadNotificationCount === 1 ? "" : "s"}` : notificationItems.length ? "Your notice history" : "All clear for now"}</h2></div><button className="close-button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>{notificationItems.length ? <div className="notification-list">{notificationItems.map((item) => <button type="button" className={`notification-item ${item.tone} ${item.read ? "is-read" : "is-unread"}`} key={item.id} onClick={() => markNotificationRead(item.id)} aria-label={item.read ? `${item.title}, read` : `${item.title}, mark as read`}><b>{item.title}</b><span>{item.detail}</span>{!item.read && <em>Mark as read</em>}</button>)}</div> : <p className="notification-empty">Upcoming bills, income, and loan due dates will appear here when they need attention.</p>}</section>}
             </div>
             <button className="profile-pill" onClick={() => setDraft("profile")} aria-label={user ? "Open signed-in profile" : "Sign in to cloud ledger"}>{authLoading ? "··" : (user?.email?.slice(0, 2) || "IL").toUpperCase()}</button>
           </div>
@@ -1279,9 +1374,15 @@ export default function Home() {
             <SettingsView
               categories={categories}
               subcategorySpent={subcategorySpent}
+              reminderSettings={reminderSettings}
+              reminderPushStatus={reminderPushStatus}
+              reminderPushBusy={reminderPushBusy}
+              signedIn={Boolean(user)}
               onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
               onDeleteCategory={deleteCategory}
+              onSaveReminderSettings={saveReminderSettings}
+              onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
             />
           )}
         </div>
@@ -1840,9 +1941,11 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
   );
 }
 
-function SettingsView({ categories, subcategorySpent, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory }: {
+function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder }: {
   categories: Category[]; subcategorySpent: Record<string, number>;
   onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
+  reminderSettings: ReminderSettings; reminderPushStatus: string | null; reminderPushBusy: boolean; signedIn: boolean;
+  onSaveReminderSettings: (settings: ReminderSettings) => void; onEnableDeviceReminder: () => void;
 }) {
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
@@ -1851,6 +1954,22 @@ function SettingsView({ categories, subcategorySpent, onOpenAddIncomeCategory, o
     <>
       <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Manage categories, income streams, and personal preferences.</p></div></header>
       <div style={{ display: "grid", gap: 24 }}>
+        <article className="paper-card settings-card reminder-settings-card" style={{ padding: 24 }}>
+          <div className="section-head reminder-settings-head">
+            <div><div className="page-kicker">Notification settings</div><h2>Close the day with a complete ledger.</h2><p className="category-section-note">Choose when your personal expense reminder should arrive. It will appear in your inbox and on this device when permission is allowed.</p></div>
+            <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}>
+              <span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}
+            </button>
+          </div>
+          <div className="reminder-settings-controls">
+            <label className="reminder-time-field"><span>Daily reminder time</span><input type="time" value={reminderSettings.time} disabled={!signedIn} onChange={(event) => onSaveReminderSettings({ ...reminderSettings, time: event.target.value })} /></label>
+            <div className="reminder-timezone"><span>Time zone</span><strong>{reminderSettings.timezone}</strong><small>Your saved time follows this device’s current time zone.</small></div>
+          </div>
+          {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
+          {signedIn && !reminderSettings.enabled && <p className="reminder-settings-note">Enable this once to allow a browser or device notification at your selected time.</p>}
+          {reminderPushStatus && <p className="reminder-settings-status" role="status">{reminderPushStatus}</p>}
+        </article>
+
         <article className="paper-card settings-card" style={{ padding: 24 }}>
           <div className="section-head" style={{ marginBottom: 16 }}>
             <div><h2>Expense Categories ({expenseTop.length})</h2><p className="category-section-note">Five permanent money types. Add as many detailed subcategories as you need.</p></div>

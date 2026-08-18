@@ -191,3 +191,12 @@
 - [x] Show loan cash movements in Overview, History, and relevant money-flow totals with clear source context.
 - [x] Replace the temporary browser alert on the notification icon with an in-app notification panel.
 - [x] Validate loan/account cash effects, mobile interactions, TypeScript, production build, and checkpoint.
+
+## Notification inbox and daily expense reminder
+- [x] Create persistent in-app notification records with clear unread and read states.
+- [x] Make the bell use a distinct unread color, show a capped 9+ badge, and decrement the unread count as individual messages are opened.
+- [x] Hide the count when all notifications are read while retaining a readable notification history.
+- [x] Add a Settings notification section where users can enable the daily expense reminder and choose the reminder time, defaulting to 10:00 PM.
+- [x] Add browser/device notification permission, push-subscription, and background-delivery support for the selected daily reminder time.
+- [ ] Publish the reminder callback, register the platform Heartbeat, and live-verify an in-app reminder plus a closed/background device notification.
+- [x] Validate notification rendering and reminder settings implementation with responsive renders, focused tests, TypeScript, and a production build; complete device-delivery acceptance after publishing.

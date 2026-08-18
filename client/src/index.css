@@ -252,20 +252,27 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .top-nav-actions { display: flex; align-items: center; gap: 10px; }
 .icon-badge { width: 36px; height: 36px; border: 1px solid #ded8ca; border-radius: 50%; display: grid; place-items: center; background: #fffdf9; color: #59554e; cursor: pointer; }
 .notification-wrap { position: relative; }
-.icon-badge.has-notifications { position: relative; border-color: #b78a3d; color: #1d2524; }
-.icon-badge.has-notifications > i { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border-radius: 50%; background: #a65a3b; color: #fffdf9; border: 2px solid #f8f4ec; font: 700 8px/1 "Space Grotesk", sans-serif; font-style: normal; }
+.icon-badge.has-unread { position: relative; border-color: #b78a3d; color: #8a5e1f; background: #fff8e8; }
+.icon-badge.has-unread > i { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 3px; border-radius: 50%; background: #a65a3b; color: #fffdf9; border: 2px solid #f8f4ec; font: 700 8px/1 "Space Grotesk", sans-serif; font-style: normal; }
 .notification-panel { position: absolute; z-index: 25; top: calc(100% + 10px); right: 0; width: min(344px, calc(100vw - 34px)); overflow: hidden; background: #fffdf9; border: 1px solid #d8d0c2; box-shadow: 0 20px 45px rgba(39, 45, 39, .16); border-radius: 4px; }
 .notification-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 17px 13px; border-bottom: 1px solid #e7dfd3; background: #f8f4ec; }
 .notification-panel-head span { display: block; margin-bottom: 4px; color: #a77a34; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .notification-panel-head h2 { color: #1d2524; font: 600 20px/1.1 "DM Serif Display", Georgia, serif; }
 .notification-panel-head .close-button { width: 28px; height: 28px; }
 .notification-list { display: grid; }
-.notification-item { display: grid; gap: 4px; padding: 14px 17px; border-bottom: 1px solid #eee8dd; }
+.notification-item { width: 100%; display: grid; gap: 4px; padding: 14px 17px; border: 0; border-bottom: 1px solid #eee8dd; background: #fffdf9; text-align: left; cursor: pointer; transition: background .18s cubic-bezier(.23,1,.32,1); }
 .notification-item:last-child { border-bottom: 0; }
 .notification-item b { color: #343733; font-size: 12px; }
 .notification-item span { color: #756e64; font-size: 11px; }
+.notification-item em { color: #a77a34; font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.notification-item:hover { background: #fbf5e9; }
+.notification-item:focus-visible { outline: 2px solid #b78a3d; outline-offset: -2px; }
+.notification-item.is-unread { background: #fffaf0; }
+.notification-item.is-unread b { font-weight: 800; }
+.notification-item.is-read { background: #fffdf9; opacity: .7; }
 .notification-item.urgent { border-left: 3px solid #a65a3b; }
 .notification-item.notice { border-left: 3px solid #b78a3d; }
+.notification-item.reminder { border-left: 3px solid #2c5234; }
 .notification-empty { margin: 0; padding: 19px 17px 21px; color: #756e64; font-size: 12px; line-height: 1.55; }
 .profile-pill { width: 36px; height: 36px; border: 1px solid #ded8ca; border-radius: 50%; display: grid; place-items: center; background: #d5c2a4; color: #1d2524; font: 700 11px/1 "Space Grotesk", sans-serif; cursor: pointer; }
 .page-header { max-width: 760px; }
@@ -301,6 +308,25 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .settings-card { width: 100%; }
 .category-group-row, .category-edit-list { min-width: 0; }
 .category-group-row .secondary-button { white-space: nowrap; }
+.reminder-settings-card { background: linear-gradient(135deg, #fffdf9 0%, #fcf5e7 100%); border-color: #dcc7a2; }
+.reminder-settings-head { align-items: flex-start; gap: 20px; margin-bottom: 19px; }
+.reminder-settings-head h2 { margin-top: 4px; color: #1d2524; font: 600 clamp(21px, 2.3vw, 28px)/1.12 "DM Serif Display", Georgia, serif; }
+.reminder-settings-head .category-section-note { max-width: 580px; margin-top: 7px; }
+.reminder-toggle { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid #c8b994; border-radius: 999px; background: #fffdf9; color: #5d5342; font: 700 10px/1 "Inter", sans-serif; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; transition: background .18s cubic-bezier(.23,1,.32,1), border-color .18s cubic-bezier(.23,1,.32,1), color .18s cubic-bezier(.23,1,.32,1); }
+.reminder-toggle span { width: 8px; height: 8px; border-radius: 50%; background: #9a9286; }
+.reminder-toggle:hover:not(:disabled) { border-color: #a77a34; background: #fff8e8; }
+.reminder-toggle.is-enabled { border-color: #2d6049; background: #eef6ee; color: #27543f; }
+.reminder-toggle.is-enabled span { background: #2d6049; box-shadow: 0 0 0 3px rgba(45, 96, 73, .12); }
+.reminder-toggle:disabled { cursor: not-allowed; opacity: .62; }
+.reminder-settings-controls { display: grid; grid-template-columns: minmax(180px, .72fr) minmax(220px, 1.28fr); gap: 12px; }
+.reminder-time-field, .reminder-timezone { min-height: 82px; display: grid; align-content: center; gap: 7px; padding: 13px 15px; border: 1px solid #e1d7c6; border-radius: 10px; background: rgba(255, 253, 249, .76); }
+.reminder-time-field > span, .reminder-timezone > span { color: #837766; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.reminder-time-field input { width: 100%; max-width: 150px; border: 0; padding: 0; background: transparent; color: #26322c; font: 600 17px/1 "Space Grotesk", sans-serif; outline: none; }
+.reminder-time-field input:focus-visible { outline: 2px solid #b78a3d; outline-offset: 4px; border-radius: 3px; }
+.reminder-timezone strong { color: #3a413b; font: 600 14px/1.1 "Space Grotesk", sans-serif; }
+.reminder-timezone small { color: #756e64; font-size: 10px; line-height: 1.35; }
+.reminder-settings-note, .reminder-settings-status { margin: 13px 0 0; color: #756e64; font-size: 11px; line-height: 1.45; }
+.reminder-settings-status { color: #2d6049; font-weight: 700; }
 
 .mobile-bottom-nav { display: none; }
 
@@ -322,6 +348,9 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .breadcrumb { gap: 7px; font-size: 10px; letter-spacing: .08em; }
   .breadcrumb strong { font-size: 10px; }
   .breadcrumb span { font-size: 13px; }
+  .reminder-settings-head { display: grid; }
+  .reminder-toggle { justify-self: start; }
+  .reminder-settings-controls { grid-template-columns: 1fr; }
   .icon-badge { width: 32px; height: 32px; }
   .profile-pill { width: 32px; height: 32px; font-size: 10px; }
   .page-header { align-items: start; margin-bottom: 18px; }

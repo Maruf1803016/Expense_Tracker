@@ -4,7 +4,7 @@ import { firestore } from "@/lib/firebase";
 
 // Ink & Ledger persistence note: a personal ledger keeps its compact core taxonomy intact while user-created detail remains owner-scoped.
 
-export type LedgerCollection = "accounts" | "categories" | "expenses" | "plans" | "tripPlans" | "loans" | "recurringIncomeSources";
+export type LedgerCollection = "accounts" | "categories" | "expenses" | "plans" | "tripPlans" | "loans" | "recurringIncomeSources" | "notifications" | "reminderSettings" | "deviceTokens";
 
 export interface LedgerStarterRecord {
   id: string;
