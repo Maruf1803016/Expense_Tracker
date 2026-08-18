@@ -167,8 +167,14 @@
 - [x] Verify the starter records make transaction and recurring-schedule selectors immediately usable.
 
 ## Category and subcategory icon system
-- [ ] Define a curated, sufficiently broad Lucide icon catalogue for finance categories and subcategories.
-- [ ] Give every starter category and subcategory an appropriate default icon.
-- [ ] Add a searchable icon picker to custom category and subcategory create/edit flows.
-- [ ] Persist selected icons and show them consistently in Settings, selectors, schedules, transactions, budgets, and reports.
-- [ ] Verify icon selection and display on both mobile and desktop before checkpointing.
+- [x] Define a curated, sufficiently broad Lucide icon catalogue for finance categories and subcategories.
+- [x] Give every starter category and subcategory an appropriate default icon.
+- [x] Add a searchable icon picker to custom category and subcategory create/edit flows.
+- [x] Persist selected icons and show them consistently in Settings, selectors, schedules, transactions, budgets, and reports.
+- [x] Verify icon selection and display on both mobile and desktop before checkpointing.
+
+## Compact permanent expense taxonomy
+- [x] Define four to five protected, generic top-level expense categories with rich one-level starter subcategories.
+- [x] Preserve user-created subcategories as editable records while preventing accidental deletion of the permanent top-level containers.
+- [x] Apply permanent-category markers and compatible icons throughout Settings and expense selection.
+- [x] Validate category selection, subcategory creation, responsive presentation, TypeScript, production build, and checkpoint.

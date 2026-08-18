@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 
-// Ink & Ledger IA note: the Overview is a daily field note; accounts and deep history live in dedicated destinations.
+// Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
 type TransactionType = "expense" | "income" | "transfer";
 
@@ -25,6 +25,7 @@ interface Category {
   monthlyBudget: number;
   color: string;
   icon: string;
+  isPermanent?: boolean;
 }
 
 interface Transaction {
@@ -128,6 +129,8 @@ const CATEGORY_ICON_GROUPS = [
   { label: "General", keys: ["Compass", "Calendar", "Layers", "Tag"] },
 ] as const;
 
+const PERMANENT_EXPENSE_CATEGORY_IDS = new Set(["food-dining", "home-utilities", "travel", "personal", "finance-other"]);
+
 function categoryIconForName(name: string, type: Category["type"]) {
   const value = name.toLowerCase();
   if (/food|dining|grocery|restaurant|coffee|cafe/.test(value)) return value.includes("coffee") || value.includes("cafe") ? "Coffee" : value.includes("grocery") ? "ShoppingBasket" : "Utensils";
@@ -175,7 +178,7 @@ function normaliseCategory(record: StoredRecord): Category[] {
   const id = storedString(record.id);
   const type = record.type === "income" ? "income" : "expense";
   const name = storedString(record.name, "Untitled category");
-  const base: Category = { id, name, type, parentId, monthlyBudget: storedNumber(record.monthlyBudget ?? record.budget), color: storedString(record.color, type === "income" ? "#2c5234" : "#1b3a2b"), icon: storedString(record.icon ?? record.iconKey, categoryIconForName(name, type)) };
+  const base: Category = { id, name, type, parentId, monthlyBudget: storedNumber(record.monthlyBudget ?? record.budget), color: storedString(record.color, type === "income" ? "#2c5234" : "#1b3a2b"), icon: storedString(record.icon ?? record.iconKey, categoryIconForName(name, type)), isPermanent: record.isPermanent === true || (type === "expense" && !parentId && PERMANENT_EXPENSE_CATEGORY_IDS.has(id)) };
   const embeddedSubcategories = type === "expense" && !parentId ? storedArray(record.subCategories ?? record.subcategories) : [];
   return [base, ...embeddedSubcategories.map((item, index) => {
     const sub = (item ?? {}) as StoredRecord;
@@ -302,16 +305,25 @@ const INITIAL_ACCOUNTS: Account[] = [
 ];
 
 const INITIAL_CATEGORIES: Category[] = [
-  { id: "food", name: "Food & Dining", type: "expense", monthlyBudget: 800, color: "#1b3a2b", icon: "Utensils" },
-  { id: "food-groceries", name: "Groceries", type: "expense", parentId: "food", monthlyBudget: 0, color: "#1b3a2b", icon: "ShoppingBasket" },
-  { id: "food-restaurants", name: "Restaurants & Cafes", type: "expense", parentId: "food", monthlyBudget: 0, color: "#1b3a2b", icon: "Coffee" },
-  { id: "home", name: "Home & Utilities", type: "expense", monthlyBudget: 1500, color: "#3d5a45", icon: "House" },
-  { id: "home-rent", name: "Rent & Mortgage", type: "expense", parentId: "home", monthlyBudget: 0, color: "#3d5a45", icon: "House" },
-  { id: "home-utilities", name: "Utilities & Fiber", type: "expense", parentId: "home", monthlyBudget: 0, color: "#3d5a45", icon: "Wifi" },
-  { id: "travel", name: "Travel", type: "expense", monthlyBudget: 1000, color: "#8c6d36", icon: "Plane" },
-  { id: "travel-stays", name: "Stays & Transit", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Train" },
-  { id: "personal", name: "Personal", type: "expense", monthlyBudget: 400, color: "#5b4a6f", icon: "Sparkles" },
-  { id: "personal-shopping", name: "Shopping & Books", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "ShoppingBag" },
+  { id: "food-dining", name: "Food & Dining", type: "expense", monthlyBudget: 800, color: "#1b3a2b", icon: "Utensils", isPermanent: true },
+  { id: "food-groceries", name: "Groceries", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "ShoppingBasket" },
+  { id: "food-restaurants", name: "Restaurants & Cafes", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "Coffee" },
+  { id: "food-delivery", name: "Delivery & Takeaway", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "Pizza" },
+  { id: "home-utilities", name: "Home & Bills", type: "expense", monthlyBudget: 1500, color: "#3d5a45", icon: "House", isPermanent: true },
+  { id: "home-rent", name: "Rent & Mortgage", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "House" },
+  { id: "home-energy", name: "Utilities", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "Lightbulb" },
+  { id: "home-internet", name: "Phone & Internet", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "Wifi" },
+  { id: "travel", name: "Transport & Travel", type: "expense", monthlyBudget: 1000, color: "#8c6d36", icon: "Plane", isPermanent: true },
+  { id: "transport-local", name: "Fuel, Transit & Rides", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Car" },
+  { id: "travel-stays", name: "Trips & Stays", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Train" },
+  { id: "personal", name: "Personal & Lifestyle", type: "expense", monthlyBudget: 400, color: "#5b4a6f", icon: "Sparkles", isPermanent: true },
+  { id: "personal-health", name: "Health & Pharmacy", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "HeartPulse" },
+  { id: "personal-shopping", name: "Shopping & Clothing", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "ShoppingBag" },
+  { id: "personal-leisure", name: "Entertainment & Subscriptions", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "Film" },
+  { id: "finance-other", name: "Finance & Other", type: "expense", monthlyBudget: 300, color: "#6b5a3c", icon: "Wallet", isPermanent: true },
+  { id: "finance-fees", name: "Fees & Taxes", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "ReceiptText" },
+  { id: "finance-giving", name: "Gifts & Giving", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "Gift" },
+  { id: "finance-other-detail", name: "Other expense", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "Tag" },
   { id: "income-salary", name: "Salary", type: "income", monthlyBudget: 0, color: "#2c5234", icon: "BriefcaseBusiness" },
   { id: "income-freelance", name: "Freelance income", type: "income", monthlyBudget: 0, color: "#32603c", icon: "Laptop" },
   { id: "income-gifts", name: "Gifts & Dividends", type: "income", monthlyBudget: 0, color: "#3a6e45", icon: "Gift" },
@@ -327,15 +339,25 @@ const PERSONAL_LEDGER_STARTER_ACCOUNT: Account = {
 };
 
 const PERSONAL_LEDGER_STARTER_CATEGORIES: Category[] = [
-  { id: "food-dining", name: "Food & Dining", type: "expense", monthlyBudget: 0, color: "#1b3a2b", icon: "Utensils" },
+  { id: "food-dining", name: "Food & Dining", type: "expense", monthlyBudget: 0, color: "#1b3a2b", icon: "Utensils", isPermanent: true },
   { id: "food-groceries", name: "Groceries", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "ShoppingBasket" },
   { id: "food-restaurants", name: "Restaurants & Cafes", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "Coffee" },
-  { id: "home-utilities", name: "Home & Utilities", type: "expense", monthlyBudget: 0, color: "#3d5a45", icon: "House" },
-  { id: "home-rent-bills", name: "Rent, Bills & Internet", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "ReceiptText" },
-  { id: "travel", name: "Travel", type: "expense", monthlyBudget: 0, color: "#8c6d36", icon: "Plane" },
-  { id: "travel-transport", name: "Transport & Stays", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Train" },
-  { id: "personal", name: "Personal", type: "expense", monthlyBudget: 0, color: "#5b4a6f", icon: "Sparkles" },
-  { id: "personal-shopping", name: "Shopping & Personal care", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "ShoppingBag" },
+  { id: "food-delivery", name: "Delivery & Takeaway", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b", icon: "Pizza" },
+  { id: "home-utilities", name: "Home & Bills", type: "expense", monthlyBudget: 0, color: "#3d5a45", icon: "House", isPermanent: true },
+  { id: "home-rent-bills", name: "Rent & Mortgage", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "House" },
+  { id: "home-energy", name: "Utilities", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "Lightbulb" },
+  { id: "home-internet", name: "Phone & Internet", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45", icon: "Wifi" },
+  { id: "travel", name: "Transport & Travel", type: "expense", monthlyBudget: 0, color: "#8c6d36", icon: "Plane", isPermanent: true },
+  { id: "travel-transport", name: "Fuel, Transit & Rides", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Car" },
+  { id: "travel-stays", name: "Trips & Stays", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36", icon: "Train" },
+  { id: "personal", name: "Personal & Lifestyle", type: "expense", monthlyBudget: 0, color: "#5b4a6f", icon: "Sparkles", isPermanent: true },
+  { id: "personal-health", name: "Health & Pharmacy", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "HeartPulse" },
+  { id: "personal-shopping", name: "Shopping & Clothing", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "ShoppingBag" },
+  { id: "personal-leisure", name: "Entertainment & Subscriptions", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f", icon: "Film" },
+  { id: "finance-other", name: "Finance & Other", type: "expense", monthlyBudget: 0, color: "#6b5a3c", icon: "Wallet", isPermanent: true },
+  { id: "finance-fees", name: "Fees & Taxes", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "ReceiptText" },
+  { id: "finance-giving", name: "Gifts & Giving", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "Gift" },
+  { id: "finance-other-detail", name: "Other expense", type: "expense", parentId: "finance-other", monthlyBudget: 0, color: "#6b5a3c", icon: "Tag" },
   { id: "income-salary", name: "Salary", type: "income", monthlyBudget: 0, color: "#2c5234", icon: "BriefcaseBusiness" },
   { id: "income-freelance", name: "Freelance income", type: "income", monthlyBudget: 0, color: "#32603c", icon: "Laptop" },
   { id: "income-other", name: "Other income", type: "income", monthlyBudget: 0, color: "#3a6e45", icon: "Banknote" },
@@ -344,7 +366,7 @@ const PERSONAL_LEDGER_STARTER_CATEGORIES: Category[] = [
 const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: "tx-1", merchantNote: "Northline Studio", amount: 1840, type: "income", accountId: "acc-1", categoryId: "income-freelance", date: "2026-08-16", icon: "ArrowDownRight" },
   { id: "tx-2", merchantNote: "Botanica Market", amount: 124.5, type: "expense", accountId: "acc-1", categoryId: "food-groceries", date: "2026-08-15", icon: "ShoppingCart" },
-  { id: "tx-3", merchantNote: "Power & Water Board", amount: 165, type: "expense", accountId: "acc-1", categoryId: "home-utilities", date: "2026-08-14", icon: "Zap" },
+  { id: "tx-3", merchantNote: "Power & Water Board", amount: 165, type: "expense", accountId: "acc-1", categoryId: "home-energy", date: "2026-08-14", icon: "Zap" },
   { id: "tx-4", merchantNote: "Air France · Lisbon", amount: 480, type: "expense", accountId: "acc-3", categoryId: "travel-stays", date: "2026-08-12", tag: { tripId: "trip-1" }, icon: "Compass" },
   { id: "tx-5", merchantNote: "Monthly Salary", amount: 3100, type: "income", accountId: "acc-1", categoryId: "income-salary", date: "2026-08-01", icon: "Briefcase" },
   { id: "tx-6", merchantNote: "Reserve Sweep", amount: 500, type: "transfer", accountId: "acc-1", destinationAccountId: "acc-2", date: "2026-08-10", icon: "Repeat" },
@@ -375,7 +397,7 @@ const INITIAL_LOANS: Loan[] = [
 const INITIAL_SCHEDULES: RecurringSchedule[] = [
   { id: "schedule-1", name: "Monthly salary", amount: 3100, type: "income", frequency: "monthly", accountId: "acc-1", categoryId: "income-salary", nextDueDate: "2026-09-01", status: "active", history: [{ id: "schedule-occurrence-1", scheduledFor: "2026-08-01", recordedAt: "2026-08-01", transactionId: "tx-5" }] },
   { id: "schedule-2", name: "Studio retainer", amount: 1840, type: "income", frequency: "monthly", accountId: "acc-1", categoryId: "income-freelance", nextDueDate: "2026-09-16", status: "active", history: [{ id: "schedule-occurrence-2", scheduledFor: "2026-08-16", recordedAt: "2026-08-16", transactionId: "tx-1" }] },
-  { id: "schedule-3", name: "Power & water board", amount: 165, type: "expense", frequency: "monthly", accountId: "acc-1", categoryId: "home-utilities", nextDueDate: "2026-08-20", status: "active", history: [{ id: "schedule-occurrence-3", scheduledFor: "2026-08-14", recordedAt: "2026-08-14", transactionId: "tx-3" }] },
+  { id: "schedule-3", name: "Power & water board", amount: 165, type: "expense", frequency: "monthly", accountId: "acc-1", categoryId: "home-energy", nextDueDate: "2026-08-20", status: "active", history: [{ id: "schedule-occurrence-3", scheduledFor: "2026-08-14", recordedAt: "2026-08-14", transactionId: "tx-3" }] },
   { id: "schedule-4", name: "Market pantry", amount: 124.5, type: "expense", frequency: "weekly", accountId: "acc-1", categoryId: "food-groceries", nextDueDate: "2026-08-22", status: "paused", history: [{ id: "schedule-occurrence-4", scheduledFor: "2026-08-15", recordedAt: "2026-08-15", transactionId: "tx-2" }] },
 ];
 
@@ -424,7 +446,7 @@ export default function Home() {
     type: "expense",
     accountId: "acc-1",
     destinationAccountId: "acc-2",
-    categoryId: "food",
+    categoryId: "food-dining",
     date: new Date().toISOString().slice(0, 10),
     goalId: "none",
     tripId: "none",
@@ -546,6 +568,11 @@ export default function Home() {
   }, [user]);
 
   const deleteCategory = (categoryId: string) => {
+    const category = categories.find((item) => item.id === categoryId);
+    if (category?.isPermanent) {
+      alert("This is a permanent expense type. You can add detailed subcategories beneath it, but the container stays in place.");
+      return;
+    }
     const idsToDelete = categories.filter((category) => category.id === categoryId || category.parentId === categoryId).map((category) => category.id);
     setCategories((current) => current.filter((category) => !idsToDelete.includes(category.id)));
     idsToDelete.forEach((id) => void deletePersistedRecord("categories", id));
@@ -846,7 +873,7 @@ export default function Home() {
       type: transaction.type,
       accountId: transaction.accountId,
       destinationAccountId: transaction.destinationAccountId ?? accounts[1]?.id ?? "acc-2",
-      categoryId: transaction.categoryId ?? categories.find(c => c.type === "expense" && !c.parentId)?.id ?? "food",
+      categoryId: transaction.categoryId ?? categories.find(c => c.type === "expense" && !c.parentId)?.id ?? "food-dining",
       date: transaction.date,
       goalId: transaction.tag?.goalId ?? "none",
       tripId: transaction.tag?.tripId ?? "none",
@@ -876,7 +903,7 @@ export default function Home() {
     setScheduleTypeInput("expense");
     setScheduleFrequencyInput("monthly");
     setScheduleAccountInput(accounts[0]?.id ?? "acc-1");
-    setScheduleCategoryInput(categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? "food");
+    setScheduleCategoryInput(categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? "food-dining");
   };
 
   const saveDraft = () => {
@@ -1148,7 +1175,6 @@ export default function Home() {
             <SettingsView
               categories={categories}
               subcategorySpent={subcategorySpent}
-              onOpenAddCategory={() => { setCatTypeInput("expense"); setDraft("category"); }}
               onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
               onDeleteCategory={deleteCategory}
@@ -1702,9 +1728,9 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
   );
 }
 
-function SettingsView({ categories, subcategorySpent, onOpenAddCategory, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory }: {
+function SettingsView({ categories, subcategorySpent, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory }: {
   categories: Category[]; subcategorySpent: Record<string, number>;
-  onOpenAddCategory: () => void; onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
+  onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
 }) {
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
@@ -1715,8 +1741,7 @@ function SettingsView({ categories, subcategorySpent, onOpenAddCategory, onOpenA
       <div style={{ display: "grid", gap: 24 }}>
         <article className="paper-card settings-card" style={{ padding: 24 }}>
           <div className="section-head" style={{ marginBottom: 16 }}>
-            <h2>Expense Categories ({expenseTop.length})</h2>
-            <button className="add-button" onClick={onOpenAddCategory}><Plus size={15} /><span>Add expense category</span></button>
+            <div><h2>Expense Categories ({expenseTop.length})</h2><p className="category-section-note">Five permanent money types. Add as many detailed subcategories as you need.</p></div>
           </div>
           <div className="category-edit-list" style={{ display: "grid", gap: 12 }}>
             {expenseTop.map((cat) => {
@@ -1727,11 +1752,12 @@ function SettingsView({ categories, subcategorySpent, onOpenAddCategory, onOpenA
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <span className="category-symbol" style={{ color: cat.color }}><CategoryIcon icon={cat.icon} size={17} /></span>
                       <strong style={{ fontSize: 15 }}>{cat.name}</strong>
+                      {cat.isPermanent && <span className="permanent-category-tag">Permanent type</span>}
                       <span className="cat-budget-tag" style={{ fontSize: 12, color: "#666", background: "#eee", padding: "2px 8px", borderRadius: 6 }}>Budget: {fmt.format(cat.monthlyBudget)}</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <button className="secondary-button" style={{ fontSize: 11, padding: "6px 10px" }} onClick={() => onOpenAddSub(cat.id)}><FolderPlus size={13} /> Add subcategory</button>
-                      <button className="delete-button" onClick={() => onDeleteCategory(cat.id)}><Trash2 size={13} /></button>
+                      {!cat.isPermanent && <button className="delete-button" onClick={() => onDeleteCategory(cat.id)} aria-label={`Delete ${cat.name}`}><Trash2 size={13} /></button>}
                     </div>
                   </div>
                   {subs.length > 0 && (
@@ -1790,6 +1816,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
   const scheduleCategories = categories.filter((category) => category.type === scheduleType);
+  const categoryPath = (category: Category) => category.parentId ? `${categories.find((parent) => parent.id === category.parentId)?.name ?? "Expense"} → ${category.name}` : category.name;
 
   const currentCategory = categories.find((category) => category.id === transaction.categoryId);
   const initialParentId = currentCategory?.parentId ?? (currentCategory?.type === "expense" ? currentCategory.id : expenseTop[0]?.id ?? "");
@@ -1806,7 +1833,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         <div className="draft-top"><div><div className="draft-kicker">{descriptor}</div><h2>{heading}</h2></div><button className="close-button" onClick={onClose} aria-label="Close"><X size={17} /></button></div>
         
         {kind === "transaction" && <>
-          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => { if (type === "expense") { const parentId = expenseTop[0]?.id ?? "food"; setSelectedParentId(parentId); setExpenseCategoryPickerOpen(false); setSubcategoryPickerOpen(false); update({ type, categoryId: parentId }); } else { update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "income-salary") : transaction.categoryId }); } }}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
+          <div className="form-field"><label>Movement</label><div className="type-options">{(["expense", "income", "transfer"] as const).map((type) => <button key={type} className={`type-option ${transaction.type === type ? "active" : ""}`} onClick={() => { if (type === "expense") { const parentId = expenseTop[0]?.id ?? ""; setSelectedParentId(parentId); setExpenseCategoryPickerOpen(false); setSubcategoryPickerOpen(false); update({ type, categoryId: parentId }); } else { update({ type, categoryId: type === "income" ? (incomeList[0]?.id ?? "") : transaction.categoryId }); } }}>{type[0].toUpperCase() + type.slice(1)}</button>)}</div></div>
           <div className="form-field"><label>Merchant or note</label><input value={transaction.merchantNote} onChange={(event) => update({ merchantNote: event.target.value })} placeholder={transaction.type === "transfer" ? "e.g. Contribution to reserve" : "e.g. Sunday market"} autoFocus /></div>
           <div className="form-field"><label>Amount</label><input value={transaction.amount} onChange={(event) => update({ amount: event.target.value.replace(/[^0-9.]/g, "") })} placeholder="0.00" inputMode="decimal" /></div>
           <div className="form-field"><label>{transaction.type === "transfer" ? "From account" : "Account"}</label><select value={transaction.accountId} onChange={(event) => update({ accountId: event.target.value })}>{accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>)}</select></div>
@@ -1890,7 +1917,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Expected amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></div>
           <div className="form-field"><label>Frequency</label><select value={scheduleFrequency} onChange={(event) => onScheduleFrequency(event.target.value as ScheduleFrequency)}><option value="weekly">Weekly</option><option value="biweekly">Every two weeks</option><option value="monthly">Monthly</option></select></div>
           <div className="form-field"><label>Account</label><select value={scheduleAccount} onChange={(event) => onScheduleAccount(event.target.value)} disabled={!accounts.length}>{accounts.length ? accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.kind}</option>) : <option value="">Preparing your Main Account…</option>}</select>{!accounts.length && <small>Your private ledger is preparing its first account.</small>}</div>
-          <div className="form-field"><label>Category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)} disabled={!scheduleCategories.length}>{scheduleCategories.length ? scheduleCategories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `${category.parentId === "food-dining" ? "Food & Dining" : category.parentId === "home-utilities" ? "Home & Utilities" : category.parentId === "travel" ? "Travel" : "Personal"} → ${category.name}` : category.name}</option>) : <option value="">Preparing bill categories…</option>}</select>{scheduleCategories.length > 0 && <small className="selected-category-caption"><CategoryIcon icon={scheduleCategories.find((category) => category.id === scheduleCategory)?.icon} size={13} /> This schedule uses the selected category symbol.</small>}{!scheduleCategories.length && <small>Starter categories and subcategories are being added to your private ledger.</small>}</div>
+          <div className="form-field"><label>Category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)} disabled={!scheduleCategories.length}>{scheduleCategories.length ? scheduleCategories.map((category) => <option key={category.id} value={category.id}>{categoryPath(category)}</option>) : <option value="">Preparing bill categories…</option>}</select>{scheduleCategories.length > 0 && <small className="selected-category-caption"><CategoryIcon icon={scheduleCategories.find((category) => category.id === scheduleCategory)?.icon} size={13} /> This schedule uses the selected category symbol.</small>}{!scheduleCategories.length && <small>Starter categories and subcategories are being added to your private ledger.</small>}</div>
           <div className="form-field"><label>Next due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
           <p className="form-field-note">When you mark this schedule paid or received, its matching entry is added to the ledger and the next due date moves forward.</p>
         </>}

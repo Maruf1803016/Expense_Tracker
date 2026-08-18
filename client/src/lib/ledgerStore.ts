@@ -2,7 +2,7 @@
 import { collection, deleteDoc, doc, onSnapshot, runTransaction, setDoc, type DocumentData, type Unsubscribe } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
-// Ink & Ledger persistence note: a personal ledger is provisioned only once, inside the signed-in owner’s document tree.
+// Ink & Ledger persistence note: a personal ledger keeps its compact core taxonomy intact while user-created detail remains owner-scoped.
 
 export type LedgerCollection = "accounts" | "categories" | "expenses" | "plans" | "tripPlans" | "loans" | "recurringIncomeSources";
 
@@ -52,26 +52,33 @@ export async function ensureLedgerStarter(
 
   return runTransaction(firestore, async (transaction) => {
     const marker = await transaction.get(markerRef);
-    if (marker.exists()) return false;
+    const starterCategoryRefs = starter.categories.map((category) => ({
+      category,
+      ref: doc(firestore, "users", userId, "categories", category.id),
+    }));
+    const starterCategorySnapshots = await Promise.all(starterCategoryRefs.map(({ ref }) => transaction.get(ref)));
+    let changed = false;
 
-    if (!existing.hasAccounts) {
+    if (!existing.hasAccounts && !marker.exists()) {
       const { id, ...account } = starter.account;
       transaction.set(doc(firestore, "users", userId, "accounts", id), stripUndefined(account) as DocumentData);
+      changed = true;
     }
 
-    if (!existing.hasCategories) {
-      starter.categories.forEach((category) => {
+    starterCategoryRefs.forEach(({ category }, index) => {
+      if (!starterCategorySnapshots[index].exists()) {
         const { id, ...data } = category;
         transaction.set(doc(firestore, "users", userId, "categories", id), stripUndefined(data) as DocumentData);
-      });
-    }
+        changed = true;
+      }
+    });
 
     transaction.set(markerRef, {
-      starterVersion: 1,
+      starterVersion: 2,
       completedAt: new Date().toISOString(),
-      createdAccount: !existing.hasAccounts,
+      createdAccount: !existing.hasAccounts && !marker.exists(),
       createdCategories: !existing.hasCategories,
-    });
-    return true;
+    }, { merge: true });
+    return changed;
   });
 }
