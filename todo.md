@@ -154,3 +154,14 @@
 ## Authentication language correction
 - [x] Replace developer/demo-centric authentication language with clear, user-owned personal-ledger copy.
 - [x] Verify the revised sign-in and account-creation drawer remains readable and reassuring on mobile.
+
+## Authenticated schedule prerequisites
+- [x] Make an empty Account selector clearly explain what is missing and provide a direct create/select path.
+- [x] Make an empty Category selector clearly explain what is missing and provide a direct create/select path for the selected schedule type.
+- [x] Verify that a new signed-in user can finish creating a recurring income or bill without navigating away from the schedule workflow.
+
+## First-run personal ledger setup
+- [x] Create a user-scoped Main Account automatically when a signed-in ledger has no accounts.
+- [x] Create editable starter expense categories, one-level expense subcategories, and income categories when a signed-in ledger has no categories.
+- [x] Make the initialization idempotent so reconnecting, refreshing, or retrying never duplicates starter records.
+- [x] Verify the starter records make transaction and recurring-schedule selectors immediately usable.

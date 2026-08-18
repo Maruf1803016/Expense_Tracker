@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
-import { removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
+import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 
 // Ink & Ledger IA note: the Overview is a daily field note; accounts and deep history live in dedicated destinations.
 
@@ -274,6 +274,30 @@ const INITIAL_CATEGORIES: Category[] = [
   { id: "income-gifts", name: "Gifts & Dividends", type: "income", monthlyBudget: 0, color: "#3a6e45" },
 ];
 
+const PERSONAL_LEDGER_STARTER_ACCOUNT: Account = {
+  id: "personal-main-account",
+  name: "Main Account",
+  kind: "asset",
+  balance: 0,
+  accountNumber: "—",
+  color: "#1b3a2b",
+};
+
+const PERSONAL_LEDGER_STARTER_CATEGORIES: Category[] = [
+  { id: "food-dining", name: "Food & Dining", type: "expense", monthlyBudget: 0, color: "#1b3a2b" },
+  { id: "food-groceries", name: "Groceries", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b" },
+  { id: "food-restaurants", name: "Restaurants & Cafes", type: "expense", parentId: "food-dining", monthlyBudget: 0, color: "#1b3a2b" },
+  { id: "home-utilities", name: "Home & Utilities", type: "expense", monthlyBudget: 0, color: "#3d5a45" },
+  { id: "home-rent-bills", name: "Rent, Bills & Internet", type: "expense", parentId: "home-utilities", monthlyBudget: 0, color: "#3d5a45" },
+  { id: "travel", name: "Travel", type: "expense", monthlyBudget: 0, color: "#8c6d36" },
+  { id: "travel-transport", name: "Transport & Stays", type: "expense", parentId: "travel", monthlyBudget: 0, color: "#8c6d36" },
+  { id: "personal", name: "Personal", type: "expense", monthlyBudget: 0, color: "#5b4a6f" },
+  { id: "personal-shopping", name: "Shopping & Personal care", type: "expense", parentId: "personal", monthlyBudget: 0, color: "#5b4a6f" },
+  { id: "income-salary", name: "Salary", type: "income", monthlyBudget: 0, color: "#2c5234" },
+  { id: "income-freelance", name: "Freelance income", type: "income", monthlyBudget: 0, color: "#32603c" },
+  { id: "income-other", name: "Other income", type: "income", monthlyBudget: 0, color: "#3a6e45" },
+];
+
 const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: "tx-1", merchantNote: "Northline Studio", amount: 1840, type: "income", accountId: "acc-1", categoryId: "income-freelance", date: "2026-08-16", icon: "ArrowDownRight" },
   { id: "tx-2", merchantNote: "Botanica Market", amount: 124.5, type: "expense", accountId: "acc-1", categoryId: "food-groceries", date: "2026-08-15", icon: "ShoppingCart" },
@@ -384,6 +408,8 @@ export default function Home() {
   const [authEmailInput, setAuthEmailInput] = useState("");
   const [authPasswordInput, setAuthPasswordInput] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [cloudPrerequisitesLoaded, setCloudPrerequisitesLoaded] = useState({ accounts: false, categories: false });
+  const [starterRequestedFor, setStarterRequestedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -396,19 +422,23 @@ export default function Home() {
       setSchedules(INITIAL_SCHEDULES);
       setCloudStatus("demo");
       setCloudError(null);
+      setCloudPrerequisitesLoaded({ accounts: false, categories: false });
+      setStarterRequestedFor(null);
       return;
     }
 
     setCloudStatus("loading");
     setCloudError(null);
+    setCloudPrerequisitesLoaded({ accounts: false, categories: false });
+    setStarterRequestedFor(null);
     const handleError = () => {
       setCloudStatus("error");
       setCloudError("Cloud ledger access was interrupted. Check your Firestore rules or connection, then refresh to retry.");
     };
     const received = () => setCloudStatus("synced");
     const unsubscribes = [
-      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "accounts", (records) => { setAccounts(records.map(normaliseAccount)); received(); }, handleError),
-      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "categories", (records) => { const flattened = records.flatMap(normaliseCategory); setCategories(Array.from(new Map(flattened.map((record) => [record.id, record])).values())); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "accounts", (records) => { setAccounts(records.map(normaliseAccount)); setCloudPrerequisitesLoaded((current) => ({ ...current, accounts: true })); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "categories", (records) => { const flattened = records.flatMap(normaliseCategory); setCategories(Array.from(new Map(flattened.map((record) => [record.id, record])).values())); setCloudPrerequisitesLoaded((current) => ({ ...current, categories: true })); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "expenses", (records) => { setTransactions(records.map(normaliseTransaction)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "plans", (records) => { setGoals(records.map(normaliseGoal)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "tripPlans", (records) => { setTrips(records.map(normaliseTrip)); received(); }, handleError),
@@ -417,6 +447,34 @@ export default function Home() {
     ];
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !cloudPrerequisitesLoaded.accounts || !cloudPrerequisitesLoaded.categories || starterRequestedFor === user.uid) return;
+
+    setStarterRequestedFor(user.uid);
+    void ensureLedgerStarter(
+      user.uid,
+      {
+        account: { ...PERSONAL_LEDGER_STARTER_ACCOUNT, initialBalance: PERSONAL_LEDGER_STARTER_ACCOUNT.balance },
+        categories: PERSONAL_LEDGER_STARTER_CATEGORIES.map((category) => ({ ...category, parent_id: category.parentId ?? null })),
+      },
+      { hasAccounts: accounts.length > 0, hasCategories: categories.length > 0 },
+    ).then(() => {
+      setCloudStatus("synced");
+    }).catch(() => {
+      setCloudStatus("error");
+      setCloudError("Your starter account and categories could not be prepared. Refresh to retry once your connection is stable.");
+    });
+  }, [accounts.length, categories.length, cloudPrerequisitesLoaded, starterRequestedFor, user]);
+
+  useEffect(() => {
+    if (draft !== "schedule" || editingScheduleId) return;
+    if (!scheduleAccountInput && accounts[0]) setScheduleAccountInput(accounts[0].id);
+    if (!scheduleCategoryInput) {
+      const matchingCategory = categories.find((category) => category.type === scheduleTypeInput && !category.parentId) ?? categories.find((category) => category.type === scheduleTypeInput);
+      if (matchingCategory) setScheduleCategoryInput(matchingCategory.id);
+    }
+  }, [accounts, categories, draft, editingScheduleId, scheduleAccountInput, scheduleCategoryInput, scheduleTypeInput]);
 
   const persistRecord = useCallback(async <T extends { id: string }>(collectionName: LedgerCollection, record: T) => {
     if (!user) return;
@@ -570,11 +628,11 @@ export default function Home() {
   };
 
   const startCreatingSchedule = () => {
-    const expenseCategory = categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? "food";
+    const expenseCategory = categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? categories.find((category) => category.type === "expense")?.id ?? "";
     setEditingScheduleId(null);
     setScheduleTypeInput("expense");
     setScheduleFrequencyInput("monthly");
-    setScheduleAccountInput(accounts[0]?.id ?? "acc-1");
+    setScheduleAccountInput(accounts[0]?.id ?? "");
     setScheduleCategoryInput(expenseCategory);
     setDraftTitle("");
     setDraftAmount("");
@@ -724,9 +782,9 @@ export default function Home() {
       merchantNote: "",
       amount: "",
       type: "expense",
-      accountId: accounts[0]?.id ?? "acc-1",
-      destinationAccountId: accounts[1]?.id ?? "acc-2",
-      categoryId: categories.find(c => c.type === "expense" && !c.parentId)?.id ?? "food",
+      accountId: accounts[0]?.id ?? "",
+      destinationAccountId: accounts[1]?.id ?? accounts[0]?.id ?? "",
+      categoryId: categories.find(c => c.type === "expense" && !c.parentId)?.id ?? categories.find(c => c.type === "expense")?.id ?? "",
       date: new Date().toISOString().slice(0, 10),
       goalId: "none",
       tripId: "none",
@@ -1778,8 +1836,8 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Schedule name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder={scheduleType === "income" ? "e.g. Monthly salary" : "e.g. Internet service"} autoFocus /></div>
           <div className="form-field"><label>Expected amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></div>
           <div className="form-field"><label>Frequency</label><select value={scheduleFrequency} onChange={(event) => onScheduleFrequency(event.target.value as ScheduleFrequency)}><option value="weekly">Weekly</option><option value="biweekly">Every two weeks</option><option value="monthly">Monthly</option></select></div>
-          <div className="form-field"><label>Account</label><select value={scheduleAccount} onChange={(event) => onScheduleAccount(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.kind}</option>)}</select></div>
-          <div className="form-field"><label>Category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)}>{scheduleCategories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `↳ ${category.name}` : category.name}</option>)}</select></div>
+          <div className="form-field"><label>Account</label><select value={scheduleAccount} onChange={(event) => onScheduleAccount(event.target.value)} disabled={!accounts.length}>{accounts.length ? accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.kind}</option>) : <option value="">Preparing your Main Account…</option>}</select>{!accounts.length && <small>Your private ledger is preparing its first account.</small>}</div>
+          <div className="form-field"><label>Category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)} disabled={!scheduleCategories.length}>{scheduleCategories.length ? scheduleCategories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `${category.parentId === "food-dining" ? "Food & Dining" : category.parentId === "home-utilities" ? "Home & Utilities" : category.parentId === "travel" ? "Travel" : "Personal"} → ${category.name}` : category.name}</option>) : <option value="">Preparing bill categories…</option>}</select>{!scheduleCategories.length && <small>Starter categories and subcategories are being added to your private ledger.</small>}</div>
           <div className="form-field"><label>Next due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
           <p className="form-field-note">When you mark this schedule paid or received, its matching entry is added to the ledger and the next due date moves forward.</p>
         </>}
