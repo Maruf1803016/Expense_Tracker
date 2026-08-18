@@ -1185,14 +1185,14 @@ export default function Home() {
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
           <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="draft-top"><div><div className="draft-kicker">{user ? "Authenticated account" : "Personal cloud ledger"}</div><h2>{user ? "Profile & cloud sync" : "Sign in to your ledger"}</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
+            <div className="draft-top"><div><div className="draft-kicker">{user ? "Your personal account" : "Your personal expense tracker"}</div><h2>{user ? "Profile & saved records" : "Keep your money record close."}</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
             {authLoading ? <div className="empty-hint" style={{ margin: "26px 0" }}>Checking your session…</div> : user ? <>
               <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "20px 0", padding: "18px", background: "#f8f4ec", borderRadius: 14, border: "1px solid #ded8ca" }}>
                 <div className="profile-dot" style={{ width: 52, height: 52, fontSize: 18, background: "#1b3a2b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontWeight: 600 }}>{(user.email?.slice(0, 2) || "IL").toUpperCase()}</div>
                 <div><strong style={{ fontSize: 17, display: "block", fontFamily: "Space Grotesk, sans-serif" }}>{user.email?.split("@")[0] || "Ledger owner"}</strong><span style={{ color: "#777", fontSize: 13 }}>{user.email}</span></div>
               </div>
               <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-                <div className="field-note-row"><span>Cloud sync</span><b>{cloudStatus === "synced" ? "Live and saved" : cloudStatus === "loading" ? "Loading your ledger" : cloudStatus === "error" ? "Needs attention" : "Local demonstration"}</b></div>
+                <div className="field-note-row"><span>Saving status</span><b>{cloudStatus === "synced" ? "Saved to your account" : cloudStatus === "loading" ? "Loading your records" : cloudStatus === "error" ? "Needs attention" : "Not signed in"}</b></div>
                 <div className="field-note-row"><span>Provider</span><b>Email and password</b></div>
                 <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
                 <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
@@ -1200,11 +1200,11 @@ export default function Home() {
               {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}
               <div className="draft-actions"><button className="secondary-button" onClick={resetDraft}><ShieldCheck size={16} /> Continue to ledger</button><button className="delete-button" onClick={() => { void signOut(); resetDraft(); }}><LogOut size={16} /> Sign out</button></div>
             </> : <>
-              <p className="draft-copy">Sign in to keep accounts, entries, goals, plans, loans, and schedules under your own Firebase account. The present demonstration records stay local and are never uploaded.</p>
+              <p className="draft-copy">Create a personal account to save your expenses, income, accounts, goals, plans, loans, and schedules. When you return, sign in to continue with the same money record.</p>
               <div className="filter-row" style={{ margin: "18px 0" }}><button className={`filter-button ${profileMode === "signIn" ? "active" : ""}`} onClick={() => { setProfileMode("signIn"); clearError(); }}>Sign in</button><button className={`filter-button ${profileMode === "signUp" ? "active" : ""}`} onClick={() => { setProfileMode("signUp"); clearError(); }}>Create account</button></div>
               <div className="draft-fields"><label className="form-field"><span>Email address</span><input type="email" value={authEmailInput} onChange={(event) => setAuthEmailInput(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label><label className="form-field"><span>Password</span><input type="password" value={authPasswordInput} onChange={(event) => setAuthPasswordInput(event.target.value)} placeholder="At least 6 characters" minLength={6} autoComplete={profileMode === "signUp" ? "new-password" : "current-password"} /></label></div>
               {(authError || cloudError) && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginTop: 16 }}>{authError || cloudError}</p>}
-              <div className="draft-actions" style={{ marginTop: 22 }}><button className="primary-button draft-submit" disabled={authSubmitting} onClick={() => void submitAuthentication()}>{authSubmitting ? "Working…" : profileMode === "signUp" ? "Create secure ledger" : "Open my ledger"}</button><button className="secondary-button" onClick={resetDraft}>Continue in demo</button></div>
+              <div className="draft-actions" style={{ marginTop: 22 }}><button className="primary-button draft-submit" disabled={authSubmitting} onClick={() => void submitAuthentication()}>{authSubmitting ? "Working…" : profileMode === "signUp" ? "Create my account" : "Sign in"}</button><button className="secondary-button" onClick={resetDraft}>Explore without an account</button></div>
             </>}
           </aside>
         </div>

@@ -143,3 +143,7 @@
 - [ ] Migrate the existing local prototype records only after a verified authenticated session and with clear failure recovery.
 - [x] Run the TypeScript checker and production build for the Firebase browser integration.
 - [ ] Validate persistence across a signed-in refresh, logout/login, Firestore-permission error state, and checkpoint the integration.
+
+## Authentication language correction
+- [x] Replace developer/demo-centric authentication language with clear, user-owned personal-ledger copy.
+- [x] Verify the revised sign-in and account-creation drawer remains readable and reassuring on mobile.
