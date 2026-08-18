@@ -85,3 +85,8 @@
 - [x] Show daily and weekly savings requirements plus progress and deadline pacing in goal cards and detail sheets.
 - [x] Expand goal funding history with dated, annotated deposit and withdrawal context.
 - [x] Verify responsive desktop/mobile presentation, TypeScript, and production build before checkpointing.
+
+## Reported mobile visual regression and final review discipline
+- [x] Fix the Net Worth header collision between the “Assets − debts” label and the “Account folio” stamp on narrow mobile screens.
+- [x] Re-check the complete mobile scroll path after the layout repair, including bottom navigation clearance and long-card spacing.
+- [ ] Build and retain a strict final review matrix for each requested feature flow before the final product handoff.
