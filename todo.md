@@ -136,13 +136,20 @@
 
 ## Firebase authentication and persistence
 - [x] Obtain the Firebase Web App configuration for the existing project.
-- [ ] Confirm that Firebase Email/Password authentication is enabled for the Web App.
-- [ ] Confirm Firestore rules protect every user’s financial data by authenticated user ID before enabling real writes.
+- [x] Confirm that Firebase Email/Password authentication is enabled for the Web App.
+- [x] Confirm Firestore rules protect every user’s financial data by authenticated user ID before enabling real writes.
 - [x] Model user-scoped transactions, categories, accounts, goals, trips, loans, and recurring schedules without changing the existing visual workflows.
 - [x] Implement Email/Password sign-in, loading, error/retry, and sign-out states with durable Firestore reads and writes.
 - [ ] Migrate the existing local prototype records only after a verified authenticated session and with clear failure recovery.
 - [x] Run the TypeScript checker and production build for the Firebase browser integration.
-- [ ] Validate persistence across a signed-in refresh, logout/login, Firestore-permission error state, and checkpoint the integration.
+- [x] Validate persistence across a signed-in refresh and logout/login.
+- [ ] Exercise the visible Firestore-permission error state as part of the final security and resilience audit.
+- [ ] Checkpoint the verified Firebase integration.
+
+## Approved live Firebase verification
+- [x] Create or sign in to the approved test account and verify the authenticated profile state.
+- [x] Add, modify, reload, and remove a clearly labeled test ledger entry; verify it remains scoped to the signed-in account.
+- [x] Verify sign-out/sign-in session behavior and remove approved test artifacts after testing.
 
 ## Authentication language correction
 - [x] Replace developer/demo-centric authentication language with clear, user-owned personal-ledger copy.

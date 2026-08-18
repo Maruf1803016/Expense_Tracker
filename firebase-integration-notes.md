@@ -45,6 +45,10 @@ service cloud.firestore {
 
 The recursive wildcard requires rules version 2 and deliberately prevents a user from listing another user's financial records. More restrictive field validation can be layered on later once all clients have converged on their shared schema.
 
+## Live verification record — 2026-08-18
+
+Cloud Firestore was created as the default database in the Singapore region and the owner-only rule above was published by the project owner. Using the approved test account, the web tracker successfully completed a non-destructive Firestore read, created a clearly labeled expense, reloaded it after a browser refresh, updated its amount from $1.00 to $2.00, reloaded the updated value, and deleted the labeled test record. The deletion remained in effect after a further refresh. The session test also confirmed that signing out restores only the local sample ledger and that signing back in returns to the correctly isolated, empty cloud ledger. No user-entered financial data was modified.
+
 ## Sources
 
 Firebase documents the browser Email/Password setup, including enabling the provider in the console and observing authentication state, in its password-based account guide.[1] Firebase documents `onSnapshot` listeners as the real-time update mechanism and notes that local writes update listeners before backend acknowledgement.[2] Firebase's rules guidance uses `request.auth.uid` to restrict access to the matching user document and explains that rules are evaluated against queries rather than acting as filters.[3]
