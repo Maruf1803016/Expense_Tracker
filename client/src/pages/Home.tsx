@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Layers, CheckCircle2, ChevronRight, FolderPlus, HandCoins, FileText, Download } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { useAuth } from "@/contexts/AuthContext";
+import { removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 
 // Ink & Ledger IA note: the Overview is a daily field note; accounts and deep history live in dedicated destinations.
 
@@ -103,6 +105,79 @@ interface RecurringSchedule {
   nextDueDate: string;
   status: "active" | "paused";
   history: ScheduleOccurrence[];
+}
+
+type StoredRecord = Record<string, unknown>;
+type StoredRecordWithId = StoredRecord & { id: string };
+
+function storedString(value: unknown, fallback = "") {
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+function storedNumber(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function storedArray(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function storedDate(value: unknown, fallback: string) {
+  if (typeof value === "string" && value) return value;
+  if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") return dateInputValue(value.toDate());
+  return fallback;
+}
+
+function normaliseCategory(record: StoredRecord): Category[] {
+  const parentId = storedString(record.parentId ?? record.parent_id) || null;
+  const id = storedString(record.id);
+  const type = record.type === "income" ? "income" : "expense";
+  const base: Category = { id, name: storedString(record.name, "Untitled category"), type, parentId, monthlyBudget: storedNumber(record.monthlyBudget ?? record.budget), color: storedString(record.color, type === "income" ? "#2c5234" : "#1b3a2b") };
+  const embeddedSubcategories = type === "expense" && !parentId ? storedArray(record.subCategories ?? record.subcategories) : [];
+  return [base, ...embeddedSubcategories.map((item, index) => {
+    const sub = (item ?? {}) as StoredRecord;
+    const name = storedString(sub.name ?? sub.title, `Subcategory ${index + 1}`);
+    return { id: storedString(sub.id, `${id}--${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`), name, type: "expense" as const, parentId: id, monthlyBudget: 0, color: storedString(sub.color, base.color) };
+  })];
+}
+
+function normaliseTransaction(record: StoredRecord): Transaction {
+  const tag = (record.tag ?? {}) as StoredRecord;
+  const planId = storedString(record.planId);
+  const rawType = record.type;
+  return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart") };
+}
+
+function normaliseGoal(record: StoredRecord): Goal {
+  const fundingHistory = storedArray(record.fundingHistory ?? record.history).map((item, index) => {
+    const funding = (item ?? {}) as StoredRecord;
+    return { id: storedString(funding.id, `goal-history-${index}`), amount: storedNumber(funding.amount), type: funding.type === "withdraw" ? "withdraw" as const : "deposit" as const, date: storedDate(funding.date, dateInputValue(new Date())), note: storedString(funding.note, funding.type === "withdraw" ? "Goal withdrawal" : "Goal contribution") };
+  });
+  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled goal"), target: storedNumber(record.target), saved: storedNumber(record.saved), deadline: storedDate(record.deadline, "By Dec 2026"), financedAmount: storedNumber(record.financedAmount), fundingHistory };
+}
+
+function normaliseTrip(record: StoredRecord): Trip {
+  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled plan"), budget: storedNumber(record.budget ?? record.target), dates: storedString(record.dates ?? record.dateRange, "Upcoming") };
+}
+
+function normaliseLoan(record: StoredRecord): Loan {
+  const paymentHistory = storedArray(record.paymentHistory).map((item, index) => {
+    const payment = (item ?? {}) as StoredRecord;
+    return { id: storedString(payment.id, `loan-payment-${index}`), amount: storedNumber(payment.amount), date: storedDate(payment.date, dateInputValue(new Date())), note: storedString(payment.note, "Payment recorded"), method: storedString(payment.method, "Cash in hand"), reference: storedString(payment.reference) || undefined };
+  });
+  return { id: storedString(record.id), title: storedString(record.title, "Untitled loan"), direction: record.direction === "lent" ? "lent" : "borrowed", counterparty: storedString(record.counterparty), totalAmount: storedNumber(record.totalAmount), paidAmount: storedNumber(record.paidAmount), dueDate: storedDate(record.dueDate, dateInputValue(new Date())), terms: storedString(record.terms, "Due in full by the due date"), paymentHistory };
+}
+
+function normaliseSchedule(record: StoredRecord): RecurringSchedule {
+  const history = storedArray(record.history).map((item, index) => {
+    const occurrence = (item ?? {}) as StoredRecord;
+    return { id: storedString(occurrence.id, `schedule-occurrence-${index}`), scheduledFor: storedDate(occurrence.scheduledFor, dateInputValue(new Date())), recordedAt: storedDate(occurrence.recordedAt, dateInputValue(new Date())), transactionId: storedString(occurrence.transactionId) };
+  });
+  return { id: storedString(record.id), name: storedString(record.name, "Untitled schedule"), amount: storedNumber(record.amount ?? record.expectedAmount), type: record.type === "income" ? "income" : "expense", frequency: record.frequency === "weekly" || record.frequency === "biweekly" ? record.frequency : "monthly", accountId: storedString(record.accountId, "acc-1"), categoryId: storedString(record.categoryId), nextDueDate: storedDate(record.nextDueDate, dateInputValue(new Date())), status: record.status === "paused" ? "paused" : "active", history };
+}
+
+function normaliseAccount(record: StoredRecord): Account {
+  return { id: storedString(record.id), name: storedString(record.name, "Untitled account"), kind: record.kind === "liability" ? "liability" : "asset", balance: storedNumber(record.balance ?? record.initialBalance), accountNumber: storedString(record.accountNumber, "··· —"), color: storedString(record.color, record.kind === "liability" ? "#8b2626" : "#1b3a2b") };
 }
 
 type DraftKind = "transaction" | "goal" | "trip" | "loan" | "schedule" | "category" | "subcategory" | "account" | "profile" | null;
@@ -238,6 +313,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 ];
 
 export default function Home() {
+  const { user, loading: authLoading, error: authError, signIn, signUp, signOut, clearError } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
@@ -250,6 +326,8 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
   const [schedules, setSchedules] = useState<RecurringSchedule[]>(INITIAL_SCHEDULES);
+  const [cloudStatus, setCloudStatus] = useState<"demo" | "loading" | "synced" | "error">("demo");
+  const [cloudError, setCloudError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<DraftKind>(null);
   const [transactionDetail, setTransactionDetail] = useState<Transaction | null>(null);
@@ -302,6 +380,90 @@ export default function Home() {
   const [scheduleFrequencyInput, setScheduleFrequencyInput] = useState<ScheduleFrequency>("monthly");
   const [scheduleAccountInput, setScheduleAccountInput] = useState("acc-1");
   const [scheduleCategoryInput, setScheduleCategoryInput] = useState("home-utilities");
+  const [profileMode, setProfileMode] = useState<"signIn" | "signUp">("signIn");
+  const [authEmailInput, setAuthEmailInput] = useState("");
+  const [authPasswordInput, setAuthPasswordInput] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setAccounts(INITIAL_ACCOUNTS);
+      setCategories(INITIAL_CATEGORIES);
+      setTransactions(INITIAL_TRANSACTIONS);
+      setGoals(INITIAL_GOALS);
+      setTrips(INITIAL_TRIPS);
+      setLoans(INITIAL_LOANS);
+      setSchedules(INITIAL_SCHEDULES);
+      setCloudStatus("demo");
+      setCloudError(null);
+      return;
+    }
+
+    setCloudStatus("loading");
+    setCloudError(null);
+    const handleError = () => {
+      setCloudStatus("error");
+      setCloudError("Cloud ledger access was interrupted. Check your Firestore rules or connection, then refresh to retry.");
+    };
+    const received = () => setCloudStatus("synced");
+    const unsubscribes = [
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "accounts", (records) => { setAccounts(records.map(normaliseAccount)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "categories", (records) => { const flattened = records.flatMap(normaliseCategory); setCategories(Array.from(new Map(flattened.map((record) => [record.id, record])).values())); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "expenses", (records) => { setTransactions(records.map(normaliseTransaction)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "plans", (records) => { setGoals(records.map(normaliseGoal)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "tripPlans", (records) => { setTrips(records.map(normaliseTrip)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "loans", (records) => { setLoans(records.map(normaliseLoan)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "recurringIncomeSources", (records) => { setSchedules(records.map(normaliseSchedule)); received(); }, handleError),
+    ];
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+  }, [user]);
+
+  const persistRecord = useCallback(async <T extends { id: string }>(collectionName: LedgerCollection, record: T) => {
+    if (!user) return;
+    setCloudError(null);
+    try {
+      await saveLedgerRecord(user.uid, collectionName, record);
+      setCloudStatus("synced");
+    } catch {
+      setCloudStatus("error");
+      setCloudError("This change could not be saved to your cloud ledger. Keep this tab open and retry after checking your connection.");
+    }
+  }, [user]);
+
+  const deletePersistedRecord = useCallback(async (collectionName: LedgerCollection, recordId: string) => {
+    if (!user) return;
+    setCloudError(null);
+    try {
+      await removeLedgerRecord(user.uid, collectionName, recordId);
+      setCloudStatus("synced");
+    } catch {
+      setCloudStatus("error");
+      setCloudError("This record could not be removed from your cloud ledger. Keep this tab open and retry after checking your connection.");
+    }
+  }, [user]);
+
+  const deleteCategory = (categoryId: string) => {
+    const idsToDelete = categories.filter((category) => category.id === categoryId || category.parentId === categoryId).map((category) => category.id);
+    setCategories((current) => current.filter((category) => !idsToDelete.includes(category.id)));
+    idsToDelete.forEach((id) => void deletePersistedRecord("categories", id));
+  };
+
+  const submitAuthentication = async () => {
+    if (!authEmailInput.trim() || !authPasswordInput) {
+      alert("Enter both your email address and password.");
+      return;
+    }
+    setAuthSubmitting(true);
+    try {
+      if (profileMode === "signUp") await signUp(authEmailInput, authPasswordInput);
+      else await signIn(authEmailInput, authPasswordInput);
+      setAuthPasswordInput("");
+    } catch {
+      // AuthContext exposes an actionable, provider-safe message in this panel.
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
 
   const totals = useMemo(() => {
     let income = 0;
@@ -480,6 +642,7 @@ export default function Home() {
     const funding: GoalFunding = { id: `goal-funding-${Date.now()}`, amount: applied, type: goalAdjustment, date: new Date().toISOString().slice(0, 10), note: goalAdjustmentNote.trim() || (goalAdjustment === "deposit" ? "Goal contribution" : "Moved back to available funds") };
     const nextGoal = { ...goalDetail, saved: nextSaved, fundingHistory: [funding, ...(goalDetail.fundingHistory ?? [])] };
     setGoals((current) => current.map((goal) => goal.id === nextGoal.id ? nextGoal : goal));
+    void persistRecord("plans", { ...nextGoal, title: nextGoal.name, history: nextGoal.fundingHistory });
     setGoalDetail(nextGoal);
     setGoalAdjustment(null);
     setGoalAdjustmentAmount("");
@@ -517,6 +680,7 @@ export default function Home() {
       paymentHistory: [payment, ...loanDetail.paymentHistory],
     };
     setLoans((current) => current.map((loan) => loan.id === nextLoan.id ? nextLoan : loan));
+    void persistRecord("loans", nextLoan);
     setLoanDetail(nextLoan);
     resetLoanPaymentDraft();
   };
@@ -542,12 +706,16 @@ export default function Home() {
     };
     setTransactions((current) => [transaction, ...current]);
     setSchedules((current) => current.map((schedule) => schedule.id === nextSchedule.id ? nextSchedule : schedule));
+    const scheduledCategory = categories.find((category) => category.id === transaction.categoryId);
+    void persistRecord("expenses", { ...transaction, title: transaction.merchantNote, webCategoryId: transaction.categoryId, categoryId: scheduledCategory?.parentId ?? transaction.categoryId, subCategory: scheduledCategory?.parentId ? scheduledCategory.name : undefined });
+    void persistRecord("recurringIncomeSources", { ...nextSchedule, expectedAmount: nextSchedule.amount });
     setScheduleDetail(nextSchedule);
   };
 
   const setScheduleStatus = (schedule: RecurringSchedule, status: RecurringSchedule["status"]) => {
     const nextSchedule = { ...schedule, status };
     setSchedules((current) => current.map((item) => item.id === nextSchedule.id ? nextSchedule : item));
+    void persistRecord("recurringIncomeSources", { ...nextSchedule, expectedAmount: nextSchedule.amount });
     setScheduleDetail(nextSchedule);
   };
 
@@ -634,6 +802,8 @@ export default function Home() {
       } else {
         setTransactions((current) => [newTransaction, ...current]);
       }
+      const selectedCategory = categories.find((category) => category.id === newTransaction.categoryId);
+      void persistRecord("expenses", { ...newTransaction, title: newTransaction.merchantNote, webCategoryId: newTransaction.categoryId, categoryId: selectedCategory?.parentId ?? newTransaction.categoryId, subCategory: selectedCategory?.parentId ? selectedCategory.name : undefined, planId: newTransaction.tag?.goalId });
       resetDraft();
     } else if (draft === "goal") {
       const parsed = parseFloat(draftAmount);
@@ -642,9 +812,10 @@ export default function Home() {
         return;
       }
       const financed = Math.min(parsed, Math.max(0, parseFloat(goalFinancingInput) || 0));
-      setGoals((current) => editingGoalId
-        ? current.map((goal) => goal.id === editingGoalId ? { ...goal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", financedAmount: financed, saved: Math.min(goal.saved, Math.max(0, parsed - financed)), fundingHistory: goal.fundingHistory ?? [] } : goal)
-        : [{ id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026", financedAmount: financed, fundingHistory: [] }, ...current]);
+      const previousGoal = editingGoalId ? goals.find((goal) => goal.id === editingGoalId) : undefined;
+      const nextGoal: Goal = previousGoal ? { ...previousGoal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", financedAmount: financed, saved: Math.min(previousGoal.saved, Math.max(0, parsed - financed)), fundingHistory: previousGoal.fundingHistory ?? [] } : { id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026", financedAmount: financed, fundingHistory: [] };
+      setGoals((current) => editingGoalId ? current.map((goal) => goal.id === editingGoalId ? nextGoal : goal) : [nextGoal, ...current]);
+      void persistRecord("plans", { ...nextGoal, title: nextGoal.name, history: nextGoal.fundingHistory });
       resetDraft();
     } else if (draft === "trip") {
       const parsed = parseFloat(draftAmount);
@@ -652,9 +823,9 @@ export default function Home() {
         alert("Please enter a valid trip name and budget.");
         return;
       }
-      setTrips((current) => editingTripId
-        ? current.map((trip) => trip.id === editingTripId ? { ...trip, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" } : trip)
-        : [{ id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" }, ...current]);
+      const nextTrip: Trip = editingTripId ? { id: editingTripId, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" } : { id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" };
+      setTrips((current) => editingTripId ? current.map((trip) => trip.id === editingTripId ? nextTrip : trip) : [nextTrip, ...current]);
+      void persistRecord("tripPlans", { ...nextTrip, title: nextTrip.name, dateRange: nextTrip.dates });
       resetDraft();
     } else if (draft === "loan") {
       const parsed = parseFloat(draftAmount);
@@ -662,9 +833,10 @@ export default function Home() {
         alert("Please enter a loan name, counterparty, original amount, and due date.");
         return;
       }
-      setLoans((current) => editingLoanId
-        ? current.map((loan) => loan.id === editingLoanId ? { ...loan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(loan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date" } : loan)
-        : [{ id: `loan-${Date.now()}`, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [] }, ...current]);
+      const previousLoan = editingLoanId ? loans.find((loan) => loan.id === editingLoanId) : undefined;
+      const nextLoan: Loan = previousLoan ? { ...previousLoan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(previousLoan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date" } : { id: `loan-${Date.now()}`, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [] };
+      setLoans((current) => editingLoanId ? current.map((loan) => loan.id === editingLoanId ? nextLoan : loan) : [nextLoan, ...current]);
+      void persistRecord("loans", nextLoan);
       resetDraft();
     } else if (draft === "schedule") {
       const parsed = parseFloat(draftAmount);
@@ -687,6 +859,7 @@ export default function Home() {
         history: existing?.history ?? [],
       };
       setSchedules((current) => editingScheduleId ? current.map((schedule) => schedule.id === editingScheduleId ? nextSchedule : schedule) : [nextSchedule, ...current]);
+      void persistRecord("recurringIncomeSources", { ...nextSchedule, expectedAmount: nextSchedule.amount });
       resetDraft();
     } else if (draft === "category") {
       if (!catNameInput.trim()) {
@@ -701,6 +874,7 @@ export default function Home() {
         color: catTypeInput === "expense" ? "#1b3a2b" : "#2c5234",
       };
       setCategories((current) => [...current, newCat]);
+      void persistRecord("categories", { ...newCat, parentId: null, parent_id: null });
       resetDraft();
     } else if (draft === "subcategory") {
       if (!subNameInput.trim() || !parentTargetId) {
@@ -716,6 +890,7 @@ export default function Home() {
         color: "#3d5a45",
       };
       setCategories((current) => [...current, newSub]);
+      void persistRecord("categories", { ...newSub, parent_id: newSub.parentId ?? null });
       resetDraft();
     } else if (draft === "account") {
       const parsed = parseFloat(accBalanceInput);
@@ -732,6 +907,7 @@ export default function Home() {
         color: accKindInput === "asset" ? "#1b3a2b" : "#8b2626",
       };
       setAccounts((current) => [...current, newAcc]);
+      void persistRecord("accounts", { ...newAcc, initialBalance: newAcc.balance });
       resetDraft();
     }
   };
@@ -769,7 +945,7 @@ export default function Home() {
           <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <button className="icon-badge" onClick={() => alert("No pending alerts.")} aria-label="Notifications"><Calendar size={16} /></button>
-            <button className="profile-pill" onClick={() => setDraft("profile")} aria-label="User profile">MM</button>
+            <button className="profile-pill" onClick={() => setDraft("profile")} aria-label={user ? "Open signed-in profile" : "Sign in to cloud ledger"}>{authLoading ? "··" : (user?.email?.slice(0, 2) || "IL").toUpperCase()}</button>
           </div>
         </header>
 
@@ -868,7 +1044,7 @@ export default function Home() {
               onOpenAddCategory={() => { setCatTypeInput("expense"); setDraft("category"); }}
               onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
-              onDeleteCategory={(id) => setCategories(current => current.filter(c => c.id !== id && c.parentId !== id))}
+              onDeleteCategory={deleteCategory}
             />
           )}
         </div>
@@ -904,7 +1080,7 @@ export default function Home() {
             </div>
             <div className="draft-actions" style={{ marginTop: 24 }}>
               <button className="primary-button draft-submit" onClick={() => startEditingTransaction(transactionDetail)}><Edit3 size={15} /> Modify entry</button>
-              <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
+              <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); void deletePersistedRecord("expenses", transactionDetail.id); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
             </div>
           </aside>
         </div>
@@ -1009,31 +1185,27 @@ export default function Home() {
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
           <aside className="draft-panel" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="draft-top"><div><div className="draft-kicker">Authenticated session</div><h2>User Profile & Security</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "20px 0", padding: "18px", background: "#f8f4ec", borderRadius: 14, border: "1px solid #ded8ca" }}>
-              <div className="profile-dot" style={{ width: 52, height: 52, fontSize: 18, background: "#1b3a2b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontWeight: 600 }}>MM</div>
-              <div><strong style={{ fontSize: 17, display: "block", fontFamily: "Space Grotesk, sans-serif" }}>Maruf Mahmud</strong><span style={{ color: "#777", fontSize: 13 }}>maruf.owner@expense-tracker.app</span></div>
-            </div>
-            <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-              <div className="field-note-row"><span>Subscription</span><b>Owner Tier (Active)</b></div>
-              <div className="field-note-row"><span>Security</span><b>End-to-end encrypted</b></div>
-              <div className="field-note-row"><span>Cloud Sync</span><b>Connected to Firestore</b></div>
-              <div className="field-note-row"><span>Storage</span><b>Zero-knowledge sandbox</b></div>
-            </div>
-            <div style={{ display: "grid", gap: 12, marginBottom: 24 }}>
-              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "#fcfaf6", borderRadius: 10, border: "1px solid #ded8ca", fontSize: 14, cursor: "pointer" }}>
-                <span>Biometric lock on start</span>
-                <input type="checkbox" defaultChecked style={{ accentColor: "#b78a3d", width: 16, height: 16 }} />
-              </label>
-              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "#fcfaf6", borderRadius: 10, border: "1px solid #ded8ca", fontSize: 14, cursor: "pointer" }}>
-                <span>Monthly budget summaries</span>
-                <input type="checkbox" defaultChecked style={{ accentColor: "#b78a3d", width: 16, height: 16 }} />
-              </label>
-            </div>
-            <div className="draft-actions">
-              <button className="primary-button draft-submit" onClick={resetDraft}><ShieldCheck size={16} /> Save preferences</button>
-              <button className="delete-button" onClick={() => { alert("Signed out of local demo session."); resetDraft(); }}><LogOut size={16} /> Sign out of session</button>
-            </div>
+            <div className="draft-top"><div><div className="draft-kicker">{user ? "Authenticated account" : "Personal cloud ledger"}</div><h2>{user ? "Profile & cloud sync" : "Sign in to your ledger"}</h2></div><button className="close-button" onClick={resetDraft} aria-label="Close"><X size={17} /></button></div>
+            {authLoading ? <div className="empty-hint" style={{ margin: "26px 0" }}>Checking your session…</div> : user ? <>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "20px 0", padding: "18px", background: "#f8f4ec", borderRadius: 14, border: "1px solid #ded8ca" }}>
+                <div className="profile-dot" style={{ width: 52, height: 52, fontSize: 18, background: "#1b3a2b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontWeight: 600 }}>{(user.email?.slice(0, 2) || "IL").toUpperCase()}</div>
+                <div><strong style={{ fontSize: 17, display: "block", fontFamily: "Space Grotesk, sans-serif" }}>{user.email?.split("@")[0] || "Ledger owner"}</strong><span style={{ color: "#777", fontSize: 13 }}>{user.email}</span></div>
+              </div>
+              <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+                <div className="field-note-row"><span>Cloud sync</span><b>{cloudStatus === "synced" ? "Live and saved" : cloudStatus === "loading" ? "Loading your ledger" : cloudStatus === "error" ? "Needs attention" : "Local demonstration"}</b></div>
+                <div className="field-note-row"><span>Provider</span><b>Email and password</b></div>
+                <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
+                <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
+              </div>
+              {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}
+              <div className="draft-actions"><button className="secondary-button" onClick={resetDraft}><ShieldCheck size={16} /> Continue to ledger</button><button className="delete-button" onClick={() => { void signOut(); resetDraft(); }}><LogOut size={16} /> Sign out</button></div>
+            </> : <>
+              <p className="draft-copy">Sign in to keep accounts, entries, goals, plans, loans, and schedules under your own Firebase account. The present demonstration records stay local and are never uploaded.</p>
+              <div className="filter-row" style={{ margin: "18px 0" }}><button className={`filter-button ${profileMode === "signIn" ? "active" : ""}`} onClick={() => { setProfileMode("signIn"); clearError(); }}>Sign in</button><button className={`filter-button ${profileMode === "signUp" ? "active" : ""}`} onClick={() => { setProfileMode("signUp"); clearError(); }}>Create account</button></div>
+              <div className="draft-fields"><label className="form-field"><span>Email address</span><input type="email" value={authEmailInput} onChange={(event) => setAuthEmailInput(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label><label className="form-field"><span>Password</span><input type="password" value={authPasswordInput} onChange={(event) => setAuthPasswordInput(event.target.value)} placeholder="At least 6 characters" minLength={6} autoComplete={profileMode === "signUp" ? "new-password" : "current-password"} /></label></div>
+              {(authError || cloudError) && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginTop: 16 }}>{authError || cloudError}</p>}
+              <div className="draft-actions" style={{ marginTop: 22 }}><button className="primary-button draft-submit" disabled={authSubmitting} onClick={() => void submitAuthentication()}>{authSubmitting ? "Working…" : profileMode === "signUp" ? "Create secure ledger" : "Open my ledger"}</button><button className="secondary-button" onClick={resetDraft}>Continue in demo</button></div>
+            </>}
           </aside>
         </div>
       )}
