@@ -1116,6 +1116,9 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .liability-register { padding-bottom: 4px; }
 .history-budget-section { margin-bottom: 22px; }
 .history-register { margin-top: 22px; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px; padding: 5px 0; color: #88662c; border: 0; border-bottom: 1px solid #cdb071; background: transparent; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; }
+.back-link:hover, .back-link:focus-visible { color: #1d2524; outline: none; }
+.back-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 4px; }
 
 /* Daily registers use the same filing cues as the rail: gold rules for context, stamped timing, and restrained account tabs. */
 .dashboard-schedule-register::before,
@@ -1173,6 +1176,7 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .account-folio-grid { grid-template-columns: 1fr; gap: 11px; }
   .account-folio-card { min-height: 164px; }
   .history-register .section-head { gap: 10px; }
+  .back-link { margin-bottom: 12px; }
   .lower-grid .transaction-row { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding-left: 14px; }
   .lower-grid .transaction-amount { min-width: 91px; }
   .lower-grid .transaction-title strong { font-size: 13px; }
