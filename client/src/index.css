@@ -929,6 +929,76 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .loan-payment-full { grid-column: auto; }
 }
 
+/* Recurring income and bills: an expected-money register with timely status signals, never a generic dashboard widget. */
+.schedule-workspace { display: grid; gap: 20px; }
+.schedule-workspace-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; border: 1px solid #d9d0c2; border-radius: 3px; background: #fffdf8; }
+.schedule-workspace-summary > div { position: relative; display: grid; align-content: center; gap: 8px; min-height: 126px; padding: 23px 25px; }
+.schedule-workspace-summary > div + div { border-left: 1px solid #e1dbcf; background: #fbf8f0; }
+.schedule-workspace-summary > div::before { content: ""; position: absolute; top: 0; left: 25px; width: 36px; height: 2px; background: #b78a3d; }
+.schedule-workspace-summary span { color: #82786b; font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.schedule-workspace-summary strong { color: #2d654d; font: 600 clamp(25px, 3vw, 35px)/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.schedule-workspace-summary > div + div strong { color: #945b45; }
+.schedule-workspace-summary small { color: #82786b; font-size: 11px; }
+.schedule-intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; padding: 3px 0 0; }
+.schedule-intro h2 { margin: 6px 0 0; color: #1d2524; font: 500 clamp(27px, 3vw, 35px)/1.04 "Fraunces", Georgia, serif; letter-spacing: -.045em; }
+.schedule-intro p { max-width: 410px; margin: 0; color: #746c61; font-size: 13px; line-height: 1.55; }
+.schedule-list { display: grid; gap: 13px; }
+.schedule-card { position: relative; min-height: 158px; padding: 19px 22px; }
+.schedule-card.income { border-left: 3px solid #4e8068; }
+.schedule-card.expense { border-left: 3px solid #a5674f; }
+.schedule-card.paused { opacity: .72; }
+.schedule-card .horizon-card-main { margin: 11px 0 15px; }
+.schedule-card .horizon-card-main strong { color: #303833; }
+.schedule-card.income .horizon-card-main strong { color: #2f674e; }
+.schedule-card.expense .horizon-card-main strong { color: #905642; }
+.schedule-status.active { color: #556e5b; }
+.schedule-status.paused { color: #8b8174; }
+.schedule-detail-panel { max-width: 560px; }
+.schedule-detail-hero { border-color: #d9ceb9; }
+.schedule-detail-hero.income { background: #f0f6ee; }
+.schedule-detail-hero.expense { background: #faf2eb; }
+.schedule-detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.schedule-detail-actions .text-link { grid-column: 1 / -1; }
+.schedule-history { margin-top: 23px; border-top: 1px solid #d9d0c2; }
+.schedule-history .loan-history { margin-top: 0; }
+.form-field-note { margin: 12px 0 0; padding: 11px 12px; border-left: 2px solid #b78a3d; background: #fbf7ef; color: #756b5e; font-size: 11px; line-height: 1.5; }
+.dashboard-schedule-register { position: relative; margin-top: 22px; padding: 24px 25px; border-radius: 3px; box-shadow: none; }
+.schedule-register-head { align-items: end; margin-bottom: 15px; }
+.schedule-register-head h2 { margin: 5px 0 0; color: #1d2524; font: 500 29px/1.05 "Fraunces", Georgia, serif; letter-spacing: -.045em; }
+.schedule-register-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid #dfd6c8; }
+.schedule-register-column { padding: 15px 22px 0 0; }
+.schedule-register-column + .schedule-register-column { padding-right: 0; padding-left: 22px; border-left: 1px solid #dfd6c8; }
+.schedule-register-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 9px; color: #82786b; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.schedule-register-label b { font-size: 9px; letter-spacing: .04em; }
+.schedule-register-column.income .schedule-register-label { color: #47725b; }
+.schedule-register-column.expense .schedule-register-label { color: #975e49; }
+.schedule-register-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 0; border: 0; border-top: 1px solid #eee6da; background: transparent; color: #313833; text-align: left; cursor: pointer; }
+.schedule-register-row:hover, .schedule-register-row:focus-visible { background: #fbf7ef; outline: none; }
+.schedule-register-row > span { display: grid; min-width: 0; gap: 3px; }
+.schedule-register-row strong { overflow: hidden; font-size: 12px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-register-row small { color: #8b8174; font-size: 10px; }
+.schedule-register-row > b { flex: 0 0 auto; font: 600 12px/1 "Space Grotesk", sans-serif; }
+.schedule-register-column.income .schedule-register-row > b { color: #3e704f; }
+.schedule-register-column.expense .schedule-register-row > b { color: #975c47; }
+
+@media (max-width: 760px) {
+  .schedule-workspace { gap: 16px; }
+  .schedule-workspace-summary { grid-template-columns: 1fr; }
+  .schedule-workspace-summary > div { min-height: 104px; padding: 18px; }
+  .schedule-workspace-summary > div + div { border-top: 1px solid #e1dbcf; border-left: 0; }
+  .schedule-workspace-summary > div::before { left: 18px; width: 28px; }
+  .schedule-intro { display: grid; gap: 11px; }
+  .schedule-intro p { max-width: none; }
+  .schedule-card { min-height: 0; padding: 17px 17px 17px 19px; }
+  .schedule-detail-actions { grid-template-columns: 1fr; }
+  .schedule-detail-actions .text-link { grid-column: auto; }
+  .dashboard-schedule-register { margin-top: 18px; padding: 22px 16px; }
+  .schedule-register-head { align-items: flex-start; gap: 10px; }
+  .schedule-register-grid { grid-template-columns: 1fr; }
+  .schedule-register-column { padding: 14px 0 0; }
+  .schedule-register-column + .schedule-register-column { margin-top: 14px; padding: 14px 0 0; border-top: 1px solid #dfd6c8; border-left: 0; }
+}
+
 /* Goal intelligence: dated savings pace and a compact funding ledger, aligned with the existing loan record treatment. */
 .goal-intelligence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 18px 0; border: 1px solid #ddd4c2; background: #ddd4c2; }
 .goal-intelligence-grid > div { display: grid; gap: 5px; padding: 14px 15px; background: #fbf8f1; }

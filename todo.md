@@ -90,3 +90,10 @@
 - [x] Fix the Net Worth header collision between the “Assets − debts” label and the “Account folio” stamp on narrow mobile screens.
 - [x] Re-check the complete mobile scroll path after the layout repair, including bottom navigation clearance and long-card spacing.
 - [ ] Build and retain a strict final review matrix for each requested feature flow before the final product handoff.
+
+## Recurring income and bills
+- [x] Add recurring income and recurring expense schedule records with name, amount, frequency, account, category, and next due date.
+- [x] Surface an Upcoming income and Upcoming bills workspace that makes the next payment timing obvious.
+- [x] Allow users to mark a schedule paid/received, create the corresponding ledger entry, and correctly advance the next due date.
+- [x] Support add, edit, pause, and resume flows without losing the schedule history.
+- [x] Verify the schedule workspace on mobile and desktop, type-check, build, and checkpoint it.

@@ -80,7 +80,29 @@ interface Loan {
   paymentHistory: LoanPayment[];
 }
 
-type DraftKind = "transaction" | "goal" | "trip" | "loan" | "category" | "subcategory" | "account" | "profile" | null;
+type ScheduleFrequency = "weekly" | "biweekly" | "monthly";
+
+interface ScheduleOccurrence {
+  id: string;
+  scheduledFor: string;
+  recordedAt: string;
+  transactionId: string;
+}
+
+interface RecurringSchedule {
+  id: string;
+  name: string;
+  amount: number;
+  type: "income" | "expense";
+  frequency: ScheduleFrequency;
+  accountId: string;
+  categoryId: string;
+  nextDueDate: string;
+  status: "active" | "paused";
+  history: ScheduleOccurrence[];
+}
+
+type DraftKind = "transaction" | "goal" | "trip" | "loan" | "schedule" | "category" | "subcategory" | "account" | "profile" | null;
 
 interface TransactionDraft {
   id?: string;
@@ -112,6 +134,44 @@ function goalMetrics(goal: Goal) {
     dailyNeeded: daysLeft && daysLeft > 0 ? remaining / daysLeft : null,
     weeklyNeeded: daysLeft && daysLeft > 0 ? remaining / Math.max(1, daysLeft / 7) : null,
   };
+}
+
+function dateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function advanceScheduleDate(date: string, frequency: ScheduleFrequency) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) return date;
+  const next = new Date(year, month - 1, day);
+  if (frequency === "weekly") next.setDate(next.getDate() + 7);
+  if (frequency === "biweekly") next.setDate(next.getDate() + 14);
+  if (frequency === "monthly") {
+    const monthlyTarget = new Date(year, month, 1);
+    const lastDay = new Date(monthlyTarget.getFullYear(), monthlyTarget.getMonth() + 1, 0).getDate();
+    monthlyTarget.setDate(Math.min(day, lastDay));
+    return dateInputValue(monthlyTarget);
+  }
+  return dateInputValue(next);
+}
+
+function scheduleDueLabel(nextDueDate: string) {
+  const [year, month, day] = nextDueDate.split("-").map(Number);
+  const today = new Date();
+  const todayUtc = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const dueUtc = Date.UTC(year, month - 1, day);
+  const difference = Math.round((dueUtc - todayUtc) / 86400000);
+  if (difference < 0) return `${Math.abs(difference)} days overdue`;
+  if (difference === 0) return "Due today";
+  if (difference === 1) return "Due tomorrow";
+  return `Due in ${difference} days`;
+}
+
+function scheduleFrequencyLabel(frequency: ScheduleFrequency) {
+  return frequency === "biweekly" ? "Every two weeks" : frequency[0].toUpperCase() + frequency.slice(1);
 }
 
 const INITIAL_ACCOUNTS: Account[] = [
@@ -167,6 +227,13 @@ const INITIAL_LOANS: Loan[] = [
   },
 ];
 
+const INITIAL_SCHEDULES: RecurringSchedule[] = [
+  { id: "schedule-1", name: "Monthly salary", amount: 3100, type: "income", frequency: "monthly", accountId: "acc-1", categoryId: "income-salary", nextDueDate: "2026-09-01", status: "active", history: [{ id: "schedule-occurrence-1", scheduledFor: "2026-08-01", recordedAt: "2026-08-01", transactionId: "tx-5" }] },
+  { id: "schedule-2", name: "Studio retainer", amount: 1840, type: "income", frequency: "monthly", accountId: "acc-1", categoryId: "income-freelance", nextDueDate: "2026-09-16", status: "active", history: [{ id: "schedule-occurrence-2", scheduledFor: "2026-08-16", recordedAt: "2026-08-16", transactionId: "tx-1" }] },
+  { id: "schedule-3", name: "Power & water board", amount: 165, type: "expense", frequency: "monthly", accountId: "acc-1", categoryId: "home-utilities", nextDueDate: "2026-08-20", status: "active", history: [{ id: "schedule-occurrence-3", scheduledFor: "2026-08-14", recordedAt: "2026-08-14", transactionId: "tx-3" }] },
+  { id: "schedule-4", name: "Market pantry", amount: 124.5, type: "expense", frequency: "weekly", accountId: "acc-1", categoryId: "food-groceries", nextDueDate: "2026-08-22", status: "paused", history: [{ id: "schedule-occurrence-4", scheduledFor: "2026-08-15", recordedAt: "2026-08-15", transactionId: "tx-2" }] },
+];
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"overview" | "insights" | "horizon" | "settings">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
@@ -179,12 +246,14 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>(INITIAL_GOALS);
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
+  const [schedules, setSchedules] = useState<RecurringSchedule[]>(INITIAL_SCHEDULES);
 
   const [draft, setDraft] = useState<DraftKind>(null);
   const [transactionDetail, setTransactionDetail] = useState<Transaction | null>(null);
   const [goalDetail, setGoalDetail] = useState<Goal | null>(null);
   const [tripDetail, setTripDetail] = useState<Trip | null>(null);
   const [loanDetail, setLoanDetail] = useState<Loan | null>(null);
+  const [scheduleDetail, setScheduleDetail] = useState<RecurringSchedule | null>(null);
   const [goalAdjustment, setGoalAdjustment] = useState<"deposit" | "withdraw" | null>(null);
   const [goalAdjustmentAmount, setGoalAdjustmentAmount] = useState("");
   const [goalAdjustmentNote, setGoalAdjustmentNote] = useState("");
@@ -196,6 +265,7 @@ export default function Home() {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editingTripId, setEditingTripId] = useState<string | null>(null);
   const [editingLoanId, setEditingLoanId] = useState<string | null>(null);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
 
   const [draftTitle, setDraftTitle] = useState("");
   const [draftAmount, setDraftAmount] = useState("");
@@ -225,6 +295,10 @@ export default function Home() {
   const [loanCounterpartyInput, setLoanCounterpartyInput] = useState("");
   const [loanTermsInput, setLoanTermsInput] = useState("");
   const [goalFinancingInput, setGoalFinancingInput] = useState("");
+  const [scheduleTypeInput, setScheduleTypeInput] = useState<RecurringSchedule["type"]>("expense");
+  const [scheduleFrequencyInput, setScheduleFrequencyInput] = useState<ScheduleFrequency>("monthly");
+  const [scheduleAccountInput, setScheduleAccountInput] = useState("acc-1");
+  const [scheduleCategoryInput, setScheduleCategoryInput] = useState("home-utilities");
 
   const totals = useMemo(() => {
     let income = 0;
@@ -330,6 +404,19 @@ export default function Home() {
     setDraft("loan");
   };
 
+  const startCreatingSchedule = () => {
+    const expenseCategory = categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? "food";
+    setEditingScheduleId(null);
+    setScheduleTypeInput("expense");
+    setScheduleFrequencyInput("monthly");
+    setScheduleAccountInput(accounts[0]?.id ?? "acc-1");
+    setScheduleCategoryInput(expenseCategory);
+    setDraftTitle("");
+    setDraftAmount("");
+    setDraftDate(dateInputValue(new Date()));
+    setDraft("schedule");
+  };
+
   const startEditingGoal = (goal: Goal) => {
     setGoalDetail(null);
     setEditingGoalId(goal.id);
@@ -359,6 +446,19 @@ export default function Home() {
     setDraftAmount(String(loan.totalAmount));
     setDraftDate(loan.dueDate);
     setDraft("loan");
+  };
+
+  const startEditingSchedule = (schedule: RecurringSchedule) => {
+    setScheduleDetail(null);
+    setEditingScheduleId(schedule.id);
+    setScheduleTypeInput(schedule.type);
+    setScheduleFrequencyInput(schedule.frequency);
+    setScheduleAccountInput(schedule.accountId);
+    setScheduleCategoryInput(schedule.categoryId);
+    setDraftTitle(schedule.name);
+    setDraftAmount(String(schedule.amount));
+    setDraftDate(schedule.nextDueDate);
+    setDraft("schedule");
   };
 
   const submitGoalAdjustment = () => {
@@ -418,6 +518,36 @@ export default function Home() {
     resetLoanPaymentDraft();
   };
 
+  const recordScheduledTransaction = () => {
+    if (!scheduleDetail || scheduleDetail.status !== "active") return;
+    const recordedAt = dateInputValue(new Date());
+    const transaction: Transaction = {
+      id: `tx-${Date.now()}`,
+      merchantNote: scheduleDetail.name,
+      amount: scheduleDetail.amount,
+      type: scheduleDetail.type,
+      accountId: scheduleDetail.accountId,
+      categoryId: scheduleDetail.categoryId,
+      date: recordedAt,
+      icon: "Repeat",
+    };
+    const occurrence: ScheduleOccurrence = { id: `schedule-occurrence-${Date.now()}`, scheduledFor: scheduleDetail.nextDueDate, recordedAt, transactionId: transaction.id };
+    const nextSchedule: RecurringSchedule = {
+      ...scheduleDetail,
+      nextDueDate: advanceScheduleDate(scheduleDetail.nextDueDate, scheduleDetail.frequency),
+      history: [occurrence, ...scheduleDetail.history],
+    };
+    setTransactions((current) => [transaction, ...current]);
+    setSchedules((current) => current.map((schedule) => schedule.id === nextSchedule.id ? nextSchedule : schedule));
+    setScheduleDetail(nextSchedule);
+  };
+
+  const setScheduleStatus = (schedule: RecurringSchedule, status: RecurringSchedule["status"]) => {
+    const nextSchedule = { ...schedule, status };
+    setSchedules((current) => current.map((item) => item.id === nextSchedule.id ? nextSchedule : item));
+    setScheduleDetail(nextSchedule);
+  };
+
   const startCreatingTransaction = () => {
     setTransactionDraft({
       merchantNote: "",
@@ -455,6 +585,7 @@ export default function Home() {
     setEditingGoalId(null);
     setEditingTripId(null);
     setEditingLoanId(null);
+    setEditingScheduleId(null);
     setDraftTitle("");
     setDraftAmount("");
     setCatNameInput("");
@@ -466,6 +597,10 @@ export default function Home() {
     setLoanCounterpartyInput("");
     setLoanTermsInput("");
     setGoalFinancingInput("");
+    setScheduleTypeInput("expense");
+    setScheduleFrequencyInput("monthly");
+    setScheduleAccountInput(accounts[0]?.id ?? "acc-1");
+    setScheduleCategoryInput(categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? "food");
   };
 
   const saveDraft = () => {
@@ -527,6 +662,28 @@ export default function Home() {
       setLoans((current) => editingLoanId
         ? current.map((loan) => loan.id === editingLoanId ? { ...loan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(loan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date" } : loan)
         : [{ id: `loan-${Date.now()}`, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [] }, ...current]);
+      resetDraft();
+    } else if (draft === "schedule") {
+      const parsed = parseFloat(draftAmount);
+      const selectedCategory = categories.find((category) => category.id === scheduleCategoryInput);
+      if (!draftTitle.trim() || isNaN(parsed) || parsed <= 0 || !draftDate || !scheduleAccountInput || !selectedCategory || selectedCategory.type !== scheduleTypeInput) {
+        alert("Please enter a schedule name, amount, matching category, account, and next due date.");
+        return;
+      }
+      const existing = editingScheduleId ? schedules.find((schedule) => schedule.id === editingScheduleId) : undefined;
+      const nextSchedule: RecurringSchedule = {
+        id: editingScheduleId ?? `schedule-${Date.now()}`,
+        name: draftTitle.trim(),
+        amount: parsed,
+        type: scheduleTypeInput,
+        frequency: scheduleFrequencyInput,
+        accountId: scheduleAccountInput,
+        categoryId: scheduleCategoryInput,
+        nextDueDate: draftDate,
+        status: existing?.status ?? "active",
+        history: existing?.history ?? [],
+      };
+      setSchedules((current) => editingScheduleId ? current.map((schedule) => schedule.id === editingScheduleId ? nextSchedule : schedule) : [nextSchedule, ...current]);
       resetDraft();
     } else if (draft === "category") {
       if (!catNameInput.trim()) {
@@ -620,6 +777,7 @@ export default function Home() {
               categories={categories}
               categorySpent={categorySpent}
               transactions={filteredTransactions}
+              schedules={schedules}
               filter={filter}
               categoryFilterId={categoryFilterId}
               query={query}
@@ -628,6 +786,7 @@ export default function Home() {
               onClearCategory={() => setCategoryFilterId(null)}
               onOpenCategory={(id) => setCategoryFilterId(id)}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
+              onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
             />
           )}
 
@@ -645,12 +804,15 @@ export default function Home() {
               goals={goals}
               trips={trips}
               loans={loans}
+              schedules={schedules}
               onOpenAddGoal={startCreatingGoal}
               onOpenAddTrip={startCreatingTrip}
               onOpenAddLoan={startCreatingLoan}
+              onOpenAddSchedule={startCreatingSchedule}
               onOpenGoal={(goal) => setGoalDetail(goal)}
               onOpenTrip={(trip) => setTripDetail(trip)}
               onOpenLoan={(loan) => setLoanDetail(loan)}
+              onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
             />
           )}
 
@@ -780,6 +942,26 @@ export default function Home() {
         </div>
       )}
 
+      {/* Recurring income and bill detail */}
+      {scheduleDetail && (
+        <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label={`${scheduleDetail.name} recurring schedule`} onMouseDown={() => setScheduleDetail(null)}>
+          <aside className="draft-panel plan-detail-panel schedule-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="draft-top"><div><div className="draft-kicker">{scheduleDetail.type === "income" ? "Recurring income" : "Recurring bill"}</div><h2>{scheduleDetail.name}</h2></div><button className="close-button" onClick={() => setScheduleDetail(null)} aria-label="Close"><X size={17} /></button></div>
+            <div className={`plan-detail-hero paper-card schedule-detail-hero ${scheduleDetail.type}`}>
+              <div className="plan-detail-kicker">{scheduleDetail.status === "active" ? scheduleDueLabel(scheduleDetail.nextDueDate) : "Schedule paused"}</div>
+              <strong>{fmt.format(scheduleDetail.amount)} <span>{scheduleFrequencyLabel(scheduleDetail.frequency).toLowerCase()}</span></strong>
+              <div className="horizon-card-foot"><span>Next due {shortDate(scheduleDetail.nextDueDate)}</span><span>{scheduleDetail.status === "active" ? "Active" : "Paused"}</span></div>
+            </div>
+            <div className="field-note plan-detail-note"><div className="field-note-row"><span>Account</span><b>{accounts.find((account) => account.id === scheduleDetail.accountId)?.name ?? scheduleDetail.accountId}</b></div><div className="field-note-row"><span>Category</span><b>{categories.find((category) => category.id === scheduleDetail.categoryId)?.name ?? scheduleDetail.categoryId}</b></div><div className="field-note-row"><span>Frequency</span><b>{scheduleFrequencyLabel(scheduleDetail.frequency)}</b></div><div className="field-note-row"><span>Status</span><b>{scheduleDetail.status === "active" ? "Active and due" : "Paused"}</b></div></div>
+            <div className="draft-actions plan-detail-actions schedule-detail-actions">
+              {scheduleDetail.status === "active" ? <><button className="primary-button draft-submit" onClick={recordScheduledTransaction}><CheckCircle2 size={15} /> Mark {scheduleDetail.type === "income" ? "received" : "paid"}</button><button className="secondary-button" onClick={() => setScheduleStatus(scheduleDetail, "paused")}>Pause schedule</button></> : <button className="primary-button draft-submit" onClick={() => setScheduleStatus(scheduleDetail, "active")}><CheckCircle2 size={15} /> Resume schedule</button>}
+              <button className="text-link" onClick={() => startEditingSchedule(scheduleDetail)}><Edit3 size={14} /> Modify schedule</button>
+            </div>
+            <section className="schedule-history"><div className="section-mini-head"><span>Recorded occurrences</span><b>{scheduleDetail.history.length} records</b></div>{scheduleDetail.history.length ? <div className="loan-history">{scheduleDetail.history.map((occurrence) => <div className="loan-history-row" key={occurrence.id}><div><strong>{scheduleDetail.type === "income" ? "Income received" : "Bill paid"}</strong><span>Due {shortDate(occurrence.scheduledFor)} · recorded {shortDate(occurrence.recordedAt)}</span></div><b>{fmt.format(scheduleDetail.amount)}</b></div>)}</div> : <p className="empty-hint">No occurrences have been recorded yet.</p>}</section>
+          </aside>
+        </div>
+      )}
+
       {/* Expanded Profile Modal */}
       {draft === "profile" && (
         <div className="draft-backdrop" role="dialog" aria-modal="true" aria-label="User profile" onMouseDown={resetDraft}>
@@ -829,6 +1011,7 @@ export default function Home() {
           editingGoalId={editingGoalId}
           editingTripId={editingTripId}
           editingLoanId={editingLoanId}
+          editingScheduleId={editingScheduleId}
           catName={catNameInput}
           catBudget={catBudgetInput}
           catType={catTypeInput}
@@ -842,6 +1025,10 @@ export default function Home() {
           loanCounterparty={loanCounterpartyInput}
           loanTerms={loanTermsInput}
           goalFinancing={goalFinancingInput}
+          scheduleType={scheduleTypeInput}
+          scheduleFrequency={scheduleFrequencyInput}
+          scheduleAccount={scheduleAccountInput}
+          scheduleCategory={scheduleCategoryInput}
           onTitle={setDraftTitle}
           onAmount={setDraftAmount}
           onDate={setDraftDate}
@@ -859,6 +1046,10 @@ export default function Home() {
           onLoanCounterparty={setLoanCounterpartyInput}
           onLoanTerms={setLoanTermsInput}
           onGoalFinancing={setGoalFinancingInput}
+          onScheduleType={setScheduleTypeInput}
+          onScheduleFrequency={setScheduleFrequencyInput}
+          onScheduleAccount={setScheduleAccountInput}
+          onScheduleCategory={setScheduleCategoryInput}
           onClose={resetDraft}
           onSave={saveDraft}
           onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
@@ -869,14 +1060,17 @@ export default function Home() {
   );
 }
 
-function OverviewView({ balance, netWorth, accounts, totals, categories, categorySpent, transactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction }: {
-  balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
-  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void;
+function OverviewView({ balance, netWorth, accounts, totals, categories, categorySpent, transactions, schedules, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, onOpenSchedule }: {
+  balance: number; netWorth: number; accounts: Array<Account & { balance: number }>; totals: { income: number; expense: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; schedules: RecurringSchedule[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string;
+  onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; onOpenSchedule: (schedule: RecurringSchedule) => void;
 }) {
   const savingsRate = totals.income ? Math.round(((totals.income - totals.expense) / totals.income) * 100) : 0;
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
   const expenseTopCategories = categories.filter((c) => c.type === "expense" && !c.parentId);
   const plannedBudget = expenseTopCategories.reduce((sum, category) => sum + category.monthlyBudget, 0);
+  const upcomingSchedules = schedules.filter((schedule) => schedule.status === "active").slice().sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+  const upcomingIncome = upcomingSchedules.filter((schedule) => schedule.type === "income").slice(0, 3);
+  const upcomingBills = upcomingSchedules.filter((schedule) => schedule.type === "expense").slice(0, 3);
   const currentMonthKey = monthKey(new Date().toISOString().slice(0, 10));
   const [openMonths, setOpenMonths] = useState<Record<string, boolean>>(() => ({ [currentMonthKey]: true }));
   const monthRows = useMemo(() => {
@@ -931,6 +1125,13 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, categor
         </div>
       </div>
       <div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to inspect its ledger</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span>{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div>
+    </section>
+    <section className="paper-card dashboard-schedule-register">
+      <div className="section-head schedule-register-head"><div><div className="page-kicker">Expected money</div><h2>Upcoming income & bills</h2></div><span className="month-hand-date">From your recurring ledger</span></div>
+      <div className="schedule-register-grid">
+        <div className="schedule-register-column income"><div className="schedule-register-label"><span>Upcoming income</span><b>{upcomingIncome.length} active</b></div>{upcomingIncome.length ? upcomingIncome.map((schedule) => <button key={schedule.id} className="schedule-register-row" onClick={() => onOpenSchedule(schedule)}><span><strong>{schedule.name}</strong><small>{scheduleDueLabel(schedule.nextDueDate)} · {scheduleFrequencyLabel(schedule.frequency)}</small></span><b>{fmt.format(schedule.amount)}</b></button>) : <p className="empty-hint">No upcoming income schedule.</p>}</div>
+        <div className="schedule-register-column expense"><div className="schedule-register-label"><span>Upcoming bills</span><b>{upcomingBills.length} active</b></div>{upcomingBills.length ? upcomingBills.map((schedule) => <button key={schedule.id} className="schedule-register-row" onClick={() => onOpenSchedule(schedule)}><span><strong>{schedule.name}</strong><small>{scheduleDueLabel(schedule.nextDueDate)} · {scheduleFrequencyLabel(schedule.frequency)}</small></span><b>{fmt.format(schedule.amount)}</b></button>) : <p className="empty-hint">No upcoming bill schedule.</p>}</div>
+      </div>
     </section>
     <section className="paper-card month-history-section">
       <div className="section-head month-history-head"><div><div className="page-kicker">Historical overview</div><h2>Ledger by month</h2></div><span className="month-hand-date">{monthRows.length} month{monthRows.length === 1 ? "" : "s"} with records</span></div>
@@ -1001,8 +1202,11 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   </>;
 }
 
-function HorizonView({ goals, trips, loans, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenGoal, onOpenTrip, onOpenLoan }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void }) {
-  const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans">("goals");
+function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void }) {
+  const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring">("goals");
+  const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
+  const scheduledIncome = activeSchedules.filter((schedule) => schedule.type === "income").reduce((sum, schedule) => sum + schedule.amount, 0);
+  const scheduledBills = activeSchedules.filter((schedule) => schedule.type === "expense").reduce((sum, schedule) => sum + schedule.amount, 0);
   return (
     <>
       <section className="horizon-hero">
@@ -1014,10 +1218,11 @@ function HorizonView({ goals, trips, loans, onOpenAddGoal, onOpenAddTrip, onOpen
             <button className={`filter-button ${horizonTab === "goals" ? "active" : ""}`} onClick={() => setHorizonTab("goals")}>Savings goals</button>
             <button className={`filter-button ${horizonTab === "trips" ? "active" : ""}`} onClick={() => setHorizonTab("trips")}>Trip & event plans</button>
             <button className={`filter-button ${horizonTab === "loans" ? "active" : ""}`} onClick={() => setHorizonTab("loans")}>Debt & loans</button>
+            <button className={`filter-button ${horizonTab === "recurring" ? "active" : ""}`} onClick={() => setHorizonTab("recurring")}>Recurring income & bills</button>
           </div>
         </div>
-        <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : horizonTab === "trips" ? onOpenAddTrip : onOpenAddLoan}>
-          <Plus size={15} /> {horizonTab === "goals" ? "Add savings goal" : horizonTab === "trips" ? "Add trip plan" : "Add loan record"}
+        <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : horizonTab === "trips" ? onOpenAddTrip : horizonTab === "loans" ? onOpenAddLoan : onOpenAddSchedule}>
+          <Plus size={15} /> {horizonTab === "goals" ? "Add savings goal" : horizonTab === "trips" ? "Add trip plan" : horizonTab === "loans" ? "Add loan record" : "Add recurring schedule"}
         </button>
       </section>
 
@@ -1066,6 +1271,23 @@ function HorizonView({ goals, trips, loans, onOpenAddGoal, onOpenAddTrip, onOpen
                 <div className="horizon-card-foot"><span>{percentPaid}% settled</span><span>{loan.terms}</span></div>
               </button>;
             })}
+          </div>
+        </div>
+      )}
+
+      {horizonTab === "recurring" && (
+        <div className="schedule-workspace">
+          <div className="schedule-workspace-summary">
+            <div><span>Upcoming income</span><strong>{fmt.format(scheduledIncome)}</strong><small>{activeSchedules.filter((schedule) => schedule.type === "income").length} active sources</small></div>
+            <div><span>Upcoming bills</span><strong>{fmt.format(scheduledBills)}</strong><small>{activeSchedules.filter((schedule) => schedule.type === "expense").length} active schedules</small></div>
+          </div>
+          <div className="schedule-intro"><div><div className="page-kicker">Recurring ledger</div><h2>Expected money, already in view.</h2></div><p>Record a bill as paid or income as received. The app creates the ledger entry and advances its next due date.</p></div>
+          <div className="schedule-list">
+            {schedules.slice().sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate)).map((schedule) => <button key={schedule.id} className={`paper-card schedule-card ${schedule.type} ${schedule.status}`} onClick={() => onOpenSchedule(schedule)} aria-label={`Open recurring schedule ${schedule.name}`}>
+              <div className="horizon-card-topline"><span className={`schedule-status ${schedule.status}`}>{schedule.status === "active" ? scheduleDueLabel(schedule.nextDueDate) : "Paused"}</span><ChevronRight size={17} /></div>
+              <div className="horizon-card-main"><div><h3>{schedule.name}</h3><span className="horizon-card-action">{schedule.type === "income" ? "Income" : "Bill"} · {scheduleFrequencyLabel(schedule.frequency)}</span></div><strong>{fmt.format(schedule.amount)}</strong></div>
+              <div className="horizon-card-foot"><span>Next {shortDate(schedule.nextDueDate)}</span><span>{schedule.history.length} recorded</span></div>
+            </button>)}
           </div>
         </div>
       )}
@@ -1171,16 +1393,17 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, goalFinancing, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onGoalFinancing, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; goalFinancing: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onGoalFinancing: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, parentTarget, subName, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onCatName, onCatBudget, onCatType, onParentTarget, onSubName, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; parentTarget: string; subName: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
-  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
-  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
+  const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "schedule" ? (editingScheduleId ? "Edit recurring schedule" : "Add recurring schedule") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
+  const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "schedule" ? "Keep regular income and bills visible before their next due date." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
   const update = (patch: Partial<TransactionDraft>) => onTransaction((current) => ({ ...current, ...patch }));
 
   const expenseTop = categories.filter((c) => c.type === "expense" && !c.parentId);
   const incomeList = categories.filter((c) => c.type === "income");
+  const scheduleCategories = categories.filter((category) => category.type === scheduleType);
 
   const currentCategory = categories.find((category) => category.id === transaction.categoryId);
   const initialParentId = currentCategory?.parentId ?? (currentCategory?.type === "expense" ? currentCategory.id : expenseTop[0]?.id ?? "");
@@ -1275,6 +1498,17 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Repayment terms <em>optional</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
         </>}
 
+        {kind === "schedule" && <>
+          <div className="form-field"><label>Schedule type</label><div className="type-options"><button className={`type-option ${scheduleType === "expense" ? "active" : ""}`} onClick={() => { onScheduleType("expense"); onScheduleCategory(categories.find((category) => category.type === "expense" && !category.parentId)?.id ?? ""); }}>Recurring bill</button><button className={`type-option ${scheduleType === "income" ? "active" : ""}`} onClick={() => { onScheduleType("income"); onScheduleCategory(categories.find((category) => category.type === "income")?.id ?? ""); }}>Recurring income</button></div></div>
+          <div className="form-field"><label>Schedule name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder={scheduleType === "income" ? "e.g. Monthly salary" : "e.g. Internet service"} autoFocus /></div>
+          <div className="form-field"><label>Expected amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></div>
+          <div className="form-field"><label>Frequency</label><select value={scheduleFrequency} onChange={(event) => onScheduleFrequency(event.target.value as ScheduleFrequency)}><option value="weekly">Weekly</option><option value="biweekly">Every two weeks</option><option value="monthly">Monthly</option></select></div>
+          <div className="form-field"><label>Account</label><select value={scheduleAccount} onChange={(event) => onScheduleAccount(event.target.value)}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} · {account.kind}</option>)}</select></div>
+          <div className="form-field"><label>Category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)}>{scheduleCategories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `↳ ${category.name}` : category.name}</option>)}</select></div>
+          <div className="form-field"><label>Next due date</label><input type="date" value={dateVal} onChange={(event) => onDate(event.target.value)} /></div>
+          <p className="form-field-note">When you mark this schedule paid or received, its matching entry is added to the ledger and the next due date moves forward.</p>
+        </>}
+
         {kind === "category" && <>
           <div className="form-field"><label>Type</label><div className="type-options"><button className={`type-option ${catType === "expense" ? "active" : ""}`} onClick={() => onCatType("expense")}>Expense</button><button className={`type-option ${catType === "income" ? "active" : ""}`} onClick={() => onCatType("income")}>Income</button></div></div>
           <div className="form-field"><label>{catType === "income" ? "Income category name" : "Category name"}</label><input value={catName} onChange={(event) => onCatName(event.target.value)} placeholder={catType === "income" ? "e.g. Rental yield or Bonus" : "e.g. Wellness"} autoFocus /></div>
@@ -1294,7 +1528,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
         </>}
 
         <div className="draft-actions">
-          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? (editingGoalId ? "Save goal" : "Create goal") : kind === "trip" ? (editingTripId ? "Save plan" : "Create plan") : kind === "loan" ? (editingLoanId ? "Save loan" : "Create loan") : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
+          <button className="primary-button draft-submit" onClick={onSave}>{kind === "transaction" ? (transaction.id ? "Save changes" : "Save entry") : kind === "goal" ? (editingGoalId ? "Save goal" : "Create goal") : kind === "trip" ? (editingTripId ? "Save plan" : "Create plan") : kind === "loan" ? (editingLoanId ? "Save loan" : "Create loan") : kind === "schedule" ? (editingScheduleId ? "Save schedule" : "Create schedule") : kind === "category" ? "Add category" : kind === "subcategory" ? "Add subcategory" : "Save account"}</button>
           <button className="secondary-button" onClick={onClose}>Cancel</button>
         </div>
       </aside>
