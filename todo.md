@@ -115,3 +115,8 @@
 - [x] Replace the oversized “Return to Overview” text line with a compact header-level back control on Accounts & Assets and History.
 - [x] Preserve a clear return action while allowing the page eyebrow and title hierarchy to remain uncluttered on mobile.
 - [x] Verify the compact back control on mobile and desktop, type-check, build, and checkpoint the visual refinement.
+
+## Revised titled back-button layout
+- [x] Put a compact titled “Back to Overview” button on its own line in Accounts & Assets and History.
+- [x] Place the destination label (Account register or Recorded movement) on the following line before the page title.
+- [x] Verify the revised header order on mobile and desktop, type-check, build, and checkpoint it.
