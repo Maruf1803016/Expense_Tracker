@@ -178,3 +178,10 @@
 - [x] Preserve user-created subcategories as editable records while preventing accidental deletion of the permanent top-level containers.
 - [x] Apply permanent-category markers and compatible icons throughout Settings and expense selection.
 - [x] Validate category selection, subcategory creation, responsive presentation, TypeScript, production build, and checkpoint.
+
+## Profile completion
+- [x] Add signed-in email-verification status and an actionable verification-email control.
+- [x] Add a safe password-reset request flow for the account email.
+- [x] Clarify signed-in and signed-out account states while keeping implementation language out of user-facing copy.
+- [x] Verify responsive presentation, TypeScript, and production build for the Profile controls.
+- [ ] Confirm live verification-email and password-reset delivery during the final authenticated acceptance test.

@@ -402,7 +402,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 ];
 
 export default function Home() {
-  const { user, loading: authLoading, error: authError, signIn, signUp, signOut, clearError } = useAuth();
+  const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
@@ -475,6 +475,7 @@ export default function Home() {
   const [authEmailInput, setAuthEmailInput] = useState("");
   const [authPasswordInput, setAuthPasswordInput] = useState("");
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [cloudPrerequisitesLoaded, setCloudPrerequisitesLoaded] = useState({ accounts: false, categories: false });
   const [starterRequestedFor, setStarterRequestedFor] = useState<string | null>(null);
 
@@ -584,12 +585,45 @@ export default function Home() {
       return;
     }
     setAuthSubmitting(true);
+    setProfileNotice(null);
     try {
-      if (profileMode === "signUp") await signUp(authEmailInput, authPasswordInput);
-      else await signIn(authEmailInput, authPasswordInput);
+      if (profileMode === "signUp") {
+        await signUp(authEmailInput, authPasswordInput);
+        await sendVerification();
+        setProfileNotice("Your account is ready. A verification link has been sent to your inbox.");
+      } else {
+        await signIn(authEmailInput, authPasswordInput);
+      }
       setAuthPasswordInput("");
     } catch {
       // AuthContext exposes an actionable, provider-safe message in this panel.
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleProfileAction = async (action: "verification" | "refreshVerification" | "passwordReset") => {
+    setAuthSubmitting(true);
+    setProfileNotice(null);
+    clearError();
+    try {
+      if (action === "verification") {
+        await sendVerification();
+        setProfileNotice("A verification link has been sent to your inbox.");
+      } else if (action === "refreshVerification") {
+        await refreshVerification();
+        setProfileNotice("Your email status has been refreshed.");
+      } else {
+        const resetEmail = user?.email ?? authEmailInput;
+        if (!resetEmail?.trim()) {
+          setProfileNotice("Enter your email address first, then request a password reset.");
+          return;
+        }
+        await requestPasswordReset(resetEmail);
+        setProfileNotice("If this address can receive account email, password-reset instructions are on their way.");
+      }
+    } catch {
+      // AuthContext supplies an accessible message in the account panel.
     } finally {
       setAuthSubmitting(false);
     }
@@ -1326,17 +1360,22 @@ export default function Home() {
               </div>
               <div className="field-note" style={{ display: "grid", gap: 10, marginBottom: 20 }}>
                 <div className="field-note-row"><span>Saving status</span><b>{cloudStatus === "synced" ? "Saved to your account" : cloudStatus === "loading" ? "Loading your records" : cloudStatus === "error" ? "Needs attention" : "Not signed in"}</b></div>
-                <div className="field-note-row"><span>Provider</span><b>Email and password</b></div>
+                <div className="field-note-row"><span>Account access</span><b>Email &amp; password</b></div>
                 <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
                 <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
               </div>
+              {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>Verification helps keep your personal money record recoverable and recognisable.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>Send verification email</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>I’ve verified it</button></div></div>}
+              <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>We will send a secure reset link to {user.email ?? "your account email"}.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>Send reset link</button></div>
               {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}
+              {profileNotice && <p className="account-notice" role="status">{profileNotice}</p>}
               <div className="draft-actions"><button className="secondary-button" onClick={resetDraft}><ShieldCheck size={16} /> Continue to ledger</button><button className="delete-button" onClick={() => { void signOut(); resetDraft(); }}><LogOut size={16} /> Sign out</button></div>
             </> : <>
               <p className="draft-copy">Create a personal account to save your expenses, income, accounts, goals, plans, loans, and schedules. When you return, sign in to continue with the same money record.</p>
-              <div className="filter-row" style={{ margin: "18px 0" }}><button className={`filter-button ${profileMode === "signIn" ? "active" : ""}`} onClick={() => { setProfileMode("signIn"); clearError(); }}>Sign in</button><button className={`filter-button ${profileMode === "signUp" ? "active" : ""}`} onClick={() => { setProfileMode("signUp"); clearError(); }}>Create account</button></div>
+              <div className="filter-row" style={{ margin: "18px 0" }}><button className={`filter-button ${profileMode === "signIn" ? "active" : ""}`} onClick={() => { setProfileMode("signIn"); setProfileNotice(null); clearError(); }}>Sign in</button><button className={`filter-button ${profileMode === "signUp" ? "active" : ""}`} onClick={() => { setProfileMode("signUp"); setProfileNotice(null); clearError(); }}>Create account</button></div>
               <div className="draft-fields"><label className="form-field"><span>Email address</span><input type="email" value={authEmailInput} onChange={(event) => setAuthEmailInput(event.target.value)} placeholder="you@example.com" autoComplete="email" /></label><label className="form-field"><span>Password</span><input type="password" value={authPasswordInput} onChange={(event) => setAuthPasswordInput(event.target.value)} placeholder="At least 6 characters" minLength={6} autoComplete={profileMode === "signUp" ? "new-password" : "current-password"} /></label></div>
+              {profileMode === "signIn" && <button className="text-link profile-forgot-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>Forgot your password?</button>}
               {(authError || cloudError) && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginTop: 16 }}>{authError || cloudError}</p>}
+              {profileNotice && <p className="account-notice" role="status">{profileNotice}</p>}
               <div className="draft-actions" style={{ marginTop: 22 }}><button className="primary-button draft-submit" disabled={authSubmitting} onClick={() => void submitAuthentication()}>{authSubmitting ? "Working…" : profileMode === "signUp" ? "Create my account" : "Sign in"}</button><button className="secondary-button" onClick={resetDraft}>Explore without an account</button></div>
             </>}
           </aside>
