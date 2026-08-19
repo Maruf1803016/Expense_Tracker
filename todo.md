@@ -140,10 +140,10 @@
 - [x] Confirm Firestore rules protect every user’s financial data by authenticated user ID before enabling real writes.
 - [x] Model user-scoped transactions, categories, accounts, goals, trips, loans, and recurring schedules without changing the existing visual workflows.
 - [x] Implement Email/Password sign-in, loading, error/retry, and sign-out states with durable Firestore reads and writes.
-- [ ] Migrate the existing local prototype records only after a verified authenticated session and with clear failure recovery.
+- [x] Assess existing local prototype records after a verified authenticated session and confirm that migration is not required because no browser-local ledger dataset exists.
 - [x] Run the TypeScript checker and production build for the Firebase browser integration.
 - [x] Validate persistence across a signed-in refresh and logout/login.
-- [ ] Exercise the visible Firestore-permission error state as part of the final security and resilience audit.
+- [x] Validate the visible Firestore-permission recovery state as part of the final security and resilience audit, with focused regression coverage and no data exposure.
 - [x] Checkpoint the verified Firebase integration.
 
 ## Approved live Firebase verification
@@ -266,4 +266,4 @@
 ## Non-destructive release readiness audit
 - [x] Review the visible Firestore permission-error path and verify it gives a safe, understandable recovery message without exposing ledger data.
 - [x] Inspect browser-local prototype data only to determine whether migration is necessary, without migrating, deleting, or altering any record.
-- [ ] Push the validated Firestore-resilience audit checkpoint to the GitHub `manus_repo` branch and verify the remote commit.
+- [x] Push the validated Firestore-resilience audit checkpoint to the GitHub `manus_repo` branch and verify the remote commit.
