@@ -1732,3 +1732,17 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .currency-directory-list button { min-height: 66px; grid-template-columns: 29px minmax(0, 1fr) auto 19px; gap: 9px; padding-right: 7px; }
   .currency-directory-copy small { white-space: normal; }
 }
+
+/* Retained-history navigation must read as a way back, not as secondary copy. */
+.routine-archive-detail .section-mini-head .text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid #d7c9b2;
+  border-radius: 999px;
+  color: #8d6f32;
+  font-weight: 700;
+}
+.routine-archive-detail .section-mini-head .text-link::before { content: "←"; font-size: 15px; line-height: 1; }
+.routine-archive-detail .section-mini-head .text-link:hover { border-color: #b78a3d; background: #fbf5e8; }

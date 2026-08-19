@@ -6,7 +6,7 @@ import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToL
 import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
-import { expectedRoutineDaysInMonth, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
+import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts } from "@/lib/reminderTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 
@@ -597,6 +597,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-history">("overview");
+  const [inboxOrigin, setInboxOrigin] = useState<Exclude<typeof activeTab, "inbox">>("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -872,6 +873,7 @@ export default function Home() {
   };
 
   const toggleRoutineAttendance = (routineId: string, date: string) => {
+    if (isFutureRoutineDate(date)) return;
     const id = `routine-attendance-${routineId}-${date}`;
     const existing = routineAttendance.find((item) => item.id === id);
     const next: RoutineAttendance = {
@@ -1582,7 +1584,7 @@ export default function Home() {
           <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Plans & Progress" : activeTab === "inbox" ? "Notification inbox" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <div className="notification-wrap">
-              <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""} ${activeTab === "inbox" ? "is-active" : ""}`} onClick={() => setActiveTab("inbox")} aria-label={`Open notification inbox${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-current={activeTab === "inbox" ? "page" : undefined}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
+              <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""} ${activeTab === "inbox" ? "is-active" : ""}`} onClick={() => { if (activeTab === "inbox") setActiveTab(inboxOrigin); else { setInboxOrigin(activeTab); setActiveTab("inbox"); } }} aria-label={activeTab === "inbox" ? "Return to previous workspace" : `Open notification inbox${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-current={activeTab === "inbox" ? "page" : undefined}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
             </div>
             <button className="profile-pill" onClick={() => setDraft("profile")} aria-label={user ? "Open signed-in profile" : "Sign in to cloud ledger"}>{authLoading ? "··" : (user?.email?.slice(0, 2) || "IL").toUpperCase()}</button>
           </div>
@@ -1671,7 +1673,8 @@ export default function Home() {
             <NotificationInboxView
               items={notificationItems}
               unreadCount={unreadNotificationCount}
-              onBack={() => setActiveTab("overview")}
+              returnLabel={inboxOrigin === "horizon" ? "Plans & Progress" : inboxOrigin === "insights" ? "Insights" : inboxOrigin === "history" ? "History" : inboxOrigin === "accounts" ? "Accounts & assets" : inboxOrigin.startsWith("settings") ? "Settings" : "Overview"}
+              onBack={() => setActiveTab(inboxOrigin)}
               onOpenNotice={markNotificationRead}
               onMarkAllRead={markAllNotificationsRead}
             />
@@ -2097,9 +2100,12 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
 
 function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
   const [statsTab, setStatsTab] = useState<"insight" | "summary">("insight");
-  const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug"].map((label, index) => {
-    const month = String(index + 3).padStart(2, "0");
-    const entries = transactions.filter((transaction) => transaction.date.startsWith(`2026-${month}`));
+  const today = new Date();
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const entries = transactions.filter((transaction) => transaction.date.startsWith(key));
+    const label = date.toLocaleDateString("en-US", { month: "short" });
     return { label, income: entries.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0), expense: entries.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0) };
   });
   const max = Math.max(...months.flatMap((month) => [month.income, month.expense]), 1);
@@ -2109,7 +2115,6 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   const spent = expenseTopCategories.reduce((sum, category) => sum + (categorySpent[category.id] ?? 0), 0);
   const mix = expenseTopCategories.filter((category) => category.monthlyBudget > 0 && (categorySpent[category.id] ?? 0) > 0).sort((a, b) => (categorySpent[b.id] ?? 0) - (categorySpent[a.id] ?? 0));
   const stops = mix.reduce((parts, category, index) => { const start = parts.end; const size = spent ? ((categorySpent[category.id] ?? 0) / spent) * 100 : 0; return { end: start + size, gradient: `${parts.gradient}${category.color} ${start}% ${start + size}%${index < mix.length - 1 ? ", " : ""}` }; }, { end: 0, gradient: "" });
-  const today = new Date();
   const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const elapsedDays = Math.min(daysInCurrentMonth, today.getDate());
   const budgetPacing = expenseTopCategories.filter((category) => category.monthlyBudget > 0).map((category) => {
@@ -2178,6 +2183,7 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const width = doc.internal.pageSize.getWidth();
     const height = doc.internal.pageSize.getHeight();
+    const pdfAmount = (value: number) => `${activeCurrency} ${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }).format(value)}`;
     let y = 54;
     const pageHeader = () => {
       doc.setFillColor(27, 58, 43); doc.rect(0, 0, width, 102, "F");
@@ -2188,7 +2194,7 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
     };
     pageHeader(); y = 165;
     doc.setTextColor(35, 43, 39); doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-    doc.text(`INFLOW ${fmt.format(summary.income)}`, 44, y); doc.text(`OUTFLOW ${fmt.format(summary.expense)}`, 200, y); doc.text(`NET ${fmt.format(summary.net)}`, 380, y);
+    doc.text(`INFLOW ${pdfAmount(summary.income)}`, 44, y); doc.text(`OUTFLOW ${pdfAmount(summary.expense)}`, 200, y); doc.text(`NET ${pdfAmount(summary.net)}`, 380, y);
     y += 34; doc.setTextColor(112, 102, 88); doc.setFontSize(8); doc.text("DATE", 44, y); doc.text("RECORD", 116, y); doc.text("ACCOUNT", 362, y); doc.text("AMOUNT", width - 44, y, { align: "right" }); y += 15;
     filteredLedger.forEach((transaction) => {
       if (y > height - 50) { doc.addPage(); pageHeader(); y = 165; }
@@ -2197,7 +2203,7 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
       doc.setTextColor(72, 66, 56); doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text(transaction.date, 44, y);
       doc.setTextColor(31, 40, 36); doc.setFontSize(9); doc.text(transaction.merchantNote.slice(0, 34), 116, y);
       doc.setTextColor(112, 102, 88); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text(accountName(transaction.accountId).slice(0, 22), 362, y);
-      doc.setTextColor(transaction.type === "income" ? 44 : 128, transaction.type === "income" ? 99 : 59, transaction.type === "income" ? 59 : 47); doc.setFont("helvetica", "bold"); doc.text(`${sign}${fmt.format(transaction.amount)}`, width - 44, y, { align: "right" }); y += 18;
+      doc.setTextColor(transaction.type === "income" ? 44 : 128, transaction.type === "income" ? 99 : 59, transaction.type === "income" ? 59 : 47); doc.setFont("helvetica", "bold"); doc.text(`${sign} ${pdfAmount(transaction.amount)}`, width - 44, y, { align: "right" }); y += 18;
     });
     if (!filteredLedger.length) { doc.setTextColor(112, 102, 88); doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("No records match the selected filters.", 44, y + 18); }
     doc.save(`${reportFileName}.pdf`);
@@ -2211,9 +2217,9 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
   </>;
 }
 
-function NotificationInboxView({ items, unreadCount, onBack, onOpenNotice, onMarkAllRead }: { items: AppNotification[]; unreadCount: number; onBack: () => void; onOpenNotice: (id: string) => void; onMarkAllRead: () => void }) {
+function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpenNotice, onMarkAllRead }: { items: AppNotification[]; unreadCount: number; returnLabel: string; onBack: () => void; onOpenNotice: (id: string) => void; onMarkAllRead: () => void }) {
   return <>
-    <header className="workspace-page-header inbox-page-header"><button className="workspace-back-button" onClick={onBack}><ArrowLeft size={15} /> Back to Overview</button><div><div className="page-kicker">Ledger notices</div><h1>Notification inbox</h1><p className="page-subtitle">Every reminder and ledger notice stays here, even after you have seen it.</p></div></header>
+    <header className="workspace-page-header inbox-page-header"><button className="workspace-back-button" onClick={onBack}><Bell size={15} /> Back to {returnLabel}</button><div><div className="page-kicker">Ledger notices</div><h1>Notification inbox</h1><p className="page-subtitle">Every reminder and ledger notice stays here, even after you have seen it.</p></div></header>
     <section className="paper-card inbox-sheet">
       <div className="inbox-sheet-head"><div><span className={`settings-status-chip ${unreadCount ? "is-active" : ""}`}>{unreadCount ? `${unreadCount} unread` : "All caught up"}</span><h2>{unreadCount ? "Keep the important things in view." : "Your ledger is quiet for now."}</h2></div>{unreadCount > 0 && <button className="secondary-button inbox-mark-read" onClick={onMarkAllRead}><CheckCircle2 size={15} /> Mark all read</button>}</div>
       {items.length ? <div className="notification-list inbox-notification-list">{items.map((item) => <button type="button" className={`notification-item ${item.tone} ${item.read ? "is-read" : "is-unread"}`} key={item.id} onClick={() => onOpenNotice(item.id)} aria-label={item.read ? `${item.title}, read` : `${item.title}, mark as read`}><span className="notification-item-topline"><b>{item.title}</b><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</time></span><span>{item.detail}</span>{!item.read && <em>Mark as read</em>}</button>)}</div> : <div className="horizon-empty inbox-empty"><Bell size={20} /><strong>Your inbox is ready.</strong><span>Due dates, daily ledger reminders, and future notices will remain here when they arrive.</span></div>}
@@ -2228,8 +2234,8 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
   const [name, setName] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
   const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
-  const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? activeRoutines[0] ?? null;
-  const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
+  const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? null;
+  const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek).map((day) => isFutureRoutineDate(day.date) ? { ...day, inCurrentMonth: false } : day) : [];
   const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
   const attendedDates = new Set(attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended).map((item) => item.date));
   const attendedThisMonth = expectedDays.filter((date) => attendedDates.has(date)).length;
@@ -2243,9 +2249,11 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
 
   return <div className="routine-workspace">
     <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
+    <section className="field-note routine-income-guidance"><b>Keep work and money clear.</b><span>Each tuition role and permanent job is counted as its own routine. Attendance never changes expense budgets; when you are paid, record the money as income using Salary, Freelance income, or a dedicated Tuition category.</span></section>
     {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
     {activeRoutines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{activeRoutines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`End ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
-      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={`${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Your rolling work view holds this month plus the prior eleven. Attendance remains available for two years in Data History.</p></section>}</>}
+      {selectedRoutine && <div className="back-line"><button type="button" className="back-control" onClick={() => setSelectedRoutineId(null)}><ArrowLeft size={14} /> Back to routines</button></div>}
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : `${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Future dates are unavailable until they arrive. Your rolling work view holds this month plus the prior eleven; attendance remains available for two years in Data History.</p></section>}</>}
   </div>;
 }
 

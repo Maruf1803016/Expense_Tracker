@@ -304,3 +304,12 @@
 - [x] Rename the payment-method fallback from “Custom” to “Other” across the loan payment flow.
 - [x] Keep routine archive details closed by default, then guide the user from routine selection to month selection to one calendar history view.
 - [x] Validate the progressive routine archive and payment wording on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Navigation, work tracking, export, and Insights refinement
+- [x] Add clear return controls after routine attendance is recorded and within the routine archive calendar/month detail.
+- [x] Prevent routine attendance from being recorded for future dates, including days later in the current month.
+- [x] Make Notification Inbox return to the exact workspace that opened it, including a bell action that functions as a return control while inside the inbox.
+- [x] Clarify how several tuition roles and a permanent job are counted, and make routine records link appropriately to income categories without distorting expense-category budgets.
+- [x] Correct displaced currency values and symbols in the exported PDF ledger.
+- [x] Review and refine Insights with concise, useful analysis rather than adding unnecessary panels.
+- [x] Validate the navigation, work tracking, PDF export, and Insights improvements on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.

@@ -14,6 +14,10 @@ export function toRoutineDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+export function isFutureRoutineDate(date: string, today = new Date()) {
+  return date > toRoutineDate(today);
+}
+
 export function isExpectedRoutineDay(date: Date, daysPerWeek: RoutineDaysPerWeek) {
   const mondayFirstDay = (date.getDay() + 6) % 7;
   return mondayFirstDay < daysPerWeek;
