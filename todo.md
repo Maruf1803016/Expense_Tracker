@@ -348,4 +348,4 @@
 - [x] Store the owner-provided Web OAuth client ID as the project’s browser configuration without storing or using an OAuth client secret.
 - [x] Replace the placeholder Drive handoff with Google Identity Services authorization and a direct JSON upload to the signed-in person’s own Drive using the `drive.file` scope.
 - [x] Add focused regression coverage for Drive backup payloads and configuration-unavailable feedback, then run TypeScript, Vitest, production-build, and responsive checks.
-- [ ] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
+- [x] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
