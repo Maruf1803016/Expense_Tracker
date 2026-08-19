@@ -226,7 +226,7 @@
 ## Security-first release and source synchronization
 - [x] Review the user-facing Firebase profile, recovery, attachment, and reminder flows for secure defaults and document the recommended acceptance path.
 - [x] Verify the local repository branch, remote, working tree, and latest validated checkpoint before source synchronization.
-- [ ] Push the latest validated expense-tracker source to the GitHub `manus_repo` branch and verify the remote commit.
+- [x] Push the latest validated expense-tracker source to the GitHub `manus_repo` branch and verify the remote commit.
 - [x] Restrict transaction-evidence downloads to the authenticated owner instead of exposing storage paths through a bearerless proxy.
 - [x] Add the intended GitHub `manus_repo` remote or branch tracking after confirming its canonical repository URL.
 - [x] Add an owner-authenticated evidence retrieval endpoint that validates Firebase identity and storage-key ownership before streaming a file.
