@@ -267,3 +267,12 @@
 - [x] Review the visible Firestore permission-error path and verify it gives a safe, understandable recovery message without exposing ledger data.
 - [x] Inspect browser-local prototype data only to determine whether migration is necessary, without migrating, deleting, or altering any record.
 - [x] Push the validated Firestore-resilience audit checkpoint to the GitHub `manus_repo` branch and verify the remote commit.
+
+## Persistent inbox, Plans & Progress, and currency directory
+- [x] Make the full Firestore-backed notification history permanently reachable from the bell and preserve unread/read behavior.
+- [x] Rename the operational Goals & Plans destination to Plans & Progress across mobile and desktop navigation.
+- [x] Add user-scoped Work & Routine records with a name, an expected 3–7-day working week, and monthly attendance history.
+- [x] Add a calendar-style monthly Work & Routine Log that lets the user tap attendance days and shows attended versus expected workdays.
+- [x] Replace the mobile currency tiles with a beautiful, searchable directory containing flag, code, name, symbol, and selected-state context.
+- [x] Add regression coverage and validate the new flows with TypeScript, Vitest, production build, and responsive screenshots.
+- [ ] Save a checkpoint and synchronize the validated work to GitHub `manus_repo`.

@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, type LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
+import { expectedRoutineDaysInMonth, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -147,6 +148,23 @@ interface ReminderSettings {
   time: string;
   timezone: string;
   currency: SupportedCurrency;
+}
+
+interface WorkRoutine {
+  id: string;
+  name: string;
+  daysPerWeek: RoutineDaysPerWeek;
+  color: string;
+  icon: string;
+  createdAt: string;
+}
+
+interface RoutineAttendance {
+  id: string;
+  routineId: string;
+  date: string;
+  attended: boolean;
+  updatedAt: string;
 }
 
 type StoredRecord = Record<string, unknown>;
@@ -300,6 +318,29 @@ function normaliseReminderSettings(record: StoredRecord): ReminderSettings {
   };
 }
 
+function normaliseRoutine(record: StoredRecord): WorkRoutine {
+  const rawDays = storedNumber(record.daysPerWeek, 5);
+  const daysPerWeek: RoutineDaysPerWeek = rawDays === 3 || rawDays === 4 || rawDays === 5 || rawDays === 6 || rawDays === 7 ? rawDays : 5;
+  return {
+    id: storedString(record.id),
+    name: storedString(record.name, "Untitled routine"),
+    daysPerWeek,
+    color: storedString(record.color, "#b78a3d"),
+    icon: storedString(record.icon, "ClipboardCheck"),
+    createdAt: storedDate(record.createdAt, new Date().toISOString()),
+  };
+}
+
+function normaliseRoutineAttendance(record: StoredRecord): RoutineAttendance {
+  return {
+    id: storedString(record.id),
+    routineId: storedString(record.routineId),
+    date: storedDate(record.date, dateInputValue(new Date())),
+    attended: record.attended !== false,
+    updatedAt: storedDate(record.updatedAt, new Date().toISOString()),
+  };
+}
+
 function normaliseAccount(record: StoredRecord): Account {
   return { id: storedString(record.id), name: storedString(record.name, "Untitled account"), kind: record.kind === "liability" ? "liability" : "asset", balance: storedNumber(record.balance ?? record.initialBalance), accountNumber: storedString(record.accountNumber, "··· —"), color: storedString(record.color, record.kind === "liability" ? "#8b2626" : "#1b3a2b") };
 }
@@ -324,26 +365,26 @@ interface TransactionDraft {
 }
 
 const CURRENCY_OPTIONS = [
-  { code: "BDT", label: "Bangladeshi taka (৳)" },
-  { code: "USD", label: "US dollar ($)" },
-  { code: "EUR", label: "Euro (€)" },
-  { code: "GBP", label: "British pound (£)" },
-  { code: "INR", label: "Indian rupee (₹)" },
-  { code: "AED", label: "UAE dirham (د.إ)" },
-  { code: "SAR", label: "Saudi riyal (ر.س)" },
-  { code: "QAR", label: "Qatari riyal (ر.ق)" },
-  { code: "KWD", label: "Kuwaiti dinar (د.ك)" },
-  { code: "OMR", label: "Omani rial (ر.ع.)" },
-  { code: "MYR", label: "Malaysian ringgit (RM)" },
-  { code: "SGD", label: "Singapore dollar (S$)" },
-  { code: "AUD", label: "Australian dollar (A$)" },
-  { code: "CAD", label: "Canadian dollar (C$)" },
-  { code: "JPY", label: "Japanese yen (¥)" },
-  { code: "CNY", label: "Chinese yuan (CN¥)" },
-  { code: "KRW", label: "South Korean won (₩)" },
-  { code: "THB", label: "Thai baht (฿)" },
-  { code: "PKR", label: "Pakistani rupee (₨)" },
-  { code: "TRY", label: "Turkish lira (₺)" },
+  { code: "BDT", name: "Bangladeshi taka", symbol: "৳", flag: "🇧🇩", label: "Bangladeshi taka (৳)" },
+  { code: "USD", name: "United States dollar", symbol: "$", flag: "🇺🇸", label: "US dollar ($)" },
+  { code: "EUR", name: "Euro", symbol: "€", flag: "🇪🇺", label: "Euro (€)" },
+  { code: "GBP", name: "British pound", symbol: "£", flag: "🇬🇧", label: "British pound (£)" },
+  { code: "INR", name: "Indian rupee", symbol: "₹", flag: "🇮🇳", label: "Indian rupee (₹)" },
+  { code: "AED", name: "United Arab Emirates dirham", symbol: "د.إ", flag: "🇦🇪", label: "UAE dirham (د.إ)" },
+  { code: "SAR", name: "Saudi riyal", symbol: "ر.س", flag: "🇸🇦", label: "Saudi riyal (ر.س)" },
+  { code: "QAR", name: "Qatari riyal", symbol: "ر.ق", flag: "🇶🇦", label: "Qatari riyal (ر.ق)" },
+  { code: "KWD", name: "Kuwaiti dinar", symbol: "د.ك", flag: "🇰🇼", label: "Kuwaiti dinar (د.ك)" },
+  { code: "OMR", name: "Omani rial", symbol: "ر.ع.", flag: "🇴🇲", label: "Omani rial (ر.ع.)" },
+  { code: "MYR", name: "Malaysian ringgit", symbol: "RM", flag: "🇲🇾", label: "Malaysian ringgit (RM)" },
+  { code: "SGD", name: "Singapore dollar", symbol: "S$", flag: "🇸🇬", label: "Singapore dollar (S$)" },
+  { code: "AUD", name: "Australian dollar", symbol: "A$", flag: "🇦🇺", label: "Australian dollar (A$)" },
+  { code: "CAD", name: "Canadian dollar", symbol: "C$", flag: "🇨🇦", label: "Canadian dollar (C$)" },
+  { code: "JPY", name: "Japanese yen", symbol: "¥", flag: "🇯🇵", label: "Japanese yen (¥)" },
+  { code: "CNY", name: "Chinese yuan", symbol: "CN¥", flag: "🇨🇳", label: "Chinese yuan (CN¥)" },
+  { code: "KRW", name: "South Korean won", symbol: "₩", flag: "🇰🇷", label: "South Korean won (₩)" },
+  { code: "THB", name: "Thai baht", symbol: "฿", flag: "🇹🇭", label: "Thai baht (฿)" },
+  { code: "PKR", name: "Pakistani rupee", symbol: "₨", flag: "🇵🇰", label: "Pakistani rupee (₨)" },
+  { code: "TRY", name: "Turkish lira", symbol: "₺", flag: "🇹🇷", label: "Turkish lira (₺)" },
 ] as const;
 type SupportedCurrency = (typeof CURRENCY_OPTIONS)[number]["code"];
 const isSupportedCurrency = (value: string): value is SupportedCurrency => CURRENCY_OPTIONS.some((currency) => currency.code === value);
@@ -543,7 +584,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -556,6 +597,8 @@ export default function Home() {
   const [trips, setTrips] = useState<Trip[]>(INITIAL_TRIPS);
   const [loans, setLoans] = useState<Loan[]>(INITIAL_LOANS);
   const [schedules, setSchedules] = useState<RecurringSchedule[]>(INITIAL_SCHEDULES);
+  const [routines, setRoutines] = useState<WorkRoutine[]>([]);
+  const [routineAttendance, setRoutineAttendance] = useState<RoutineAttendance[]>([]);
   const [cloudStatus, setCloudStatus] = useState<"demo" | "loading" | "synced" | "error">("demo");
   const [cloudError, setCloudError] = useState<string | null>(null);
 
@@ -624,7 +667,6 @@ export default function Home() {
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
   const [cloudPrerequisitesLoaded, setCloudPrerequisitesLoaded] = useState({ accounts: false, categories: false });
   const [starterRequestedFor, setStarterRequestedFor] = useState<string | null>(null);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dismissedFallbackNotificationIds, setDismissedFallbackNotificationIds] = useState<string[]>([]);
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", currency: "USD" });
@@ -642,6 +684,8 @@ export default function Home() {
       setTrips(INITIAL_TRIPS);
       setLoans(INITIAL_LOANS);
       setSchedules(INITIAL_SCHEDULES);
+      setRoutines([]);
+      setRoutineAttendance([]);
       setCloudStatus("demo");
       setCloudError(null);
       setCloudPrerequisitesLoaded({ accounts: false, categories: false });
@@ -670,6 +714,8 @@ export default function Home() {
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "tripPlans", (records) => { setTrips(records.map(normaliseTrip)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "loans", (records) => { setLoans(records.map(normaliseLoan)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "recurringIncomeSources", (records) => { setSchedules(records.map(normaliseSchedule)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "routines", (records) => { setRoutines(records.map(normaliseRoutine)); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "routineAttendance", (records) => { setRoutineAttendance(records.map(normaliseRoutineAttendance)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "notifications", (records) => { setNotifications(records.map(normaliseNotification)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "reminderSettings", (records) => { const normalized = records.map(normaliseReminderSettings); const saved = normalized.find((record) => record.id === "daily-expense-reminder") ?? normalized[0]; if (saved) setReminderSettings(saved); received(); }, handleError),
     ];
@@ -787,6 +833,42 @@ export default function Home() {
       return;
     }
     setDismissedFallbackNotificationIds((current) => current.includes(notificationId) ? current : [...current, notificationId]);
+  };
+
+  const markAllNotificationsRead = () => {
+    const unreadPersisted = notifications.filter((item) => !item.read);
+    if (unreadPersisted.length) {
+      setNotifications((current) => current.map((item) => item.read ? item : { ...item, read: true }));
+      unreadPersisted.forEach((item) => { void persistRecord("notifications", { ...item, read: true, unread: false }); });
+    }
+    setDismissedFallbackNotificationIds((current) => Array.from(new Set([...current, ...fallbackNotificationItems.filter((item) => !item.read).map((item) => item.id)])));
+  };
+
+  const createRoutine = (name: string, daysPerWeek: RoutineDaysPerWeek) => {
+    const routine: WorkRoutine = {
+      id: `routine-${Date.now()}`,
+      name: name.trim(),
+      daysPerWeek,
+      color: "#b78a3d",
+      icon: "ClipboardCheck",
+      createdAt: new Date().toISOString(),
+    };
+    setRoutines((current) => [routine, ...current]);
+    void persistRecord("routines", routine);
+  };
+
+  const toggleRoutineAttendance = (routineId: string, date: string) => {
+    const id = `routine-attendance-${routineId}-${date}`;
+    const existing = routineAttendance.find((item) => item.id === id);
+    const next: RoutineAttendance = {
+      id,
+      routineId,
+      date,
+      attended: !(existing?.attended ?? false),
+      updatedAt: new Date().toISOString(),
+    };
+    setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
+    void persistRecord("routineAttendance", next);
   };
 
   const saveReminderSettings = useCallback(async (nextSettings: ReminderSettings) => {
@@ -1443,7 +1525,7 @@ export default function Home() {
           <button className={`rail-button ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={16} /> Overview</button>
           <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
-          <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Goals & Plans</button>
+          <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Plans & Progress</button>
           <button className={`rail-button ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
         </nav>
         <div className="rail-footer">
@@ -1455,11 +1537,10 @@ export default function Home() {
       <main className="content-viewport">
         <header className="top-nav-bar">
           <div className="mobile-brand-lockup"><span className="mobile-brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
-          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
+          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Plans & Progress" : activeTab === "inbox" ? "Notification inbox" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <div className="notification-wrap">
-              <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""}`} onClick={() => setNotificationsOpen((current) => !current)} aria-label={`Open notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-expanded={notificationsOpen}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
-              {notificationsOpen && <section className="notification-panel" role="dialog" aria-label="Notifications"><div className="notification-panel-head"><div><span>Ledger notices</span><h2>{unreadNotificationCount ? `${unreadNotificationCount} unread notice${unreadNotificationCount === 1 ? "" : "s"}` : notificationItems.length ? "Your notice history" : "All clear for now"}</h2></div><button className="close-button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={15} /></button></div>{notificationItems.length ? <div className="notification-list">{notificationItems.map((item) => <button type="button" className={`notification-item ${item.tone} ${item.read ? "is-read" : "is-unread"}`} key={item.id} onClick={() => markNotificationRead(item.id)} aria-label={item.read ? `${item.title}, read` : `${item.title}, mark as read`}><b>{item.title}</b><span>{item.detail}</span>{!item.read && <em>Mark as read</em>}</button>)}</div> : <p className="notification-empty">Upcoming bills, income, and loan due dates will appear here when they need attention.</p>}</section>}
+              <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""} ${activeTab === "inbox" ? "is-active" : ""}`} onClick={() => setActiveTab("inbox")} aria-label={`Open notification inbox${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-current={activeTab === "inbox" ? "page" : undefined}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
             </div>
             <button className="profile-pill" onClick={() => setDraft("profile")} aria-label={user ? "Open signed-in profile" : "Sign in to cloud ledger"}>{authLoading ? "··" : (user?.email?.slice(0, 2) || "IL").toUpperCase()}</button>
           </div>
@@ -1537,12 +1618,24 @@ export default function Home() {
             />
           )}
 
+          {activeTab === "inbox" && (
+            <NotificationInboxView
+              items={notificationItems}
+              unreadCount={unreadNotificationCount}
+              onBack={() => setActiveTab("overview")}
+              onOpenNotice={markNotificationRead}
+              onMarkAllRead={markAllNotificationsRead}
+            />
+          )}
+
           {activeTab === "horizon" && (
             <HorizonView
               goals={goals}
               trips={trips}
               loans={loans}
               schedules={schedules}
+              routines={routines}
+              attendance={routineAttendance}
               onOpenAddGoal={startCreatingGoal}
               onOpenAddTrip={startCreatingTrip}
               onOpenAddLoan={startCreatingLoan}
@@ -1551,6 +1644,8 @@ export default function Home() {
               onOpenTrip={(trip) => setTripDetail(trip)}
               onOpenLoan={(loan) => setLoanDetail(loan)}
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
+              onCreateRoutine={createRoutine}
+              onToggleRoutineAttendance={toggleRoutineAttendance}
             />
           )}
 
@@ -1588,7 +1683,7 @@ export default function Home() {
         <button className={`mobile-nav-item ${activeTab === "overview" || activeTab === "history" || activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={18} /><span>Overview</span></button>
         <button className={`mobile-nav-item ${activeTab === "insights" || activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
         <button className="mobile-fab" onClick={startCreatingTransaction} aria-label="Add transaction"><Plus size={22} /></button>
-        <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={18} /><span>Goals & Plans</span></button>
+        <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={18} /><span>Plans & Progress</span></button>
         <button className={`mobile-nav-item ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
       </nav>
 
@@ -2052,8 +2147,45 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
   </>;
 }
 
-function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void }) {
-  const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring">("goals");
+function NotificationInboxView({ items, unreadCount, onBack, onOpenNotice, onMarkAllRead }: { items: AppNotification[]; unreadCount: number; onBack: () => void; onOpenNotice: (id: string) => void; onMarkAllRead: () => void }) {
+  return <>
+    <header className="workspace-page-header inbox-page-header"><button className="workspace-back-button" onClick={onBack}><ArrowLeft size={15} /> Back to Overview</button><div><div className="page-kicker">Ledger notices</div><h1>Notification inbox</h1><p className="page-subtitle">Every reminder and ledger notice stays here, even after you have seen it.</p></div></header>
+    <section className="paper-card inbox-sheet">
+      <div className="inbox-sheet-head"><div><span className={`settings-status-chip ${unreadCount ? "is-active" : ""}`}>{unreadCount ? `${unreadCount} unread` : "All caught up"}</span><h2>{unreadCount ? "Keep the important things in view." : "Your ledger is quiet for now."}</h2></div>{unreadCount > 0 && <button className="secondary-button inbox-mark-read" onClick={onMarkAllRead}><CheckCircle2 size={15} /> Mark all read</button>}</div>
+      {items.length ? <div className="notification-list inbox-notification-list">{items.map((item) => <button type="button" className={`notification-item ${item.tone} ${item.read ? "is-read" : "is-unread"}`} key={item.id} onClick={() => onOpenNotice(item.id)} aria-label={item.read ? `${item.title}, read` : `${item.title}, mark as read`}><span className="notification-item-topline"><b>{item.title}</b><time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</time></span><span>{item.detail}</span>{!item.read && <em>Mark as read</em>}</button>)}</div> : <div className="horizon-empty inbox-empty"><Bell size={20} /><strong>Your inbox is ready.</strong><span>Due dates, daily ledger reminders, and future notices will remain here when they arrive.</span></div>}
+    </section>
+  </>;
+}
+
+function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutineAttendance }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void }) {
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
+  const [cursor, setCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const selectedRoutine = routines.find((routine) => routine.id === selectedRoutineId) ?? routines[0] ?? null;
+  const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
+  const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
+  const attendedDates = new Set(attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended).map((item) => item.date));
+  const attendedThisMonth = expectedDays.filter((date) => attendedDates.has(date)).length;
+  const totalAttendedThisMonth = calendar.filter((day) => day.inCurrentMonth && attendedDates.has(day.date)).length;
+  const create = () => {
+    if (!name.trim()) return;
+    onCreateRoutine(name, daysPerWeek);
+    setName("");
+    setComposerOpen(false);
+  };
+
+  return <div className="routine-workspace">
+    <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
+    {(composerOpen || routines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{routines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
+    {routines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{routines.map((routine) => <button key={routine.id} className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button>)}</div>
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={`${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> A small gold marker shows an expected workday. Tap any date you attended, including an extra shift.</p></section>}</>}
+  </div>;
+}
+
+function HorizonView({ goals, trips, loans, schedules, routines, attendance, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void }) {
+  const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring" | "routines">("goals");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
   const scheduledIncome = activeSchedules.filter((schedule) => schedule.type === "income").reduce((sum, schedule) => sum + schedule.amount, 0);
   const scheduledBills = activeSchedules.filter((schedule) => schedule.type === "expense").reduce((sum, schedule) => sum + schedule.amount, 0);
@@ -2061,19 +2193,20 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
     <>
       <section className="horizon-hero">
         <div className="horizon-hero-text">
-          <div className="page-kicker">Horizon</div>
-          <h1>Fund what<br />matters next.</h1>
-          <p>Goals and trips stay connected to the same transactions you already trust.</p>
+          <div className="page-kicker">Plans & Progress</div>
+          <h1>Keep every<br />intention in view.</h1>
+          <p>Savings, trips, loans, routine attendance, and recurring money all share one calm home.</p>
           <div className="horizon-actions">
             <button className={`filter-button ${horizonTab === "goals" ? "active" : ""}`} onClick={() => setHorizonTab("goals")}>Savings goals</button>
             <button className={`filter-button ${horizonTab === "trips" ? "active" : ""}`} onClick={() => setHorizonTab("trips")}>Trip & event plans</button>
             <button className={`filter-button ${horizonTab === "loans" ? "active" : ""}`} onClick={() => setHorizonTab("loans")}>Debt & loans</button>
             <button className={`filter-button ${horizonTab === "recurring" ? "active" : ""}`} onClick={() => setHorizonTab("recurring")}>Recurring income & bills</button>
+            <button className={`filter-button ${horizonTab === "routines" ? "active" : ""}`} onClick={() => setHorizonTab("routines")}>Work & routines</button>
           </div>
         </div>
-        <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : horizonTab === "trips" ? onOpenAddTrip : horizonTab === "loans" ? onOpenAddLoan : onOpenAddSchedule}>
+        {horizonTab !== "routines" && <button className="primary-button" onClick={horizonTab === "goals" ? onOpenAddGoal : horizonTab === "trips" ? onOpenAddTrip : horizonTab === "loans" ? onOpenAddLoan : onOpenAddSchedule}>
           <Plus size={15} /> {horizonTab === "goals" ? "Add savings goal" : horizonTab === "trips" ? "Add trip plan" : horizonTab === "loans" ? "Add loan record" : "Add recurring schedule"}
-        </button>
+        </button>}
       </section>
 
       {horizonTab === "goals" && (
@@ -2141,6 +2274,8 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
           </div>
         </div>
       )}
+
+      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} />}
     </>
   );
 }
@@ -2293,6 +2428,21 @@ function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenRep
   </>;
 }
 
+function CurrencyDirectory({ value, disabled, onChange }: { value: SupportedCurrency; disabled: boolean; onChange: (currency: SupportedCurrency) => void }) {
+  const [query, setQuery] = useState("");
+  const selected = CURRENCY_OPTIONS.find((currency) => currency.code === value) ?? CURRENCY_OPTIONS[0];
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const choices = CURRENCY_OPTIONS.filter((currency) => `${currency.code} ${currency.name} ${currency.symbol}`.toLocaleLowerCase().includes(normalizedQuery));
+  return <div className="currency-directory">
+    <div className="currency-directory-current"><span className="currency-flag" aria-hidden="true">{selected.flag}</span><div><span>Currently displaying</span><strong>{selected.code} · {selected.name}</strong><small>{selected.symbol} is used across your ledger, insights, and exports.</small></div></div>
+    <label className="currency-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search currency or country" aria-label="Search currencies" /><span>{choices.length} available</span></label>
+    <div className="currency-directory-list" role="list" aria-label="Choose display currency">
+      {choices.map((currency) => <button key={currency.code} type="button" role="listitem" className={currency.code === value ? "selected" : ""} disabled={disabled} onClick={() => onChange(currency.code)}><span className="currency-flag" aria-hidden="true">{currency.flag}</span><span className="currency-directory-copy"><b>{currency.code}</b><small>{currency.name}</small></span><em>{currency.symbol}</em>{currency.code === value && <CheckCircle2 size={17} aria-label="Selected" />}</button>)}
+    </div>
+    {!choices.length && <div className="currency-directory-empty"><Search size={18} /><strong>No match found</strong><span>Try a code such as BDT or USD, a country, or a currency name.</span></div>}
+  </div>;
+}
+
 function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder }: {
   mode: SettingsWorkspaceMode;
   categories: Category[];
@@ -2335,7 +2485,7 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
     <section className={`paper-card workspace-sheet settings-workspace ${mode}`}>
       {mode === "expenses" && <><p className="category-section-note">Add detailed subcategories beneath the permanent spending types. Category budgets always remain with the parent.</p><div className="category-groups">{expenseParents.map((parent) => { const children = categories.filter((category) => category.parentId === parent.id); return <article className="category-group" key={parent.id}><div className="category-group-head"><span className="category-symbol" style={{ color: parent.color }}><CategoryIcon icon={parent.icon} size={18} /></span><div><strong>{parent.name}</strong><small><span className="permanent-category-marker">Permanent type</span></small></div><em>Budget: {fmt.format(parent.monthlyBudget ?? 0)}</em></div><button className="category-add-sub" onClick={() => onOpenAddSub(parent.id)}><FolderPlus size={14} /> Add subcategory</button><div className="subcategory-list">{children.map((child) => <div className="subcategory-row" key={child.id}><span><CategoryIcon icon={child.icon} size={14} /> {child.name}</span><strong>{fmt.format(subcategorySpent[child.id] ?? 0)}</strong><button className="delete-button" onClick={() => onDeleteCategory(child.id)} aria-label={`Delete ${child.name}`}><Trash2 size={13} /></button></div>)}</div></article>; })}</div></>}
       {mode === "income" && <><div className="workspace-action-row"><p className="category-section-note">Add a source once, then reuse it on every income entry. Income stays flat and focused.</p><button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /> Add income category</button></div><div className="income-workspace-list">{incomeList.map((income) => <article className="income-workspace-row" key={income.id}><span className="category-symbol" style={{ color: income.color }}><CategoryIcon icon={income.icon} size={18} /></span><strong>{income.name}</strong><button className="delete-button" onClick={() => onDeleteCategory(income.id)} aria-label={`Delete ${income.name}`}><Trash2 size={14} /></button></article>)}</div></>}
-      {mode === "currency" && <><div className="currency-choice-summary"><span>Display currency</span><strong>{reminderSettings.currency}</strong><p>This changes labels only; it does not convert amounts that were already recorded.</p></div><div className="currency-options currency-workspace-options">{CURRENCY_OPTIONS.map((currency) => <button key={currency.code} type="button" className={`currency-option ${reminderSettings.currency === currency.code ? "active" : ""}`} disabled={!signedIn} onClick={() => onSaveReminderSettings({ ...reminderSettings, currency: currency.code })}><b>{currency.code}</b><span>{currency.label.replace(/\s*\([^)]*\)/, "")}</span><em>{currency.label.match(/\(([^)]+)\)/)?.[1] ?? currency.code}</em></button>)}</div>{!signedIn && <p className="reminder-settings-note">Sign in to save your display preference.</p>}</>}
+      {mode === "currency" && <><div className="currency-choice-summary"><span>Display currency</span><strong>{reminderSettings.currency}</strong><p>This changes labels only; it does not convert amounts that were already recorded.</p></div><CurrencyDirectory value={reminderSettings.currency} disabled={!signedIn} onChange={(currency) => onSaveReminderSettings({ ...reminderSettings, currency })} />{!signedIn && <p className="reminder-settings-note">Sign in to save your display preference.</p>}</>}
       {mode === "reminders" && <>
         <div className="workspace-reminder-head">
           <div><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span><h2>Close the day with a complete ledger.</h2><p>Choose a daily moment for a discreet reminder that keeps your personal record complete.</p></div>
