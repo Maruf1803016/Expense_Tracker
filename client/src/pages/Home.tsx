@@ -7,6 +7,7 @@ import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
+import { formatReminderTime, reminderTimeFromParts, reminderTimeParts } from "@/lib/reminderTime";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -2462,8 +2463,8 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
   const incomeList = categories.filter((category) => category.type === "income");
   const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const timezoneChoices = Array.from(new Set([deviceTimezone, "Asia/Dhaka", "Asia/Kolkata", "Asia/Singapore", "Europe/London", "America/New_York", "UTC"]));
-  const timeChoices = ["19:00", "20:00", "21:00", "21:30", "22:00", "22:30", "23:00"];
   const [openPicker, setOpenPicker] = useState<"time" | "timezone" | null>(null);
+  const [draftReminderTime, setDraftReminderTime] = useState(reminderSettings.time);
   const copy: Record<SettingsWorkspaceMode, { kicker: string; title: string; description: string }> = {
     expenses: { kicker: "Money taxonomy", title: "Expense categories", description: "Permanent spending types with detailed subcategories beneath each one." },
     income: { kicker: "Income taxonomy", title: "Income sources", description: "Name every income source once, then reuse it whenever you add money in." },
@@ -2471,12 +2472,20 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
     reminders: { kicker: "Reminder preference", title: "Daily ledger reminder", description: "Set one calm end-of-day cue to record what happened today." },
   };
   const meta = copy[mode];
-  const selectReminderChoice = (choice: string) => {
-    if (openPicker === "time") {
-      onSaveReminderSettings({ ...reminderSettings, time: choice });
-    } else if (openPicker === "timezone") {
+  const draftTimeParts = reminderTimeParts(draftReminderTime);
+  const minuteChoices = Array.from(new Set(["00", "15", "30", "45", draftTimeParts.minute])).sort((left, right) => Number(left) - Number(right));
+  const openTimePicker = () => {
+    setDraftReminderTime(reminderSettings.time);
+    setOpenPicker("time");
+  };
+  const selectTimezoneChoice = (choice: string) => {
+    if (openPicker === "timezone") {
       onSaveReminderSettings({ ...reminderSettings, timezone: choice });
     }
+    setOpenPicker(null);
+  };
+  const confirmReminderTime = () => {
+    onSaveReminderSettings({ ...reminderSettings, time: draftReminderTime });
     setOpenPicker(null);
   };
 
@@ -2492,23 +2501,23 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
           <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}><span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}</button>
         </div>
         <div className="workspace-picker-grid">
-          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("time")}><span><small>Daily check-in time</small><strong>{new Date(`2000-01-01T${reminderSettings.time}:00`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</strong></span><ChevronRight size={18} /></button>
+          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={openTimePicker}><span><small>Daily check-in time</small><strong>{formatReminderTime(reminderSettings.time)}</strong><em>Tap to choose the exact time.</em></span><ChevronRight size={18} /></button>
           <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("timezone")}><span><small>Reminder location</small><strong>{reminderSettings.timezone === deviceTimezone ? `${reminderSettings.timezone} · this device` : reminderSettings.timezone}</strong><em>Your selected time follows this location’s local clock.</em></span><ChevronRight size={18} /></button>
         </div>
         {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
         {signedIn && !reminderSettings.enabled && <p className="reminder-settings-note">Enable this once to allow a browser or device notification at your selected time.</p>}
         {reminderPushStatus && <p className="reminder-settings-status" role="status">{reminderPushStatus}</p>}
         {openPicker && <div className="ledger-calendar-backdrop workspace-picker-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenPicker(null); }}>
-          <section className="workspace-choice-sheet" role="dialog" aria-modal="true" aria-label="Choose reminder preference">
+          <section className={`workspace-choice-sheet ${openPicker === "time" ? "time-picker-sheet" : ""}`} role="dialog" aria-modal="true" aria-label="Choose reminder preference">
             <div className="workspace-choice-head"><div><span className="draft-kicker">{openPicker === "time" ? "Daily check-in time" : "Reminder location"}</span><h3>{openPicker === "time" ? "Choose a moment" : "Choose local time"}</h3></div><button className="close-button" onClick={() => setOpenPicker(null)} aria-label="Close"><X size={16} /></button></div>
-            <div className={`workspace-choice-grid ${openPicker}`}>
-              {(openPicker === "time" ? timeChoices : timezoneChoices).map((choice) => {
-                const isTime = openPicker === "time";
-                const selected = isTime ? choice === reminderSettings.time : choice === reminderSettings.timezone;
-                const label = isTime ? new Date(`2000-01-01T${choice}:00`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : choice === deviceTimezone ? `${choice} · this device` : choice;
-                return <button key={choice} className={selected ? "selected" : ""} onClick={() => selectReminderChoice(choice)}><span>{label}</span>{selected && <CheckCircle2 size={15} />}</button>;
-              })}
-            </div>
+            {openPicker === "time" ? <>
+              <div className="time-picker-summary" aria-live="polite"><span>Selected check-in</span><strong>{formatReminderTime(draftReminderTime)}</strong><p>Your saved reminder will not change until you confirm.</p></div>
+              <div className="time-picker-columns">
+                <fieldset className="time-picker-fieldset"><legend>Hour</legend><div className="time-picker-hour-grid">{Array.from({ length: 12 }, (_, index) => index + 1).map((hour) => <button key={hour} type="button" className={hour === draftTimeParts.hour ? "selected" : ""} aria-pressed={hour === draftTimeParts.hour} onClick={() => setDraftReminderTime(reminderTimeFromParts(hour, draftTimeParts.minute, draftTimeParts.meridiem))}>{hour}</button>)}</div></fieldset>
+                <fieldset className="time-picker-fieldset"><legend>Minutes</legend><div className="time-picker-minute-grid">{minuteChoices.map((minute) => <button key={minute} type="button" className={minute === draftTimeParts.minute ? "selected" : ""} aria-pressed={minute === draftTimeParts.minute} onClick={() => setDraftReminderTime(reminderTimeFromParts(draftTimeParts.hour, minute, draftTimeParts.meridiem))}>:{minute}</button>)}</div><div className="time-picker-period-grid">{(["AM", "PM"] as const).map((meridiem) => <button key={meridiem} type="button" className={meridiem === draftTimeParts.meridiem ? "selected" : ""} aria-pressed={meridiem === draftTimeParts.meridiem} onClick={() => setDraftReminderTime(reminderTimeFromParts(draftTimeParts.hour, draftTimeParts.minute, meridiem))}>{meridiem}</button>)}</div></fieldset>
+              </div>
+              <div className="workspace-choice-actions"><button type="button" className="picker-cancel-button" onClick={() => setOpenPicker(null)}>Cancel</button><button type="button" className="picker-confirm-button" onClick={confirmReminderTime}>Save {formatReminderTime(draftReminderTime)}</button></div>
+            </> : <div className="workspace-choice-list">{timezoneChoices.map((choice) => { const selected = choice === reminderSettings.timezone; const label = choice === deviceTimezone ? `${choice} · this device` : choice; return <button key={choice} className={selected ? "selected" : ""} onClick={() => selectTimezoneChoice(choice)}><span>{label}</span>{selected && <CheckCircle2 size={15} />}</button>; })}</div>}
           </section>
         </div>}
       </>}

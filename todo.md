@@ -276,3 +276,8 @@
 - [x] Replace the mobile currency tiles with a beautiful, searchable directory containing flag, code, name, symbol, and selected-state context.
 - [x] Add regression coverage and validate the new flows with TypeScript, Vitest, production build, and responsive screenshots.
 - [x] Save a checkpoint and synchronize the validated work to GitHub `manus_repo`.
+
+## Reminder time-picker usability refinement
+- [x] Replace the cramped single-line reminder time options with an accessible, touch-friendly hour-and-minute picker.
+- [x] Preserve the current reminder time until the user explicitly confirms the new choice, with a clear selected-time summary.
+- [x] Validate the revised picker on mobile, run TypeScript, Vitest, and production-build checks, then synchronize the checkpoint to GitHub `manus_repo`.
