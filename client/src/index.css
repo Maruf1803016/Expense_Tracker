@@ -344,6 +344,22 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .reminder-timezone small { color: #756e64; font-size: 10px; line-height: 1.35; }
 .reminder-settings-note, .reminder-settings-status { margin: 13px 0 0; color: #756e64; font-size: 11px; line-height: 1.45; }
 .reminder-settings-status { color: #2d6049; font-weight: 700; }
+.currency-settings-content { display: grid; gap: 16px; }
+.currency-settings-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; }
+.currency-settings-head > div { display: grid; gap: 4px; }
+.currency-settings-head .page-kicker { color: #857867; }
+.currency-settings-head strong { color: #1d2822; font: 600 30px/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.currency-settings-head p { max-width: 420px; margin: 0; color: #756e64; font-size: 11px; line-height: 1.45; }
+.currency-option-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.currency-option { min-height: 77px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; gap: 4px 8px; padding: 11px; border: 1px solid #e1d7c7; border-radius: 8px; background: #fffdf9; color: #4d574f; text-align: left; cursor: pointer; transition: border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.currency-option b { color: #27372e; font: 800 12px/1 "Space Grotesk", sans-serif; letter-spacing: -.03em; }
+.currency-option span { grid-column: 1 / -1; overflow: hidden; color: #817767; font-size: 10px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.currency-option em { color: #a57428; font: 700 13px/1 "Space Grotesk", sans-serif; font-style: normal; text-align: right; }
+.currency-option:hover:not(:disabled) { border-color: #bd9352; background: #fff8ea; }
+.currency-option.selected { border-color: #2f5c47; background: #eef4ed; box-shadow: inset 3px 0 0 #2f5c47; }
+.currency-option:active:not(:disabled) { transform: scale(.975); }
+.currency-option:focus-visible { outline: 2px solid #b78a3d; outline-offset: 2px; }
+.currency-option:disabled { cursor: not-allowed; opacity: .6; }
 .transaction-evidence > small { margin-top: -2px; color: #756e64; font-size: 10px; line-height: 1.4; }
 .evidence-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .evidence-action { display: inline-flex; align-items: center; gap: 6px; min-height: 33px; padding: 0 10px; border: 1px solid #d8cdb9; border-radius: 999px; background: #fffdf9; color: #4d554e; font-size: 10px; font-weight: 800; letter-spacing: .03em; cursor: pointer; transition: border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
@@ -772,9 +788,33 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .picker-create-row { justify-content: flex-start; margin-top: 8px; padding: 13px 12px; border: 1px solid #decba9; border-radius: 9px; color: #916c2f; font-size: 12px; font-weight: 700; }
 .picker-create-row:hover, .picker-create-row:focus-visible { background: #fbf4e7; outline: none; }
 @keyframes picker-sheet-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Ink & Ledger date selection: a compact paper calendar replaces unstyled browser date controls. */
+.ledger-date-field { position: relative; }
+.ledger-date-trigger { width: 100%; min-height: 47px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 13px; border: 1px solid #ded6c8; border-radius: 9px; background: #fffdf9; color: #303633; text-align: left; font-size: 13px; cursor: pointer; }
+.ledger-date-trigger span { display: inline-flex; align-items: center; gap: 9px; }
+.ledger-date-trigger span svg { color: #aa7c31; }
+.ledger-date-trigger:hover, .ledger-date-trigger:focus-visible { border-color: #b78a3d; outline: none; }
+.ledger-calendar-backdrop { position: absolute; z-index: 48; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: 72px; background: rgba(28, 31, 29, .3); }
+.ledger-calendar { width: min(100%, 350px); padding: 17px; border: 1px solid #d9cebd; border-radius: 14px; background: #fffdf9; box-shadow: 0 16px 40px rgba(28,31,29,.22); }
+.ledger-calendar-top { display: grid; grid-template-columns: 34px 1fr 34px; align-items: center; gap: 8px; padding-bottom: 13px; border-bottom: 1px solid #e9e0d3; text-align: center; }
+.ledger-calendar-top h3 { margin: 4px 0 0; color: #1d2524; font: 500 20px/1 "Fraunces", Georgia, serif; letter-spacing: -.03em; }
+.calendar-nav-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #e3dacd; border-radius: 50%; background: #fffdfa; color: #695f53; cursor: pointer; }
+.calendar-nav-button:hover { border-color: #b78a3d; background: #fbf4e7; color: #8d672b; }
+.ledger-calendar-weekdays, .ledger-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.ledger-calendar-weekdays { margin-top: 14px; color: #968a7a; font: 700 9px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-align: center; }
+.ledger-calendar-grid { gap: 3px; margin-top: 8px; }
+.ledger-calendar-day { aspect-ratio: 1; display: grid; place-items: center; border-radius: 7px; background: transparent; color: #303633; font: 600 12px/1 "Space Grotesk", sans-serif; cursor: pointer; }
+.ledger-calendar-day:hover { background: #f3ead8; color: #79531c; }
+.ledger-calendar-day.outside { color: #beb5a8; }
+.ledger-calendar-day.selected { background: #1d2524; color: #fffdf8; box-shadow: inset 0 -2px 0 #c59643; }
+.ledger-calendar-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 13px; border-top: 1px solid #e9e0d3; }
+.ledger-calendar-actions .secondary-button { min-height: 32px; padding: 7px 12px; }
 @media (max-width: 760px) {
   .picker-sheet-backdrop { position: fixed; }
   .picker-sheet { width: 100%; max-height: 78vh; padding: 17px 18px 24px; }
+  .ledger-calendar-backdrop { position: fixed; inset: 0; align-items: flex-end; padding: 0; }
+  .ledger-calendar { width: 100%; max-width: none; border-bottom: 0; border-radius: 18px 18px 0 0; padding: 20px 18px 24px; animation: picker-sheet-in .2s cubic-bezier(.23,1,.32,1); }
 }
 
 /* Ink & Ledger dashboard extension: historical months behave like expandable fieldbook folios, while pacing reads as annotated budget evidence. */
@@ -1160,6 +1200,10 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .pending-register::before { content: ""; position: absolute; top: 0; left: 23px; width: 38px; height: 2px; background: #a96f5d; }
 .pending-register-head { align-items: end; margin-bottom: 7px; }
 .pending-register-head h2 { margin: 5px 0 0; color: #2e3431; font: 500 29px/1.05 "Fraunces", Georgia, serif; letter-spacing: -.045em; }
+.pending-register-action { display: flex; align-items: center; gap: 10px; }
+.pending-review-link { display: inline-flex; align-items: center; gap: 3px; min-height: 29px; padding: 0 2px; border: 0; border-bottom: 1px solid #bd8a76; background: transparent; color: #8d5549; cursor: pointer; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.pending-review-link:hover { color: #59342d; border-bottom-color: #59342d; }
+.pending-review-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
 .pending-transaction-list { display: grid; margin-top: 14px; border-top: 1px solid #eadfd5; }
 .pending-transaction-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 12px 1px; border: 0; border-bottom: 1px solid #eadfd5; color: #2d3431; background: transparent; text-align: left; cursor: pointer; }
 .pending-transaction-row:last-child { border-bottom: 0; }
@@ -1200,6 +1244,15 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .overview-account-glance { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 21px 21px; border-top: 1px solid #eee8dc; color: #746d62; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
 .overview-account-glance span { padding: 6px 8px; background: #f3eee4; border: 1px solid #e4d9c8; }
 .overview-history-link { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.overview-ledger-head { align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e7dfd2; }
+.overview-history-link { min-height: 31px; padding: 0 0 0 10px; border: 0; border-left: 1px solid #d8c39c; background: transparent; color: #835f26; cursor: pointer; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .08em; text-transform: uppercase; transition: color .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.overview-history-link:hover { color: #1d3d2d; }
+.overview-history-link:active { transform: scale(.96); }
+.overview-history-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
+.pending-history-filter { color: #8f574b !important; border-color: #dfc7bc !important; background: #fff9f6 !important; }
+.pending-history-filter.active { color: #fffaf6 !important; border-color: #905346 !important; background: #905346 !important; }
+.pending-history-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin: 3px 0 12px; padding: 10px 11px; border-left: 3px solid #9c6054; background: #fbf2ee; color: #6f4b42; font-size: 11px; font-weight: 700; }
+.pending-history-banner button { margin-left: auto; padding: 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .06em; text-transform: uppercase; }
 .overview-filter-row { margin: 0 0 12px; }
 
 .page-header-with-action { align-items: end; }
@@ -1312,10 +1365,12 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .report-filter-head h2, .report-register h2 { margin: 5px 0 0; color: #202a25; font: 500 clamp(23px, 3vw, 30px)/1 "Fraunces", Georgia, serif; letter-spacing: -.04em; }
 .report-reset { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; cursor: pointer; }
 .report-filter-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
-.report-filter-grid label { display: grid; gap: 6px; min-width: 0; }
-.report-filter-grid label > span { color: #827766; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.report-filter-grid label, .report-filter-grid .ledger-date-field { display: grid; gap: 6px; min-width: 0; }
+.report-filter-grid label > span, .report-filter-grid .ledger-date-field > label { color: #827766; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .report-filter-grid input, .report-filter-grid select { width: 100%; min-height: 38px; padding: 0 9px; color: #26312c; border: 1px solid #dcd3c3; border-radius: 2px; outline: none; background: #fbf8f1; font: 600 11px/1 "Space Grotesk", sans-serif; }
 .report-filter-grid input:focus, .report-filter-grid select:focus { border-color: #a77b2d; box-shadow: 0 0 0 2px rgba(183,138,61,.15); }
+.report-filter-grid .ledger-date-trigger { min-height: 38px; padding: 9px; border-radius: 2px; background: #fbf8f1; font: 600 11px/1 "Space Grotesk", sans-serif; }
+.report-filter-grid .ledger-date-trigger span { gap: 6px; }
 .report-scope-line { display: flex; justify-content: space-between; gap: 12px; margin-top: 17px; padding: 10px 11px; color: #796e5e; border-left: 3px solid #b78a3d; background: #f5f0e6; font-size: 10px; font-weight: 700; letter-spacing: .03em; }
 .report-scope-line b { color: #29362f; }
 .report-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 14px 0 22px; }
@@ -1348,10 +1403,17 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .analytics-report-link:focus-visible { outline: 2px solid #b78a3d; outline-offset: 3px; }
 
 @media (max-width: 960px) {
+  .currency-option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
+  .currency-settings-head { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .currency-option-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .currency-option { min-height: 71px; }
+  .pending-register-action { width: 100%; justify-content: space-between; }
+  .pending-history-banner { align-items: flex-start; }
+  .pending-history-banner button { width: 100%; margin-left: 22px; text-align: left; }
   .report-filter-sheet, .report-register { padding: 18px 16px; }
   .report-filter-head, .report-register-head { align-items: flex-start; flex-direction: column; gap: 13px; }
   .report-filter-grid { grid-template-columns: 1fr 1fr; gap: 11px 8px; }

@@ -232,3 +232,14 @@
 - [x] Add an owner-authenticated evidence retrieval endpoint that validates Firebase identity and storage-key ownership before streaming a file.
 - [x] Replace direct transaction-evidence links with an authenticated client viewing flow that never persists a bearerless storage URL.
 - [x] Add focused ownership and route-validation tests for protected evidence retrieval.
+
+## Category, ledger, settings, schedule, and date-control refinement
+- [x] Expand useful default expense subcategories and income-source choices while preserving the existing one-level category model and category caps.
+- [x] Improve monthly history so the current and earlier monthly summaries are more useful without duplicating the full ledger.
+- [x] Make pending payments unmistakable in Overview and provide a direct, persistent way to filter pending entries within the full history.
+- [x] Move the full-history action into the unused header space and restyle it as a visible Ink & Ledger control without a black background.
+- [x] Return account-register and history subpages to Settings rather than Overview where they are launched from Settings.
+- [x] Redesign the currency selector and rename Notification Settings with clearer, more polished configuration language.
+- [x] Redesign recurring-schedule category selection so category and subcategory choices are clear, scoped, and consistent with the transaction workflow.
+- [x] Replace the dated native date controls with an Ink & Ledger-compatible calendar-picker experience across relevant entry forms.
+- [x] Validate responsive category, pending-history, Settings, schedule, and date-picker flows with tests, type checking, production build, and screenshots.
