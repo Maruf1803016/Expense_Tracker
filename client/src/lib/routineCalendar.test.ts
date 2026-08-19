@@ -14,6 +14,13 @@ describe("Work & Routine calendar", () => {
     expect(routineCalendarDays(2026, 7, 3, 0)[0].date).toBe("2026-07-26");
   });
 
+  it("accepts every weekday as the first day, including a Wednesday-first week", () => {
+    expect(isExpectedRoutineDay(new Date(2026, 7, 5), 3, 3)).toBe(true); // Wednesday
+    expect(isExpectedRoutineDay(new Date(2026, 7, 7), 3, 3)).toBe(true); // Friday
+    expect(isExpectedRoutineDay(new Date(2026, 7, 8), 3, 3)).toBe(false); // Saturday
+    expect(routineCalendarDays(2026, 7, 3, 3)[0].date).toBe("2026-07-29");
+  });
+
   it("counts expected workdays only inside the selected month", () => {
     expect(expectedRoutineDaysInMonth(2026, 7, 5)).toHaveLength(21);
     expect(expectedRoutineDaysInMonth(2026, 7, 7)).toHaveLength(31);

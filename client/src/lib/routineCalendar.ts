@@ -1,5 +1,6 @@
 export type RoutineDaysPerWeek = 3 | 4 | 5 | 6 | 7;
-export type RoutineWeekStartDay = 0 | 1;
+/** JavaScript weekday index: Sunday (0) through Saturday (6). */
+export type RoutineWeekStartDay = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface RoutineCalendarDay {
   date: string;
@@ -20,7 +21,7 @@ export function isFutureRoutineDate(date: string, today = new Date()) {
 }
 
 export function isExpectedRoutineDay(date: Date, daysPerWeek: RoutineDaysPerWeek, weekStartDay: RoutineWeekStartDay = 1) {
-  const layoutDay = weekStartDay === 1 ? (date.getDay() + 6) % 7 : date.getDay();
+  const layoutDay = (date.getDay() - weekStartDay + 7) % 7;
   return layoutDay < daysPerWeek;
 }
 
@@ -33,7 +34,7 @@ export function expectedRoutineDaysInMonth(year: number, monthIndex: number, day
 
 export function routineCalendarDays(year: number, monthIndex: number, daysPerWeek: RoutineDaysPerWeek, weekStartDay: RoutineWeekStartDay = 1): RoutineCalendarDay[] {
   const firstOfMonth = new Date(year, monthIndex, 1);
-  const gridOffset = weekStartDay === 1 ? (firstOfMonth.getDay() + 6) % 7 : firstOfMonth.getDay();
+  const gridOffset = (firstOfMonth.getDay() - weekStartDay + 7) % 7;
   const gridStart = new Date(year, monthIndex, 1 - gridOffset);
 
   return Array.from({ length: 42 }, (_, index) => {

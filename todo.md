@@ -337,3 +337,15 @@
 - [x] Replace forced Overview returns with previous-workspace navigation throughout Settings, Insights, History, Plans & Progress, and detail flows.
 - [x] Animate the interactive Category mix ring with a restrained draw-in and motion-safe visual emphasis while respecting reduced-motion preferences.
 - [x] Validate the revised return behavior and animated Category mix on mobile and desktop before checkpointing.
+
+## Direct Drive backup and flexible calendar layout
+- [x] Replace the download-first backup action with an explicit, user-authorized Google Drive backup connection and upload flow.
+- [x] Keep feedback routed to the owner-selected personal support email and clarify that it opens a draft addressed to the app owner.
+- [x] Let users choose any of the seven weekdays as the first day of their calendar and routine week.
+- [x] Validate the revised backup, feedback, and seven-day calendar behavior before checkpointing and synchronizing to GitHub `manus_repo`.
+
+## Google Drive OAuth connection
+- [x] Store the owner-provided Web OAuth client ID as the project’s browser configuration without storing or using an OAuth client secret.
+- [x] Replace the placeholder Drive handoff with Google Identity Services authorization and a direct JSON upload to the signed-in person’s own Drive using the `drive.file` scope.
+- [x] Add focused regression coverage for Drive backup payloads and configuration-unavailable feedback, then run TypeScript, Vitest, production-build, and responsive checks.
+- [ ] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
