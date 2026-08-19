@@ -530,7 +530,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -618,6 +618,7 @@ export default function Home() {
   const [reminderPushStatus, setReminderPushStatus] = useState<string | null>(null);
   const [reminderPushBusy, setReminderPushBusy] = useState(false);
   activeCurrency = reminderSettings.currency;
+  const isSettingsRoute = activeTab === "settings" || activeTab.startsWith("settings-");
 
   useEffect(() => {
     if (!user) {
@@ -1405,7 +1406,7 @@ export default function Home() {
           <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
           <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Goals & Plans</button>
-          <button className={`rail-button ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
+          <button className={`rail-button ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
         </nav>
         <div className="rail-footer">
           <div className="rail-kicker">August close</div>
@@ -1416,7 +1417,7 @@ export default function Home() {
       <main className="content-viewport">
         <header className="top-nav-bar">
           <div className="mobile-brand-lockup"><span className="mobile-brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
-          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
+          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Goals & Plans" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <div className="notification-wrap">
               <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""}`} onClick={() => setNotificationsOpen((current) => !current)} aria-label={`Open notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-expanded={notificationsOpen}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
@@ -1518,18 +1519,28 @@ export default function Home() {
           {activeTab === "settings" && (
             <SettingsView
               categories={categories}
+              reminderSettings={reminderSettings}
+              onOpenWorkspace={(workspace) => setActiveTab(workspace)}
+              onOpenReports={() => setActiveTab("reports")}
+              onOpenAccounts={() => setActiveTab("accounts")}
+            />
+          )}
+
+          {(activeTab === "settings-expenses" || activeTab === "settings-income" || activeTab === "settings-currency" || activeTab === "settings-reminders") && (
+            <SettingsWorkspaceView
+              mode={activeTab.replace("settings-", "") as SettingsWorkspaceMode}
+              categories={categories}
               subcategorySpent={subcategorySpent}
               reminderSettings={reminderSettings}
               reminderPushStatus={reminderPushStatus}
               reminderPushBusy={reminderPushBusy}
               signedIn={Boolean(user)}
+              onBack={() => setActiveTab("settings")}
               onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
               onDeleteCategory={deleteCategory}
               onSaveReminderSettings={saveReminderSettings}
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
-              onOpenReports={() => setActiveTab("reports")}
-              onOpenAccounts={() => setActiveTab("accounts")}
             />
           )}
         </div>
@@ -1540,7 +1551,7 @@ export default function Home() {
         <button className={`mobile-nav-item ${activeTab === "insights" || activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
         <button className="mobile-fab" onClick={startCreatingTransaction} aria-label="Add transaction"><Plus size={22} /></button>
         <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={18} /><span>Goals & Plans</span></button>
-        <button className={`mobile-nav-item ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
+        <button className={`mobile-nav-item ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
       </nav>
 
       {/* Transaction Detail Modal */}
@@ -2096,7 +2107,7 @@ function HorizonView({ goals, trips, loans, schedules, onOpenAddGoal, onOpenAddT
   );
 }
 
-function SettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder, onOpenReports, onOpenAccounts }: {
+function LegacySettingsView({ categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder, onOpenReports, onOpenAccounts }: {
   categories: Category[]; subcategorySpent: Record<string, number>;
   onOpenAddIncomeCategory: () => void; onOpenAddSub: (parentId: string) => void; onDeleteCategory: (id: string) => void;
   reminderSettings: ReminderSettings; reminderPushStatus: string | null; reminderPushBusy: boolean; signedIn: boolean;
@@ -2216,6 +2227,105 @@ function SettingsView({ categories, subcategorySpent, reminderSettings, reminder
       </div>
     </>
   );
+}
+
+type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders";
+
+function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenReports, onOpenAccounts }: {
+  categories: Category[];
+  reminderSettings: ReminderSettings;
+  onOpenWorkspace: (workspace: `settings-${SettingsWorkspaceMode}`) => void;
+  onOpenReports: () => void;
+  onOpenAccounts: () => void;
+}) {
+  const expenseCount = categories.filter((category) => category.type === "expense" && !category.parentId).length;
+  const incomeCount = categories.filter((category) => category.type === "income").length;
+  const currency = CURRENCY_OPTIONS.find((option) => option.code === reminderSettings.currency);
+
+  return <>
+    <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Open one workspace at a time to organise your ledger without losing focus.</p></div></header>
+    <section className="settings-destination-grid">
+      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span><span><span className="page-kicker">Daily ledger reminder</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${reminderSettings.time}` : "Choose a time when you are ready."}</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-currency")}><span className="category-symbol"><CircleDollarSign size={17} /></span><span><span className="page-kicker">Ledger currency</span><strong>{currency?.label ?? reminderSettings.currency}</strong><small>Display one clear currency across your ledger, insights, and exports.</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination" onClick={onOpenAccounts}><span className="category-symbol"><HandCoins size={17} /></span><span><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="category-symbol"><Wallet size={17} /></span><span><span className="page-kicker">Money taxonomy</span><strong>Expense categories ({expenseCount})</strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-income")}><span className="category-symbol"><ArrowUpRight size={17} /></span><span><span className="page-kicker">Income taxonomy</span><strong>Income sources ({incomeCount})</strong><small>Reusable sources for every income entry.</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination" onClick={onOpenReports}><span className="category-symbol"><Download size={17} /></span><span><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter records, then download CSV or A4 PDF evidence.</small></span><ChevronRight size={20} /></button>
+    </section>
+  </>;
+}
+
+function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder }: {
+  mode: SettingsWorkspaceMode;
+  categories: Category[];
+  subcategorySpent: Record<string, number>;
+  reminderSettings: ReminderSettings;
+  reminderPushStatus: string | null;
+  reminderPushBusy: boolean;
+  signedIn: boolean;
+  onBack: () => void;
+  onOpenAddIncomeCategory: () => void;
+  onOpenAddSub: (parentId: string) => void;
+  onDeleteCategory: (id: string) => void;
+  onSaveReminderSettings: (settings: ReminderSettings) => void;
+  onEnableDeviceReminder: () => void;
+}) {
+  const expenseParents = categories.filter((category) => category.type === "expense" && !category.parentId);
+  const incomeList = categories.filter((category) => category.type === "income");
+  const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const timezoneChoices = Array.from(new Set([deviceTimezone, "Asia/Dhaka", "Asia/Kolkata", "Asia/Singapore", "Europe/London", "America/New_York", "UTC"]));
+  const timeChoices = ["19:00", "20:00", "21:00", "21:30", "22:00", "22:30", "23:00"];
+  const [openPicker, setOpenPicker] = useState<"time" | "timezone" | null>(null);
+  const copy: Record<SettingsWorkspaceMode, { kicker: string; title: string; description: string }> = {
+    expenses: { kicker: "Money taxonomy", title: "Expense categories", description: "Permanent spending types with detailed subcategories beneath each one." },
+    income: { kicker: "Income taxonomy", title: "Income sources", description: "Name every income source once, then reuse it whenever you add money in." },
+    currency: { kicker: "Ledger preference", title: "Ledger currency", description: "Choose one display currency across your ledger, insights, and exports." },
+    reminders: { kicker: "Reminder preference", title: "Daily ledger reminder", description: "Set one calm end-of-day cue to record what happened today." },
+  };
+  const meta = copy[mode];
+  const selectReminderChoice = (choice: string) => {
+    if (openPicker === "time") {
+      onSaveReminderSettings({ ...reminderSettings, time: choice });
+    } else if (openPicker === "timezone") {
+      onSaveReminderSettings({ ...reminderSettings, timezone: choice });
+    }
+    setOpenPicker(null);
+  };
+
+  return <>
+    <header className="workspace-page-header"><button className="workspace-back-button" onClick={onBack}><ArrowLeft size={15} /> Back to Settings</button><div><div className="page-kicker">{meta.kicker}</div><h1>{meta.title}</h1><p className="page-subtitle">{meta.description}</p></div></header>
+    <section className={`paper-card settings-workspace ${mode}`}>
+      {mode === "expenses" && <><p className="category-section-note">Add detailed subcategories beneath the permanent spending types. Category budgets always remain with the parent.</p><div className="category-groups">{expenseParents.map((parent) => { const children = categories.filter((category) => category.parentId === parent.id); return <article className="category-group" key={parent.id}><div className="category-group-head"><span className="category-symbol" style={{ color: parent.color }}><CategoryIcon icon={parent.icon} size={18} /></span><div><strong>{parent.name}</strong><small><span className="permanent-category-marker">Permanent type</span></small></div><em>Budget: {fmt.format(parent.monthlyBudget ?? 0)}</em></div><button className="category-add-sub" onClick={() => onOpenAddSub(parent.id)}><FolderPlus size={14} /> Add subcategory</button><div className="subcategory-list">{children.map((child) => <div className="subcategory-row" key={child.id}><span><CategoryIcon icon={child.icon} size={14} /> {child.name}</span><strong>{fmt.format(subcategorySpent[child.id] ?? 0)}</strong><button className="delete-button" onClick={() => onDeleteCategory(child.id)} aria-label={`Delete ${child.name}`}><Trash2 size={13} /></button></div>)}</div></article>; })}</div></>}
+      {mode === "income" && <><div className="workspace-action-row"><p className="category-section-note">Add a source once, then reuse it on every income entry. Income stays flat and focused.</p><button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /> Add income category</button></div><div className="income-workspace-list">{incomeList.map((income) => <article className="income-workspace-row" key={income.id}><span className="category-symbol" style={{ color: income.color }}><CategoryIcon icon={income.icon} size={18} /></span><strong>{income.name}</strong><button className="delete-button" onClick={() => onDeleteCategory(income.id)} aria-label={`Delete ${income.name}`}><Trash2 size={14} /></button></article>)}</div></>}
+      {mode === "currency" && <><div className="currency-choice-summary"><span>Display currency</span><strong>{reminderSettings.currency}</strong><p>This changes labels only; it does not convert amounts that were already recorded.</p></div><div className="currency-options currency-workspace-options">{CURRENCY_OPTIONS.map((currency) => <button key={currency.code} type="button" className={`currency-option ${reminderSettings.currency === currency.code ? "active" : ""}`} disabled={!signedIn} onClick={() => onSaveReminderSettings({ ...reminderSettings, currency: currency.code })}><b>{currency.code}</b><span>{currency.label.replace(/\s*\([^)]*\)/, "")}</span><em>{currency.label.match(/\(([^)]+)\)/)?.[1] ?? currency.code}</em></button>)}</div>{!signedIn && <p className="reminder-settings-note">Sign in to save your display preference.</p>}</>}
+      {mode === "reminders" && <>
+        <div className="reminder-workspace-intro">
+          <div><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span><h2>Close the day with a complete ledger.</h2><p>Choose a daily moment for a discreet reminder that keeps your personal record complete.</p></div>
+          <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}><span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}</button>
+        </div>
+        <div className="reminder-workspace-controls">
+          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("time")}><span><small>Daily check-in time</small><strong>{new Date(`2000-01-01T${reminderSettings.time}:00`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</strong></span><ChevronRight size={18} /></button>
+          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("timezone")}><span><small>Reminder location</small><strong>{reminderSettings.timezone === deviceTimezone ? `${reminderSettings.timezone} · this device` : reminderSettings.timezone}</strong><em>Your selected time follows this location’s local clock.</em></span><ChevronRight size={18} /></button>
+        </div>
+        {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
+        {signedIn && !reminderSettings.enabled && <p className="reminder-settings-note">Enable this once to allow a browser or device notification at your selected time.</p>}
+        {reminderPushStatus && <p className="reminder-settings-status" role="status">{reminderPushStatus}</p>}
+        {openPicker && <div className="ledger-calendar-backdrop workspace-picker-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenPicker(null); }}>
+          <section className="workspace-choice-sheet" role="dialog" aria-modal="true" aria-label="Choose reminder preference">
+            <div className="workspace-choice-head"><div><span className="draft-kicker">{openPicker === "time" ? "Daily check-in time" : "Reminder location"}</span><h3>{openPicker === "time" ? "Choose a moment" : "Choose local time"}</h3></div><button className="close-button" onClick={() => setOpenPicker(null)} aria-label="Close"><X size={16} /></button></div>
+            <div className={`workspace-choice-grid ${openPicker}`}>
+              {(openPicker === "time" ? timeChoices : timezoneChoices).map((choice) => {
+                const isTime = openPicker === "time";
+                const selected = isTime ? choice === reminderSettings.time : choice === reminderSettings.timezone;
+                const label = isTime ? new Date(`2000-01-01T${choice}:00`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : choice === deviceTimezone ? `${choice} · this device` : choice;
+                return <button key={choice} className={selected ? "selected" : ""} onClick={() => selectReminderChoice(choice)}><span>{label}</span>{selected && <CheckCircle2 size={15} />}</button>;
+              })}
+            </div>
+          </section>
+        </div>}
+      </>}
+    </section>
+  </>;
 }
 
 function accountBalance(acc: Account) {

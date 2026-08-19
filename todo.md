@@ -224,11 +224,11 @@
 - [x] Save a checkpoint for the final Settings, payment, profile, and account refinement.
 
 ## Security-first release and source synchronization
-- [ ] Review the user-facing Firebase profile, recovery, attachment, and reminder flows for secure defaults and document the recommended acceptance path.
-- [ ] Verify the local repository branch, remote, working tree, and latest validated checkpoint before source synchronization.
+- [x] Review the user-facing Firebase profile, recovery, attachment, and reminder flows for secure defaults and document the recommended acceptance path.
+- [x] Verify the local repository branch, remote, working tree, and latest validated checkpoint before source synchronization.
 - [ ] Push the latest validated expense-tracker source to the GitHub `manus_repo` branch and verify the remote commit.
 - [x] Restrict transaction-evidence downloads to the authenticated owner instead of exposing storage paths through a bearerless proxy.
-- [ ] Add the intended GitHub `manus_repo` remote or branch tracking after confirming its canonical repository URL.
+- [x] Add the intended GitHub `manus_repo` remote or branch tracking after confirming its canonical repository URL.
 - [x] Add an owner-authenticated evidence retrieval endpoint that validates Firebase identity and storage-key ownership before streaming a file.
 - [x] Replace direct transaction-evidence links with an authenticated client viewing flow that never persists a bearerless storage URL.
 - [x] Add focused ownership and route-validation tests for protected evidence retrieval.
@@ -243,3 +243,11 @@
 - [x] Redesign recurring-schedule category selection so category and subcategory choices are clear, scoped, and consistent with the transaction workflow.
 - [x] Replace the dated native date controls with an Ink & Ledger-compatible calendar-picker experience across relevant entry forms.
 - [x] Validate responsive category, pending-history, Settings, schedule, and date-picker flows with tests, type checking, production build, and screenshots.
+
+## Dedicated settings workspaces and picker polish
+- [x] Replace expandable Settings content with dedicated focused workspaces for expense categories, income categories, currency, and daily ledger reminders.
+- [x] Give every dedicated Settings workspace a clear return path to Settings and retain the Ink & Ledger editorial sheet hierarchy.
+- [x] Replace the remaining legacy-looking picker interactions with consistent custom paper-sheet selection controls.
+- [x] Refine the calendar date picker into a beautiful, touch-friendly choice experience across transaction, goal, plan, report, and schedule flows.
+- [x] Restore the Recent Ledger heading to its original fixed hierarchy while retaining a visible, right-aligned full-history action.
+- [x] Validate the workspace navigation, picker controls, and ledger hierarchy with automated checks, production build, and desktop/mobile screenshots.
