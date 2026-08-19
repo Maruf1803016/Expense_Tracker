@@ -54,7 +54,6 @@ interface TransactionAttachment {
   type: string;
   size: number;
   storageKey: string;
-  url: string;
   uploadedAt: string;
 }
 
@@ -242,8 +241,8 @@ function normaliseTransaction(record: StoredRecord): Transaction {
   const cashFlowKind = record.cashFlowKind === "loan-disbursement" || record.cashFlowKind === "loan-settlement" ? record.cashFlowKind : undefined;
   const attachments = storedArray(record.attachments).map((item, index) => {
     const attachment = (item ?? {}) as StoredRecord;
-    return { id: storedString(attachment.id, `attachment-${index}`), name: storedString(attachment.name, "Attachment"), type: storedString(attachment.type, "application/octet-stream"), size: storedNumber(attachment.size), storageKey: storedString(attachment.storageKey), url: storedString(attachment.url), uploadedAt: storedDate(attachment.uploadedAt, dateInputValue(new Date())) };
-  }).filter((attachment) => attachment.storageKey && attachment.url);
+    return { id: storedString(attachment.id, `attachment-${index}`), name: storedString(attachment.name, "Attachment"), type: storedString(attachment.type, "application/octet-stream"), size: storedNumber(attachment.size), storageKey: storedString(attachment.storageKey), uploadedAt: storedDate(attachment.uploadedAt, dateInputValue(new Date())) };
+  }).filter((attachment) => attachment.storageKey);
   return { id: storedString(record.id), merchantNote: storedString(record.merchantNote ?? record.title, "Untitled entry"), amount: storedNumber(record.amount), type: rawType === "income" || rawType === "transfer" ? rawType : "expense", accountId: storedString(record.accountId, "acc-1"), destinationAccountId: storedString(record.destinationAccountId) || undefined, categoryId: storedString(record.webCategoryId ?? record.categoryId) || undefined, date: storedDate(record.date, dateInputValue(new Date())), tag: { goalId: storedString(tag.goalId) || (planId && !storedString(tag.tripId) ? planId : undefined), tripId: storedString(tag.tripId) || undefined }, icon: storedString(record.icon, rawType === "income" ? "ArrowDownRight" : rawType === "transfer" ? "Repeat" : "ShoppingCart"), loanId: storedString(record.loanId) || undefined, cashFlowKind, payee: storedString(record.payee) || undefined, payer: storedString(record.payer) || undefined, settlementStatus: record.settlementStatus === "pending" ? "pending" : "paid", attachments };
 }
 
@@ -693,6 +692,40 @@ export default function Home() {
     const payload = await response.json() as TransactionAttachment | { error?: string };
     if (!response.ok || !("storageKey" in payload)) throw new Error("error" in payload ? payload.error ?? "The attachment could not be stored." : "The attachment could not be stored.");
     return payload;
+  }, [user]);
+
+  const viewEvidence = useCallback(async (attachment: TransactionAttachment) => {
+    if (!user) {
+      setCloudError("Sign in before viewing transaction evidence.");
+      return;
+    }
+
+    const preview = window.open("", "_blank");
+    if (preview) preview.opener = null;
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/transaction-evidence/${encodeURIComponent(attachment.storageKey)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "The attachment could not be retrieved.");
+      }
+      const file = await response.blob();
+      const objectUrl = URL.createObjectURL(file);
+      if (preview) preview.location.replace(objectUrl);
+      else {
+        const download = document.createElement("a");
+        download.href = objectUrl;
+        download.target = "_blank";
+        download.rel = "noreferrer";
+        download.click();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      preview?.close();
+      setCloudError(error instanceof Error ? error.message : "The attachment could not be retrieved. Please try again.");
+    }
   }, [user]);
 
   const deletePersistedRecord = useCallback(async (collectionName: LedgerCollection, recordId: string) => {
@@ -1508,7 +1541,7 @@ export default function Home() {
               {transactionDetail.tag?.goalId && <div className="field-note-row"><span>Tagged goal</span><b>{goals.find(g => g.id === transactionDetail.tag?.goalId)?.name}</b></div>}
               {transactionDetail.tag?.tripId && <div className="field-note-row"><span>Tagged trip</span><b>{trips.find(t => t.id === transactionDetail.tag?.tripId)?.name}</b></div>}
             </div>
-            {transactionDetail.attachments && transactionDetail.attachments.length > 0 && <div className="transaction-evidence" style={{ marginTop: 18 }}><div className="detail-label" style={{ marginBottom: 7 }}>Receipts & proof</div><div className="evidence-list">{transactionDetail.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a></span>)}</div></div>}
+            {transactionDetail.attachments && transactionDetail.attachments.length > 0 && <div className="transaction-evidence" style={{ marginTop: 18 }}><div className="detail-label" style={{ marginBottom: 7 }}>Receipts & proof</div><div className="evidence-list">{transactionDetail.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><button type="button" className="evidence-view-button" onClick={() => { void viewEvidence(attachment); }}>{attachment.name}</button></span>)}</div></div>}
             <div className="draft-actions" style={{ marginTop: 24 }}>
               <button className="primary-button draft-submit" onClick={() => startEditingTransaction(transactionDetail)}><Edit3 size={15} /> Modify entry</button>
               <button className="delete-button" onClick={() => { setTransactions(current => current.filter(t => t.id !== transactionDetail.id)); void deletePersistedRecord("expenses", transactionDetail.id); setTransactionDetail(null); }}><Trash2 size={15} /> Remove from ledger</button>
@@ -1688,6 +1721,7 @@ export default function Home() {
           onDate={setDraftDate}
           onTransaction={setTransactionDraft}
           onUploadEvidence={uploadEvidence}
+          onViewEvidence={viewEvidence}
           onCatName={setCatNameInput}
           onCatBudget={setCatBudgetInput}
           onCatType={setCatTypeInput}
@@ -2161,9 +2195,9 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onViewEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
   kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; loanAccount: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
-  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onUploadEvidence: (file: File) => Promise<TransactionAttachment>; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
+  onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onUploadEvidence: (file: File) => Promise<TransactionAttachment>; onViewEvidence: (attachment: TransactionAttachment) => Promise<void>; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "schedule" ? (editingScheduleId ? "Edit recurring schedule" : "Add recurring schedule") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
   const descriptor = kind === "transaction" ? "Record, recategorise, or correct a money movement." : kind === "goal" ? "Give future money a purpose with a clear target." : kind === "trip" ? "Set a budget ceiling before you travel." : kind === "loan" ? "Track what you owe or what is owed to you." : kind === "schedule" ? "Keep regular income and bills visible before their next due date." : kind === "category" ? "Organise your spending or income streams." : kind === "subcategory" ? "Add precise granularity under an expense category." : "Register an asset, bank, or credit liability.";
@@ -2259,7 +2293,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Date</label><input type="date" value={transaction.date} onChange={(event) => update({ date: event.target.value })} /></div>
           <div className="tag-grid"><div className="form-field"><label>Payee <em>(optional)</em></label><input value={transaction.payee} onChange={(event) => update({ payee: event.target.value })} placeholder={transaction.type === "income" ? "Who paid you?" : "Who received it?"} /></div><div className="form-field"><label>Payer <em>(optional)</em></label><input value={transaction.payer} onChange={(event) => update({ payer: event.target.value })} placeholder={transaction.type === "income" ? "Who sent it?" : "Who paid?"} /></div></div>
           <div className="form-field"><label>Settlement</label><div className="type-options"><button type="button" className={`type-option ${transaction.settlementStatus === "paid" ? "active" : ""}`} onClick={() => update({ settlementStatus: "paid" })}><CircleCheck size={15} /> Paid</button><button type="button" className={`type-option ${transaction.settlementStatus === "pending" ? "active" : ""}`} onClick={() => update({ settlementStatus: "pending" })}><Clock3 size={15} /> Pending</button></div></div>
-          <div className="form-field transaction-evidence"><label>Receipts & proof <em>(optional)</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><a href={attachment.url} target="_blank" rel="noreferrer">{attachment.name}</a><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
+          <div className="form-field transaction-evidence"><label>Receipts & proof <em>(optional)</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><button type="button" className="evidence-view-button" onClick={() => { void onViewEvidence(attachment); }}>{attachment.name}</button><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
           <div className="tag-grid"><div className="form-field"><label>Goal tag</label><select value={transaction.goalId} onChange={(event) => update({ goalId: event.target.value })}><option value="none">No goal</option>{goals.map((goal) => <option value={goal.id} key={goal.id}>{goal.name}</option>)}</select></div><div className="form-field"><label>Trip tag</label><select value={transaction.tripId} onChange={(event) => update({ tripId: event.target.value })}><option value="none">No trip</option>{trips.map((trip) => <option value={trip.id} key={trip.id}>{trip.name}</option>)}</select></div></div>
         </>}
 

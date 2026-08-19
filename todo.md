@@ -221,4 +221,14 @@
 - [x] Remove every remaining Insights export shortcut so data export is accessed only from Settings.
 - [x] Add an Account workspace inside Settings and move Accounts & Assets out of the Overview while preserving access to account registers.
 - [x] Validate the final-review refinements with focused tests, TypeScript, production build, and responsive renders.
-- [ ] Save a checkpoint for the final Settings, payment, profile, and account refinement.
+- [x] Save a checkpoint for the final Settings, payment, profile, and account refinement.
+
+## Security-first release and source synchronization
+- [ ] Review the user-facing Firebase profile, recovery, attachment, and reminder flows for secure defaults and document the recommended acceptance path.
+- [ ] Verify the local repository branch, remote, working tree, and latest validated checkpoint before source synchronization.
+- [ ] Push the latest validated expense-tracker source to the GitHub `manus_repo` branch and verify the remote commit.
+- [x] Restrict transaction-evidence downloads to the authenticated owner instead of exposing storage paths through a bearerless proxy.
+- [ ] Add the intended GitHub `manus_repo` remote or branch tracking after confirming its canonical repository URL.
+- [x] Add an owner-authenticated evidence retrieval endpoint that validates Firebase identity and storage-key ownership before streaming a file.
+- [x] Replace direct transaction-evidence links with an authenticated client viewing flow that never persists a bearerless storage URL.
+- [x] Add focused ownership and route-validation tests for protected evidence retrieval.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEvidencePayload } from "./transactionEvidence";
+import { isOwnedEvidenceKey, parseEvidencePayload } from "./transactionEvidence";
 
 describe("transaction evidence validation", () => {
   it("accepts an image or PDF data URL and returns its original bytes", () => {
@@ -14,5 +14,11 @@ describe("transaction evidence validation", () => {
 
   it("rejects empty attachment content", () => {
     expect(() => parseEvidencePayload("data:application/pdf;base64,", "application/pdf")).toThrow("Each attachment must be smaller than 8 MB.");
+  });
+
+  it("allows only evidence keys that are scoped to the authenticated Firebase user", () => {
+    expect(isOwnedEvidenceKey("transaction-evidence/user-123/receipt.pdf", "user-123")).toBe(true);
+    expect(isOwnedEvidenceKey("transaction-evidence/other-user/receipt.pdf", "user-123")).toBe(false);
+    expect(isOwnedEvidenceKey("transaction-evidence/user-123/../other-user/receipt.pdf", "user-123")).toBe(false);
   });
 });

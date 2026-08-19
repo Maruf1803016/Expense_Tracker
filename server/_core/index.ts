@@ -9,7 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { sendDueExpenseReminders } from "../expenseReminders";
-import { uploadTransactionEvidence } from "../transactionEvidence";
+import { downloadTransactionEvidence, uploadTransactionEvidence } from "../transactionEvidence";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -40,6 +40,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   app.post("/api/scheduled/daily-expense-reminders", sendDueExpenseReminders);
   app.post("/api/transaction-evidence", uploadTransactionEvidence);
+  app.get("/api/transaction-evidence/:key(*)", downloadTransactionEvidence);
   // tRPC API
   app.use(
     "/api/trpc",

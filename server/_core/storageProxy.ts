@@ -9,6 +9,11 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
+    if (key.replace(/^\/+/, "").startsWith("transaction-evidence/")) {
+      res.status(403).send("Transaction evidence must be accessed through the authenticated ledger endpoint.");
+      return;
+    }
+
     if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
       res.status(500).send("Storage proxy not configured");
       return;
