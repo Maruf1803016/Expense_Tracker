@@ -285,3 +285,11 @@
 ## Reminder time-format consistency
 - [x] Use the 12-hour AM/PM display format in every user-facing reminder status and confirmation message.
 - [x] Add regression coverage, validate the correction, and synchronize the checkpoint to GitHub `manus_repo`.
+
+## Two-year retention and active planning history
+- [x] Retain routine attendance and completed goal, trip/event, and loan records for two years without silently deleting historic data.
+- [x] Limit the routine tracker to a clear rolling 12-month browsing experience under each named routine, while keeping the retained two-year record available from Settings.
+- [x] Keep Plans & Progress limited to active records; move completed goals, trips/events, and loans to a readable Overview history area.
+- [x] Allow completed records to be edited and automatically return to Plans & Progress when an edit makes them active again.
+- [x] Add clear Overview and Settings navigation for browsing the retained history without overwhelming the dashboard.
+- [x] Add regression coverage, validate mobile and desktop history flows, checkpoint, and synchronize the work to GitHub `manus_repo`.

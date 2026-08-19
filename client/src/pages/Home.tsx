@@ -8,6 +8,7 @@ import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts } from "@/lib/reminderTime";
+import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -69,6 +70,8 @@ interface Goal {
   deadline: string;
   financedAmount?: number;
   fundingHistory: GoalFunding[];
+  status?: PlanningLifecycleState;
+  completedAt?: string;
 }
 
 interface GoalFunding {
@@ -84,6 +87,8 @@ interface Trip {
   name: string;
   budget: number;
   dates: string;
+  status?: PlanningLifecycleState;
+  completedAt?: string;
 }
 
 interface LoanPayment {
@@ -108,6 +113,8 @@ interface Loan {
   paymentHistory: LoanPayment[];
   cashAccountId?: string;
   disbursementTransactionId?: string;
+  status?: PlanningLifecycleState;
+  completedAt?: string;
 }
 
 type ScheduleFrequency = "weekly" | "biweekly" | "monthly";
@@ -272,11 +279,11 @@ function normaliseGoal(record: StoredRecord): Goal {
     const funding = (item ?? {}) as StoredRecord;
     return { id: storedString(funding.id, `goal-history-${index}`), amount: storedNumber(funding.amount), type: funding.type === "withdraw" ? "withdraw" as const : "deposit" as const, date: storedDate(funding.date, dateInputValue(new Date())), note: storedString(funding.note, funding.type === "withdraw" ? "Goal withdrawal" : "Goal contribution") };
   });
-  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled goal"), target: storedNumber(record.target), saved: storedNumber(record.saved), deadline: storedDate(record.deadline, "By Dec 2026"), financedAmount: storedNumber(record.financedAmount), fundingHistory };
+  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled goal"), target: storedNumber(record.target), saved: storedNumber(record.saved), deadline: storedDate(record.deadline, "By Dec 2026"), financedAmount: storedNumber(record.financedAmount), fundingHistory, status: record.status === "completed" ? "completed" : "active", completedAt: storedString(record.completedAt) || undefined };
 }
 
 function normaliseTrip(record: StoredRecord): Trip {
-  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled plan"), budget: storedNumber(record.budget ?? record.target), dates: storedString(record.dates ?? record.dateRange, "Upcoming") };
+  return { id: storedString(record.id), name: storedString(record.name ?? record.title, "Untitled plan"), budget: storedNumber(record.budget ?? record.target), dates: storedString(record.dates ?? record.dateRange, "Upcoming"), status: record.status === "completed" ? "completed" : "active", completedAt: storedString(record.completedAt) || undefined };
 }
 
 function normaliseLoan(record: StoredRecord): Loan {
@@ -284,7 +291,7 @@ function normaliseLoan(record: StoredRecord): Loan {
     const payment = (item ?? {}) as StoredRecord;
     return { id: storedString(payment.id, `loan-payment-${index}`), amount: storedNumber(payment.amount), date: storedDate(payment.date, dateInputValue(new Date())), note: storedString(payment.note, "Payment recorded"), method: storedString(payment.method, "Cash in hand"), reference: storedString(payment.reference) || undefined, transactionId: storedString(payment.transactionId) || undefined };
   });
-  return { id: storedString(record.id), title: storedString(record.title, "Untitled loan"), direction: record.direction === "lent" ? "lent" : "borrowed", counterparty: storedString(record.counterparty), totalAmount: storedNumber(record.totalAmount), paidAmount: storedNumber(record.paidAmount), dueDate: storedDate(record.dueDate, dateInputValue(new Date())), terms: storedString(record.terms, "Due in full by the due date"), paymentHistory, cashAccountId: storedString(record.cashAccountId) || undefined, disbursementTransactionId: storedString(record.disbursementTransactionId) || undefined };
+  return { id: storedString(record.id), title: storedString(record.title, "Untitled loan"), direction: record.direction === "lent" ? "lent" : "borrowed", counterparty: storedString(record.counterparty), totalAmount: storedNumber(record.totalAmount), paidAmount: storedNumber(record.paidAmount), dueDate: storedDate(record.dueDate, dateInputValue(new Date())), terms: storedString(record.terms, "Due in full by the due date"), paymentHistory, cashAccountId: storedString(record.cashAccountId) || undefined, disbursementTransactionId: storedString(record.disbursementTransactionId) || undefined, status: record.status === "completed" ? "completed" : "active", completedAt: storedString(record.completedAt) || undefined };
 }
 
 function normaliseSchedule(record: StoredRecord): RecurringSchedule {
@@ -585,7 +592,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-history">("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -870,6 +877,35 @@ export default function Home() {
     };
     setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
     void persistRecord("routineAttendance", next);
+  };
+
+  const removeRoutine = (routine: WorkRoutine) => {
+    if (!window.confirm(`Remove ${routine.name} and its attendance record? This does not affect your money records.`)) return;
+    setRoutines((current) => current.filter((item) => item.id !== routine.id));
+    const attendanceToRemove = routineAttendance.filter((item) => item.routineId === routine.id);
+    setRoutineAttendance((current) => current.filter((item) => item.routineId !== routine.id));
+    void deletePersistedRecord("routines", routine.id);
+    attendanceToRemove.forEach((item) => void deletePersistedRecord("routineAttendance", item.id));
+  };
+
+  const setPlanningCompletion = (kind: "goal" | "trip" | "loan", record: Goal | Trip | Loan, completed: boolean) => {
+    const lifecycle = { status: completed ? "completed" as const : "active" as const, completedAt: completed ? new Date().toISOString() : undefined };
+    if (kind === "goal") {
+      const next = { ...(record as Goal), ...lifecycle };
+      setGoals((current) => current.map((item) => item.id === next.id ? next : item));
+      void persistRecord("plans", { ...next, title: next.name, history: next.fundingHistory });
+      setGoalDetail(next);
+    } else if (kind === "trip") {
+      const next = { ...(record as Trip), ...lifecycle };
+      setTrips((current) => current.map((item) => item.id === next.id ? next : item));
+      void persistRecord("tripPlans", { ...next, title: next.name, dateRange: next.dates });
+      setTripDetail(next);
+    } else {
+      const next = { ...(record as Loan), ...lifecycle };
+      setLoans((current) => current.map((item) => item.id === next.id ? next : item));
+      void persistRecord("loans", next);
+      setLoanDetail(next);
+    }
   };
 
   const saveReminderSettings = useCallback(async (nextSettings: ReminderSettings) => {
@@ -1388,7 +1424,7 @@ export default function Home() {
       const financed = Math.min(parsed, Math.max(0, parseFloat(goalFinancingInput) || 0));
       const previousGoal = editingGoalId ? goals.find((goal) => goal.id === editingGoalId) : undefined;
       const deadline = normaliseCalendarDate(draftDate, new Date());
-      const nextGoal: Goal = previousGoal ? { ...previousGoal, name: draftTitle.trim(), target: parsed, deadline, financedAmount: financed, saved: Math.min(previousGoal.saved, Math.max(0, parsed - financed)), fundingHistory: previousGoal.fundingHistory ?? [] } : { id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline, financedAmount: financed, fundingHistory: [] };
+      const nextGoal: Goal = previousGoal ? { ...previousGoal, name: draftTitle.trim(), target: parsed, deadline, financedAmount: financed, saved: Math.min(previousGoal.saved, Math.max(0, parsed - financed)), fundingHistory: previousGoal.fundingHistory ?? [], ...(previousGoal.status === "completed" && new Date(deadline) >= new Date(new Date().toDateString()) && previousGoal.saved < Math.max(0, parsed - financed) ? { status: "active" as const, completedAt: undefined } : {}) } : { id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline, financedAmount: financed, fundingHistory: [], status: "active" };
       setGoals((current) => editingGoalId ? current.map((goal) => goal.id === editingGoalId ? nextGoal : goal) : [nextGoal, ...current]);
       void persistRecord("plans", { ...nextGoal, title: nextGoal.name, history: nextGoal.fundingHistory });
       resetDraft();
@@ -1399,7 +1435,8 @@ export default function Home() {
         return;
       }
       const dates = normaliseCalendarDate(draftDate, new Date());
-      const nextTrip: Trip = editingTripId ? { id: editingTripId, name: draftTitle.trim(), budget: parsed, dates } : { id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates };
+      const previousTrip = editingTripId ? trips.find((trip) => trip.id === editingTripId) : undefined;
+      const nextTrip: Trip = previousTrip ? { ...previousTrip, name: draftTitle.trim(), budget: parsed, dates, ...(previousTrip.status === "completed" && new Date(dates) >= new Date(new Date().toDateString()) ? { status: "active" as const, completedAt: undefined } : {}) } : { id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates, status: "active" };
       setTrips((current) => editingTripId ? current.map((trip) => trip.id === editingTripId ? nextTrip : trip) : [nextTrip, ...current]);
       void persistRecord("tripPlans", { ...nextTrip, title: nextTrip.name, dateRange: nextTrip.dates });
       resetDraft();
@@ -1416,7 +1453,7 @@ export default function Home() {
       const previousLoan = editingLoanId ? loans.find((loan) => loan.id === editingLoanId) : undefined;
       const createdLoanId = `loan-${Date.now()}`;
       const disbursementTransactionId = `tx-loan-disbursement-${Date.now()}`;
-      const nextLoan: Loan = previousLoan ? { ...previousLoan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(previousLoan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", cashAccountId: loanAccountInput } : { id: createdLoanId, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [], cashAccountId: loanAccountInput, disbursementTransactionId };
+      const nextLoan: Loan = previousLoan ? { ...previousLoan, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: Math.min(previousLoan.paidAmount, parsed), dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", cashAccountId: loanAccountInput, ...(previousLoan.status === "completed" && new Date(draftDate) >= new Date(new Date().toDateString()) && previousLoan.paidAmount < parsed ? { status: "active" as const, completedAt: undefined } : {}) } : { id: createdLoanId, title: draftTitle.trim(), direction: loanDirectionInput, counterparty: loanCounterpartyInput.trim(), totalAmount: parsed, paidAmount: 0, dueDate: draftDate, terms: loanTermsInput.trim() || "Due in full by the due date", paymentHistory: [], cashAccountId: loanAccountInput, disbursementTransactionId, status: "active" };
       setLoans((current) => editingLoanId ? current.map((loan) => loan.id === editingLoanId ? nextLoan : loan) : [nextLoan, ...current]);
       void persistRecord("loans", nextLoan);
       if (!previousLoan) {
@@ -1587,6 +1624,12 @@ export default function Home() {
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
               pendingOnly={historyPendingOnly}
               onPendingOnlyChange={setHistoryPendingOnly}
+              archivedGoals={goals.filter((goal) => !planningIsActive(goal) && isWithinTwoYearRetention(goal.completedAt))}
+              archivedTrips={trips.filter((trip) => !planningIsActive(trip) && isWithinTwoYearRetention(trip.completedAt))}
+              archivedLoans={loans.filter((loan) => !planningIsActive(loan) && isWithinTwoYearRetention(loan.completedAt))}
+              onOpenGoal={(goal) => setGoalDetail(goal)}
+              onOpenTrip={(trip) => setTripDetail(trip)}
+              onOpenLoan={(loan) => setLoanDetail(loan)}
               onBack={() => setActiveTab("overview")}
             />
           )}
@@ -1647,6 +1690,7 @@ export default function Home() {
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
               onCreateRoutine={createRoutine}
               onToggleRoutineAttendance={toggleRoutineAttendance}
+              onRemoveRoutine={removeRoutine}
             />
           )}
 
@@ -1657,6 +1701,19 @@ export default function Home() {
               onOpenWorkspace={(workspace) => setActiveTab(workspace)}
               onOpenReports={() => setActiveTab("reports")}
               onOpenAccounts={() => setActiveTab("accounts")}
+              onOpenHistory={() => setActiveTab("settings-history")}
+            />
+          )}
+
+          {activeTab === "settings-history" && (
+            <RetainedDataView
+              routines={routines}
+              attendance={routineAttendance}
+              goals={goals}
+              trips={trips}
+              loans={loans}
+              onBack={() => setActiveTab("settings")}
+              onOpenOverviewHistory={() => setActiveTab("history")}
             />
           )}
 
@@ -1750,7 +1807,7 @@ export default function Home() {
                     <div className="draft-actions"><button className="primary-button draft-submit" onClick={submitGoalAdjustment}>{goalAdjustment === "deposit" ? "Record deposit" : "Record withdrawal"}</button><button className="secondary-button" onClick={() => { setGoalAdjustment(null); setGoalAdjustmentAmount(""); setGoalAdjustmentNote(""); }}>Cancel</button></div>
                   </div>
                 ) : (
-                  <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => setGoalAdjustment("deposit")}><ArrowDownRight size={15} /> Deposit</button><button className="secondary-button" onClick={() => setGoalAdjustment("withdraw")}><ArrowUpRight size={15} /> Withdraw</button><button className="text-link" onClick={() => startEditingGoal(goalDetail)}><Edit3 size={14} /> Modify goal</button></div>
+                  <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => setGoalAdjustment("deposit")}><ArrowDownRight size={15} /> Deposit</button><button className="secondary-button" onClick={() => setGoalAdjustment("withdraw")}><ArrowUpRight size={15} /> Withdraw</button><button className="text-link" onClick={() => startEditingGoal(goalDetail)}><Edit3 size={14} /> Modify goal</button><button className="text-link" onClick={() => setPlanningCompletion("goal", goalDetail, planningIsActive(goalDetail))}><CheckCircle2 size={14} /> {planningIsActive(goalDetail) ? "Complete goal" : "Reactivate goal"}</button></div>
                 )}
                 <div className="field-note plan-detail-note"><div className="field-note-row"><span>Whole target</span><b>{fmt.format(goalDetail.target)}</b></div><div className="field-note-row"><span>Personal savings target</span><b>{fmt.format(metrics.personalTarget)}</b></div><div className="field-note-row"><span>Deadline</span><b>{goalDetail.deadline}</b></div><div className="field-note-row"><span>Status</span><b>{metrics.remaining === 0 ? "Complete" : "In progress"}</b></div></div>
                 <section className="goal-funding-history"><div className="section-mini-head"><span>Funding history</span><b>{fundingHistory.length} records</b></div>{fundingHistory.length ? <div className="loan-history">{fundingHistory.map((entry) => <div className="loan-history-row" key={entry.id}><div><strong>{entry.type === "deposit" ? "Deposit" : "Withdrawal"}</strong><p>{entry.note}</p><span>{shortDate(entry.date)} · {entry.type === "deposit" ? "Added to goal" : "Returned to funds"}</span></div><b className={entry.type === "deposit" ? "funding-positive" : "funding-negative"}>{entry.type === "deposit" ? "+" : "−"}{fmt.format(entry.amount)}</b></div>)}</div> : <p className="empty-hint">No funding movements recorded yet.</p>}</section>
@@ -1772,7 +1829,7 @@ export default function Home() {
               <div className="horizon-card-foot"><span>{transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).length} linked expenses</span><span>{fmt.format(Math.max(0, tripDetail.budget - transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).reduce((sum, transaction) => sum + transaction.amount, 0)))} remaining</span></div>
             </div>
             <div className="field-note plan-detail-note"><div className="field-note-row"><span>Working budget</span><b>{fmt.format(tripDetail.budget)}</b></div><div className="field-note-row"><span>Dates</span><b>{tripDetail.dates}</b></div><div className="field-note-row"><span>Linked spend</span><b>{transactions.filter((transaction) => transaction.type === "expense" && transaction.tag?.tripId === tripDetail.id).length} records</b></div></div>
-            <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => startEditingTrip(tripDetail)}><Edit3 size={15} /> Modify plan</button><button className="secondary-button" onClick={() => { startCreatingTransaction(); setTransactionDraft((current) => ({ ...current, tripId: tripDetail.id })); setTripDetail(null); }}>Add linked expense</button></div>
+            <div className="draft-actions plan-detail-actions"><button className="primary-button draft-submit" onClick={() => startEditingTrip(tripDetail)}><Edit3 size={15} /> Modify plan</button><button className="secondary-button" onClick={() => { startCreatingTransaction(); setTransactionDraft((current) => ({ ...current, tripId: tripDetail.id })); setTripDetail(null); }}>Add linked expense</button><button className="text-link" onClick={() => setPlanningCompletion("trip", tripDetail, planningIsActive(tripDetail))}><CheckCircle2 size={14} /> {planningIsActive(tripDetail) ? "Complete plan" : "Reactivate plan"}</button></div>
           </aside>
         </div>
       )}
@@ -1791,7 +1848,7 @@ export default function Home() {
             <div className="field-note plan-detail-note"><div className="field-note-row"><span>{loanDetail.direction === "borrowed" ? "Lender" : "Borrower"}</span><b>{loanDetail.counterparty}</b></div><div className="field-note-row"><span>Cash account</span><b>{accounts.find((account) => account.id === loanDetail.cashAccountId)?.name ?? "No cash account linked"}</b></div><div className="field-note-row"><span>Due date</span><b>{shortDate(loanDetail.dueDate)}</b></div><div className="field-note-row"><span>Settled so far</span><b>{fmt.format(loanDetail.paidAmount)}</b></div></div>
             {loanDetail.paidAmount < loanDetail.totalAmount ? <div className="adjustment-panel loan-payment-panel"><div className="draft-kicker">{loanDetail.direction === "borrowed" ? "Record a repayment" : "Record money received"}</div><div className="loan-payment-grid"><label className="form-field"><span>Payment amount</span><input value={loanPaymentAmount} onChange={(event) => setLoanPaymentAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="0.00" inputMode="decimal" /></label><label className="form-field"><span>How was it paid?</span><select value={loanPaymentMethod} onChange={(event) => setLoanPaymentMethod(event.target.value)}><option>Cash in hand</option><option>Card</option><option>Bank transfer</option><option>bKash</option><option>Nagad</option><option>Custom</option></select></label>{loanPaymentMethod === "Custom" && <label className="form-field loan-payment-full"><span>Custom payment method</span><input value={loanCustomPaymentMethod} onChange={(event) => setLoanCustomPaymentMethod(event.target.value)} placeholder="e.g., Rocket" /></label>}<label className="form-field loan-payment-full"><span>Note <em>(optional)</em></span><textarea value={loanPaymentNote} onChange={(event) => setLoanPaymentNote(event.target.value)} placeholder="What was this payment for?" rows={2} /></label><label className="form-field loan-payment-full"><span>Reference <em>(optional)</em></span><input value={loanPaymentReference} onChange={(event) => setLoanPaymentReference(event.target.value)} placeholder="Transaction ID, last four digits, or receipt" /></label></div><button className="primary-button draft-submit" onClick={submitLoanPayment}>Record payment</button></div> : <div className="loan-settled-note"><CheckCircle2 size={17} /> This record is fully settled.</div>}
             <div className="loan-history"><div className="section-mini-head"><span>Payment history</span><b>{loanDetail.paymentHistory.length} records</b></div>{loanDetail.paymentHistory.length ? loanDetail.paymentHistory.map((payment) => <div className="loan-history-row" key={payment.id}><div><strong>{payment.note}</strong><div className="loan-payment-meta"><span>{shortDate(payment.date)} · {payment.method}</span>{payment.reference && <span>Ref · {payment.reference}</span>}{payment.transactionId && <span>Cash flow recorded</span>}</div></div><b>{fmt.format(payment.amount)}</b></div>) : <div className="empty-hint">No payment has been recorded yet.</div>}</div>
-            <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button></div>
+            <div className="draft-actions plan-detail-actions"><button className="text-link" onClick={() => startEditingLoan(loanDetail)}><Edit3 size={14} /> Modify record</button><button className="text-link" onClick={() => setPlanningCompletion("loan", loanDetail, planningIsActive(loanDetail))}><CheckCircle2 size={14} /> {planningIsActive(loanDetail) ? "Complete loan" : "Reactivate loan"}</button></div>
           </aside>
         </div>
       )}
@@ -1995,7 +2052,7 @@ function AccountsAssetsView({ accounts, netWorth, onOpenAddAccount, onBack }: { 
   </>;
 }
 
-function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, pendingOnly, onPendingOnlyChange, onBack }: { totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; pendingOnly: boolean; onPendingOnlyChange: (value: boolean) => void; onBack: () => void }) {
+function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, pendingOnly, onPendingOnlyChange, archivedGoals, archivedTrips, archivedLoans, onOpenGoal, onOpenTrip, onOpenLoan, onBack }: { totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; pendingOnly: boolean; onPendingOnlyChange: (value: boolean) => void; archivedGoals: Goal[]; archivedTrips: Trip[]; archivedLoans: Loan[]; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onBack: () => void }) {
   const expenseTopCategories = categories.filter((category) => category.type === "expense" && !category.parentId);
   const plannedBudget = expenseTopCategories.reduce((sum, category) => sum + category.monthlyBudget, 0);
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
@@ -2020,6 +2077,7 @@ function HistoryView({ totals, categories, categorySpent, transactions, visibleT
     <header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Overview</button></div><div className="page-kicker">Recorded movement</div><h1>History, held to account.</h1><p className="page-subtitle">Follow every month, category, and entry without crowding the daily overview.</p></div></header>
     <section className="paper-card month-hand-section history-budget-section"><div className="section-head month-hand-head"><div><div className="page-kicker">Monthly allocation</div><h2>Month in hand</h2></div><span className="month-hand-date">{monthLabel(currentMonthKey)}</span></div><div className="month-hand-grid"><div className="month-hand-summary"><div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense" && !transaction.cashFlowKind).length} records</b></div></div><p className="budget-note">Budget pacing uses regular spending only. Loan movements remain visible in the cash ledger, not in category budgets.</p></div><div className="month-hand-progress"><div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.ordinaryExpense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, plannedBudget ? (totals.ordinaryExpense / plannedBudget) * 100 : 0)}%` }} /></div></div><div className="month-hand-progress-note"><strong>{plannedBudget ? Math.round((totals.ordinaryExpense / plannedBudget) * 100) : 0}% committed</strong><span>Loan cash flow is tracked separately.</span></div></div></div><div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to filter its register</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div></section>
     <section className="paper-card month-history-section"><div className="section-head month-history-head"><div><div className="page-kicker">Historical overview</div><h2>Ledger by month</h2></div><span className="month-hand-date">{monthRows.length} month{monthRows.length === 1 ? "" : "s"} with records</span></div><div className="month-history-list">{monthRows.map((month) => { const isOpen = Boolean(openMonths[month.key]); return <div className={`month-history-item ${isOpen ? "open" : ""}`} key={month.key}><button type="button" className="month-history-toggle" onClick={() => setOpenMonths((current) => ({ ...current, [month.key]: !current[month.key] }))} aria-expanded={isOpen} aria-controls={`history-month-${month.key}`}><span className="month-history-title"><b>{month.label}</b><small>{month.isCurrent ? "Current month" : `${month.entries.length} ledger entries`}</small></span><span className="month-history-net"><strong className={month.net >= 0 ? "amount-income" : "amount-expense"}>{month.net >= 0 ? "+" : "−"}{fmt.format(Math.abs(month.net))}</strong><small>{isOpen ? "Tap to close" : "Tap to view"}</small></span><ChevronRight size={17} className="month-history-chevron" /></button>{isOpen && <div className="month-history-detail" id={`history-month-${month.key}`}><div className="month-history-metrics"><div><span>Income</span><b className="amount-income">{fmt.format(month.income)}</b></div><div><span>Expenses</span><b className="amount-expense">{fmt.format(month.expense)}</b></div><div><span>Daily outflow</span><b>{fmt.format(month.averageDailyExpense)}</b></div></div><div className="month-history-entry-list">{month.entries.length ? month.entries.slice(0, 5).map((entry) => <div className="month-history-entry" key={entry.id}><span>{entry.merchantNote}</span><b className={entry.type === "income" ? "amount-income" : entry.type === "expense" ? "amount-expense" : "amount-transfer"}>{entry.type === "income" ? "+" : entry.type === "expense" ? "−" : "↔"}{fmt.format(entry.amount)}</b></div>) : <span className="budget-note">No transactions recorded for this month.</span>}</div></div>}</div>; })}</div></section>
+    {(archivedGoals.length + archivedTrips.length + archivedLoans.length) > 0 && <section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Completed plans</div><h2>Still part of the story.</h2></div><span className="month-hand-date">Kept for two years</span></div><p className="category-section-note">Finished goals, trips, and loans leave Plans & Progress but remain editable here.</p><div className="schedule-list">{archivedGoals.map((goal) => <button key={goal.id} className="paper-card schedule-card" onClick={() => onOpenGoal(goal)}><div className="horizon-card-topline"><span className="schedule-status paused">Goal complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{goal.name}</h3><span className="horizon-card-action">Completed {shortDate(goal.completedAt ?? goal.deadline)}</span></div><strong>{fmt.format(goal.saved)}</strong></div></button>)}{archivedTrips.map((trip) => <button key={trip.id} className="paper-card schedule-card" onClick={() => onOpenTrip(trip)}><div className="horizon-card-topline"><span className="schedule-status paused">Plan complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{trip.name}</h3><span className="horizon-card-action">Completed {shortDate(trip.completedAt ?? trip.dates)}</span></div><strong>{fmt.format(trip.budget)}</strong></div></button>)}{archivedLoans.map((loan) => <button key={loan.id} className="paper-card schedule-card" onClick={() => onOpenLoan(loan)}><div className="horizon-card-topline"><span className="schedule-status paused">Loan complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{loan.title}</h3><span className="horizon-card-action">Completed {shortDate(loan.completedAt ?? loan.dueDate)}</span></div><strong>{fmt.format(loan.totalAmount)}</strong></div></button>)}</div></section>}
     <section className="paper-card section-card history-register"><div className="section-head"><div><div className="page-kicker">Complete register</div><h2>{pendingOnly ? "Pending ledger" : selectedCategory ? `${selectedCategory.name} ledger` : "All entries"}</h2></div><div className="filter-row">{(["all", "expense", "income", "transfer"] as const).map((item) => <button key={item} className={`filter-button ${filter === item && !pendingOnly ? "active" : ""}`} onClick={() => { onPendingOnlyChange(false); onFilter(item); }}>{item[0].toUpperCase() + item.slice(1)}</button>)}<button className={`filter-button pending-history-filter ${pendingOnly ? "active" : ""}`} onClick={() => onPendingOnlyChange(!pendingOnly)}>Pending{pendingCount ? ` (${pendingCount})` : ""}</button></div></div>{pendingOnly && <div className="pending-history-banner"><CircleCheck size={15} /><span>Only entries waiting for payment confirmation are shown.</span><button onClick={() => onPendingOnlyChange(false)}>Show all entries</button></div>}{selectedCategory && <button className="filter-note" onClick={onClearCategory}>Viewing {selectedCategory.name} <X size={12} /></button>}<div className="search-box"><Search size={15} /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder={pendingOnly ? "Search your pending ledger" : "Search a merchant or category"} /></div><div className="transaction-list">{registerTransactions.length ? registerTransactions.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <p className="budget-note">{pendingOnly ? "No pending entries match this search or category context." : "No entries match this view. Try another filter or clear the category context."}</p>}</div></section>
   </>;
 }
@@ -2158,12 +2216,12 @@ function NotificationInboxView({ items, unreadCount, onBack, onOpenNotice, onMar
   </>;
 }
 
-function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutineAttendance }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void }) {
+function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [name, setName] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
-  const [cursor, setCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
   const selectedRoutine = routines.find((routine) => routine.id === selectedRoutineId) ?? routines[0] ?? null;
   const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
   const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
@@ -2180,14 +2238,17 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
   return <div className="routine-workspace">
     <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
     {(composerOpen || routines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{routines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
-    {routines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{routines.map((routine) => <button key={routine.id} className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button>)}</div>
-      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={`${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> A small gold marker shows an expected workday. Tap any date you attended, including an extra shift.</p></section>}</>}
+    {routines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{routines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`Remove ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={`${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Your rolling work view holds this month plus the prior eleven. Attendance remains available for two years in Data History.</p></section>}</>}
   </div>;
 }
 
-function HorizonView({ goals, trips, loans, schedules, routines, attendance, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void }) {
+function HorizonView({ goals, trips, loans, schedules, routines, attendance, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring" | "routines">("goals");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
+  const activeGoals = goals.filter(planningIsActive);
+  const activeTrips = trips.filter(planningIsActive);
+  const activeLoans = loans.filter(planningIsActive);
   const scheduledIncome = activeSchedules.filter((schedule) => schedule.type === "income").reduce((sum, schedule) => sum + schedule.amount, 0);
   const scheduledBills = activeSchedules.filter((schedule) => schedule.type === "expense").reduce((sum, schedule) => sum + schedule.amount, 0);
   return (
@@ -2212,7 +2273,7 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, onO
 
       {horizonTab === "goals" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {goals.map((goal) => {
+          {activeGoals.map((goal) => {
             const metrics = goalMetrics(goal);
             return (
               <button key={goal.id} className="paper-card horizon-plan-card" onClick={() => onOpenGoal(goal)} aria-label={`Open savings goal ${goal.name}`}>
@@ -2228,7 +2289,7 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, onO
 
       {horizonTab === "trips" && (
         <div style={{ display: "grid", gap: 16 }}>
-          {trips.map((trip) => (
+          {activeTrips.map((trip) => (
             <button key={trip.id} className="paper-card horizon-plan-card trip-plan-card" onClick={() => onOpenTrip(trip)} aria-label={`Open trip plan ${trip.name}`}>
               <div className="horizon-card-topline"><span>{trip.dates}</span><ChevronRight size={17} /></div>
               <div className="horizon-card-main"><div><h3>{trip.name}</h3><span className="horizon-card-action">Open trip detail</span></div><strong>Working budget: {fmt.format(trip.budget)}</strong></div>
@@ -2241,11 +2302,11 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, onO
       {horizonTab === "loans" && (
         <div className="loan-workspace">
           <div className="loan-workspace-summary">
-            <div><span>Outstanding you owe</span><strong>{fmt.format(loans.filter((loan) => loan.direction === "borrowed").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
-            <div><span>Outstanding owed to you</span><strong>{fmt.format(loans.filter((loan) => loan.direction === "lent").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
+            <div><span>Outstanding you owe</span><strong>{fmt.format(activeLoans.filter((loan) => loan.direction === "borrowed").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
+            <div><span>Outstanding owed to you</span><strong>{fmt.format(activeLoans.filter((loan) => loan.direction === "lent").reduce((sum, loan) => sum + Math.max(0, loan.totalAmount - loan.paidAmount), 0))}</strong></div>
           </div>
           <div style={{ display: "grid", gap: 16 }}>
-            {loans.map((loan) => {
+            {activeLoans.map((loan) => {
               const remaining = Math.max(0, loan.totalAmount - loan.paidAmount);
               const percentPaid = loan.totalAmount ? Math.min(100, Math.round((loan.paidAmount / loan.totalAmount) * 100)) : 0;
               return <button key={loan.id} className="paper-card horizon-plan-card loan-plan-card" onClick={() => onOpenLoan(loan)} aria-label={`Open ${loan.title} loan record`}>
@@ -2276,7 +2337,7 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, onO
         </div>
       )}
 
-      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} />}
+      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} onRemoveRoutine={onRemoveRoutine} />}
     </>
   );
 }
@@ -2403,14 +2464,25 @@ function LegacySettingsView({ categories, subcategorySpent, reminderSettings, re
   );
 }
 
+function RetainedDataView({ routines, attendance, goals, trips, loans, onBack, onOpenOverviewHistory }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; goals: Goal[]; trips: Trip[]; loans: Loan[]; onBack: () => void; onOpenOverviewHistory: () => void }) {
+  const twoYearsAgo = new Date();
+  twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+  const retainedAttendance = attendance.filter((item) => new Date(item.date) >= twoYearsAgo);
+  const completedGoals = goals.filter((goal) => !planningIsActive(goal) && isWithinTwoYearRetention(goal.completedAt));
+  const completedTrips = trips.filter((trip) => !planningIsActive(trip) && isWithinTwoYearRetention(trip.completedAt));
+  const completedLoans = loans.filter((loan) => !planningIsActive(loan) && isWithinTwoYearRetention(loan.completedAt));
+  return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open Overview History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.length}</b></div></div></section><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Retained attendance</h2></div><span className="month-hand-date">Last 24 months</span></div>{retainedAttendance.length ? <div className="loan-history">{retainedAttendance.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => <div className="loan-history-row" key={item.id}><div><strong>{routines.find((routine) => routine.id === item.routineId)?.name ?? "Removed routine"}</strong><span>{shortDate(item.date)} · {item.attended ? "Attended" : "Not attended"}</span></div><b>{item.attended ? "Recorded" : "Cleared"}</b></div>)}</div> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
+}
+
 type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders";
 
-function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenReports, onOpenAccounts }: {
+function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenReports, onOpenAccounts, onOpenHistory }: {
   categories: Category[];
   reminderSettings: ReminderSettings;
   onOpenWorkspace: (workspace: `settings-${SettingsWorkspaceMode}`) => void;
   onOpenReports: () => void;
   onOpenAccounts: () => void;
+  onOpenHistory: () => void;
 }) {
   const expenseCount = categories.filter((category) => category.type === "expense" && !category.parentId).length;
   const incomeCount = categories.filter((category) => category.type === "income").length;
@@ -2425,6 +2497,7 @@ function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenRep
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="settings-destination-mark"><Wallet size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Money taxonomy</span><strong>Expense categories <em>({expenseCount})</em></strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-income")}><span className="settings-destination-mark"><ArrowUpRight size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Income taxonomy</span><strong>Income sources <em>({incomeCount})</em></strong><small>Reusable sources for every income entry.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={onOpenReports}><span className="settings-destination-mark"><Download size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter records, then download CSV or A4 PDF evidence.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={onOpenHistory}><span className="settings-destination-mark"><Calendar size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data history</span><strong>Two-year retained archive</strong><small>Review completed planning records and retained routine attendance.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
     </section>
   </>;
 }
