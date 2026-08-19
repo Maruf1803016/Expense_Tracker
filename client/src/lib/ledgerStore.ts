@@ -1,5 +1,5 @@
 // Ink & Ledger persistence: each collection is addressed only beneath the active owner's Firestore document.
-import { collection, deleteDoc, doc, onSnapshot, runTransaction, setDoc, type DocumentData, type Unsubscribe } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, runTransaction, setDoc, writeBatch, type DocumentData, type Unsubscribe } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 
 // Ink & Ledger persistence note: a personal ledger keeps its compact core taxonomy intact while user-created detail remains owner-scoped.
@@ -41,6 +41,18 @@ export async function saveLedgerRecord<T extends { id: string }>(userId: string,
 
 export async function removeLedgerRecord(userId: string, collectionName: LedgerCollection, recordId: string) {
   await deleteDoc(doc(firestore, "users", userId, collectionName, recordId));
+}
+
+/** Removes a user's recorded activity in bounded batches; account, category, and preference setup is deliberately managed separately. */
+export async function clearLedgerCollection(userId: string, collectionName: LedgerCollection) {
+  const records = collection(firestore, "users", userId, collectionName);
+  while (true) {
+    const snapshot = await getDocs(query(records, limit(400)));
+    if (snapshot.empty) return;
+    const batch = writeBatch(firestore);
+    snapshot.docs.forEach((record) => batch.delete(record.ref));
+    await batch.commit();
+  }
 }
 
 export async function ensureLedgerStarter(

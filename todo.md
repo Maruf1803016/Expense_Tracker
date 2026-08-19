@@ -323,4 +323,17 @@
 - [x] Add a dedicated Settings preference for the first day of the week, with a clear explanation that it changes calendar and routine-week layouts.
 - [x] Add a financial-year start-month preference, with a clear explanation that it changes reporting and Insights reporting periods rather than transaction dates.
 - [x] Add a persisted 12-hour or 24-hour clock preference and apply it to reminder and visible time displays.
-- [ ] Validate persisted preference behavior on mobile and desktop, then checkpoint and synchronize the update to GitHub `manus_repo`.
+- [x] Validate persisted preference behavior on mobile and desktop, then checkpoint and synchronize the update to GitHub `manus_repo`.
+
+## Data backup, reminder controls, and feedback
+- [x] Add a private full-ledger JSON backup download for manual storage in the user’s Google Drive or another secure location; document that automatic Drive sync needs a separate user-authorized OAuth connection.
+- [x] Refine the daily reminder time picker so users select a time through a clearly clock-like control.
+- [x] Add a guarded Clear recorded activity action at the bottom of Settings, with explicit scope and irreversible-action confirmation.
+- [x] Add a feedback-by-email option that opens the user’s mail client without sending mail automatically.
+- [x] Validate the new Settings controls on mobile and desktop, including the safe private-backup handoff.
+- [ ] Checkpoint the completed work and synchronize it to GitHub `manus_repo`.
+
+## Insight animation and return navigation
+- [x] Replace forced Overview returns with previous-workspace navigation throughout Settings, Insights, History, Plans & Progress, and detail flows.
+- [x] Animate the interactive Category mix ring with a restrained draw-in and motion-safe visual emphasis while respecting reduced-motion preferences.
+- [x] Validate the revised return behavior and animated Category mix on mobile and desktop before checkpointing.

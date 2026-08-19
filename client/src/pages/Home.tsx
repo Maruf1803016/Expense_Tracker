@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCh
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
+import { clearLedgerCollection, ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
@@ -14,6 +14,20 @@ import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type Pla
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
 type TransactionType = "expense" | "income" | "transfer";
+type WorkspaceTab = "overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-preferences" | "settings-data" | "settings-history";
+
+function workspaceLabel(workspace: WorkspaceTab) {
+  if (workspace === "horizon") return "Plans & Progress";
+  if (workspace === "inbox") return "Notification inbox";
+  if (workspace === "accounts") return "Accounts & assets";
+  if (workspace === "settings-history") return "Data History";
+  if (workspace === "settings-expenses") return "Expense categories";
+  if (workspace === "settings-income") return "Income sources";
+  if (workspace === "settings-currency") return "Ledger currency";
+  if (workspace === "settings-reminders") return "Daily ledger reminder";
+  if (workspace === "settings-preferences") return "Calendar & time";
+  return workspace[0].toUpperCase() + workspace.slice(1);
+}
 
 interface Account {
   id: string;
@@ -633,13 +647,14 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-preferences" | "settings-history">("overview");
-  const [inboxOrigin, setInboxOrigin] = useState<Exclude<typeof activeTab, "inbox">>("overview");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
+  const [workspaceTrail, setWorkspaceTrail] = useState<WorkspaceTab[]>([]);
+  const [inboxOrigin, setInboxOrigin] = useState<Exclude<WorkspaceTab, "inbox">>("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [historyPendingOnly, setHistoryPendingOnly] = useState(false);
-  const [historyOrigin, setHistoryOrigin] = useState<"overview" | "settings-history">("overview");
+  const [historyOrigin, setHistoryOrigin] = useState<WorkspaceTab>("overview");
 
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
@@ -726,6 +741,18 @@ export default function Home() {
   const [reminderPushBusy, setReminderPushBusy] = useState(false);
   activeCurrency = reminderSettings.currency;
   const isSettingsRoute = activeTab === "settings" || activeTab.startsWith("settings-");
+  const goToWorkspace = useCallback((next: WorkspaceTab) => {
+    if (next === activeTab) return;
+    setWorkspaceTrail((current) => [...current.slice(-8), activeTab]);
+    setActiveTab(next);
+  }, [activeTab]);
+  const returnToPreviousWorkspace = useCallback((fallback: WorkspaceTab = "overview") => {
+    setWorkspaceTrail((current) => {
+      const destination = current[current.length - 1] ?? fallback;
+      setActiveTab(destination);
+      return current.slice(0, -1);
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -876,6 +903,56 @@ export default function Home() {
       setCloudError(ledgerErrorMessage(error, "remove"));
     }
   }, [user]);
+
+  const clearRecordedLedgerActivity = useCallback(async () => {
+    if (!user) {
+      toast.error("Sign in first to clear recorded ledger activity.");
+      return;
+    }
+    const activityCollections: LedgerCollection[] = ["expenses", "plans", "tripPlans", "loans", "recurringIncomeSources", "notifications", "routines", "routineAttendance"];
+    setCloudError(null);
+    setCloudStatus("loading");
+    try {
+      for (const collectionName of activityCollections) await clearLedgerCollection(user.uid, collectionName);
+      setTransactions([]);
+      setGoals([]);
+      setTrips([]);
+      setLoans([]);
+      setSchedules([]);
+      setNotifications([]);
+      setRoutines([]);
+      setRoutineAttendance([]);
+      setDismissedFallbackNotificationIds([]);
+      setCloudStatus("synced");
+      toast.success("Recorded ledger activity cleared. Your accounts, categories, and personal preferences remain in place.");
+    } catch (error) {
+      setCloudStatus("error");
+      setCloudError(ledgerErrorMessage(error, "remove"));
+    }
+  }, [user]);
+
+  const downloadLedgerBackup = useCallback(() => {
+    if (!user) {
+      toast.error("Sign in first to prepare a private ledger backup.");
+      return;
+    }
+    const exportedAt = new Date().toISOString();
+    const backup = {
+      format: "expense-ledger-backup",
+      version: 1,
+      exportedAt,
+      ownerUid: user.uid,
+      data: { transactions, accounts, categories, goals, trips, loans, schedules, notifications, routines, routineAttendance, reminderSettings, userPrefs },
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `expense-ledger-backup-${exportedAt.slice(0, 10)}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(href), 1_000);
+    toast.success("Private ledger backup downloaded. You can now save this file to your own Google Drive.");
+  }, [accounts, categories, goals, loans, notifications, reminderSettings, routineAttendance, routines, schedules, transactions, trips, user, userPrefs]);
 
   const markNotificationRead = (notificationId: string) => {
     const persistedNotification = notifications.find((item) => item.id === notificationId);
@@ -1626,11 +1703,11 @@ export default function Home() {
         </div>
         <div className="rail-section-label">Your ledger</div>
         <nav className="rail-nav">
-          <button className={`rail-button ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={16} /> Overview</button>
-          <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => { setHistoryOrigin("overview"); setActiveTab("history"); }}><Layers size={16} /> History</button>
-          <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
-          <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Plans & Progress</button>
-          <button className={`rail-button ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
+          <button className={`rail-button ${activeTab === "overview" ? "active" : ""}`} onClick={() => goToWorkspace("overview")}><Wallet size={16} /> Overview</button>
+          <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => { setHistoryOrigin(activeTab); goToWorkspace("history"); }}><Layers size={16} /> History</button>
+          <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => goToWorkspace("insights")}><ArrowUpRight size={16} /> Insights</button>
+          <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => goToWorkspace("horizon")}><Compass size={16} /> Plans & Progress</button>
+          <button className={`rail-button ${isSettingsRoute ? "active" : ""}`} onClick={() => goToWorkspace("settings")}><ShieldCheck size={16} /> Settings</button>
         </nav>
         <div className="rail-footer">
           <div className="rail-kicker">August close</div>
@@ -1668,8 +1745,8 @@ export default function Home() {
               onClearCategory={() => setCategoryFilterId(null)}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
-              onOpenHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(false); setActiveTab("history"); }}
-              onOpenPendingHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(true); setActiveTab("history"); }}
+              onOpenHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(false); goToWorkspace("history"); }}
+              onOpenPendingHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(true); goToWorkspace("history"); }}
             />
           )}
 
@@ -1696,8 +1773,8 @@ export default function Home() {
               onOpenGoal={(goal) => setGoalDetail(goal)}
               onOpenTrip={(trip) => setTripDetail(trip)}
               onOpenLoan={(loan) => setLoanDetail(loan)}
-              backLabel={historyOrigin === "settings-history" ? "Back to Data History" : "Back to Overview"}
-              onBack={() => setActiveTab(historyOrigin)}
+              backLabel={`Back to ${workspaceLabel(historyOrigin)}`}
+              onBack={() => returnToPreviousWorkspace(historyOrigin)}
             />
           )}
 
@@ -1706,7 +1783,7 @@ export default function Home() {
               accounts={accountsWithBalance}
               netWorth={netWorth}
               onOpenAddAccount={() => setDraft("account")}
-              onBack={() => setActiveTab("settings")}
+              onBack={() => returnToPreviousWorkspace("settings")}
             />
           )}
 
@@ -1716,7 +1793,7 @@ export default function Home() {
               categories={categories}
               categorySpent={categorySpent}
               financialYearStartMonth={userPrefs.financialYearStartMonth}
-              onOpenCategory={(id) => { setHistoryOrigin("overview"); setCategoryFilterId(id); setActiveTab("history"); }}
+              onOpenCategory={(id) => { setHistoryOrigin("insights"); setCategoryFilterId(id); goToWorkspace("history"); }}
             />
           )}
 
@@ -1728,7 +1805,7 @@ export default function Home() {
               financialYearStartMonth={userPrefs.financialYearStartMonth}
               weekStartDay={userPrefs.weekStartDay}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
-              onBack={() => setActiveTab("settings")}
+              onBack={() => returnToPreviousWorkspace("settings")}
             />
           )}
 
@@ -1771,10 +1848,10 @@ export default function Home() {
               categories={categories}
               reminderSettings={reminderSettings}
               userPrefs={userPrefs}
-              onOpenWorkspace={(workspace) => setActiveTab(workspace)}
-              onOpenReports={() => setActiveTab("reports")}
-              onOpenAccounts={() => setActiveTab("accounts")}
-              onOpenHistory={() => setActiveTab("settings-history")}
+              onOpenWorkspace={goToWorkspace}
+              onOpenReports={() => goToWorkspace("reports")}
+              onOpenAccounts={() => goToWorkspace("accounts")}
+              onOpenHistory={() => goToWorkspace("settings-history")}
             />
           )}
 
@@ -1786,12 +1863,12 @@ export default function Home() {
               goals={goals}
               trips={trips}
               loans={loans}
-              onBack={() => setActiveTab("settings")}
-              onOpenOverviewHistory={() => { setHistoryOrigin("settings-history"); setActiveTab("history"); }}
+              onBack={() => returnToPreviousWorkspace("settings")}
+              onOpenOverviewHistory={() => { setHistoryOrigin("settings-history"); goToWorkspace("history"); }}
             />
           )}
 
-          {(activeTab === "settings-expenses" || activeTab === "settings-income" || activeTab === "settings-currency" || activeTab === "settings-reminders" || activeTab === "settings-preferences") && (
+          {(activeTab === "settings-expenses" || activeTab === "settings-income" || activeTab === "settings-currency" || activeTab === "settings-reminders" || activeTab === "settings-preferences" || activeTab === "settings-data") && (
             <SettingsWorkspaceView
               mode={activeTab.replace("settings-", "") as SettingsWorkspaceMode}
               categories={categories}
@@ -1801,24 +1878,26 @@ export default function Home() {
               reminderPushStatus={reminderPushStatus}
               reminderPushBusy={reminderPushBusy}
               signedIn={Boolean(user)}
-              onBack={() => setActiveTab("settings")}
+              onBack={() => returnToPreviousWorkspace("settings")}
               onOpenAddIncomeCategory={() => { setCatTypeInput("income"); setDraft("category"); }}
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
               onDeleteCategory={deleteCategory}
               onSaveReminderSettings={saveReminderSettings}
               onSaveUserPrefs={saveUserPrefs}
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
+              onClearRecordedLedgerActivity={() => { void clearRecordedLedgerActivity(); }}
+              onDownloadLedgerBackup={downloadLedgerBackup}
             />
           )}
         </div>
       </main>
 
       <nav className="mobile-bottom-nav">
-        <button className={`mobile-nav-item ${activeTab === "overview" || activeTab === "history" || activeTab === "accounts" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={18} /><span>Overview</span></button>
-        <button className={`mobile-nav-item ${activeTab === "insights" || activeTab === "reports" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
+        <button className={`mobile-nav-item ${activeTab === "overview" || activeTab === "history" || activeTab === "accounts" ? "active" : ""}`} onClick={() => goToWorkspace("overview")}><Wallet size={18} /><span>Overview</span></button>
+        <button className={`mobile-nav-item ${activeTab === "insights" || activeTab === "reports" ? "active" : ""}`} onClick={() => goToWorkspace("insights")}><ArrowUpRight size={18} /><span>Insights</span></button>
         <button className="mobile-fab" onClick={startCreatingTransaction} aria-label="Add transaction"><Plus size={22} /></button>
-        <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={18} /><span>Plans & Progress</span></button>
-        <button className={`mobile-nav-item ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
+        <button className={`mobile-nav-item ${activeTab === "horizon" ? "active" : ""}`} onClick={() => goToWorkspace("horizon")}><Compass size={18} /><span>Plans & Progress</span></button>
+        <button className={`mobile-nav-item ${isSettingsRoute ? "active" : ""}`} onClick={() => goToWorkspace("settings")}><ShieldCheck size={18} /><span>Settings</span></button>
       </nav>
 
       {/* Transaction Detail Modal */}
@@ -2578,7 +2657,7 @@ function RetainedDataView({ routines, attendance, goals, trips, loans, weekStart
   return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open full ledger History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.filter((routine) => routine.status !== "archived").length}</b></div></div></section><section className="paper-card section-card routine-archive"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Routine calendar archive</h2></div><span className="month-hand-date">Last 24 months</span></div><p className="category-section-note">Open one routine, choose a recorded month, then view that month’s calendar. Nothing is expanded until you ask for it.</p>{archiveRoutines.length ? <><div className="routine-archive-list" aria-label="Choose a routine archive">{archiveRoutines.map((routine) => { const routineMonths = new Set(retainedAttendance.filter((item) => item.routineId === routine.id).map((item) => item.date.slice(0, 7))); const routineEntries = retainedAttendance.filter((item) => item.routineId === routine.id); return <button type="button" key={routine.id} className={`routine-archive-card ${selectedRoutine?.id === routine.id ? "selected" : ""}`} onClick={() => selectRoutine(routine.id)}><span className="routine-archive-card-icon" style={{ color: routine.color }}><ClipboardCheck size={18} /></span><span><b>{routine.name}</b><small>{routineMonths.size} recorded month{routineMonths.size === 1 ? "" : "s"} · {routineEntries.filter((item) => item.attended).length} attended day{routineEntries.filter((item) => item.attended).length === 1 ? "" : "s"}</small></span><span className="routine-archive-card-meta">{routine.status === "archived" ? "Ended" : "Active"}<ChevronRight size={16} /></span></button>; })}</div>{selectedRoutine && !activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>Recorded months for {selectedRoutine.name}</span><button type="button" className="text-link" onClick={() => setSelectedRoutineId(null)}>Close</button></div><div className="routine-archive-months" aria-label={`Choose a month for ${selectedRoutine.name}`}>{availableMonths.map((item) => <button type="button" key={item} onClick={() => setSelectedMonth(item)}>{monthLabel(item)}</button>)}</div></div>}{selectedRoutine && activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>{selectedRoutine.name} · {monthLabel(activeMonth)}</span><button type="button" className="text-link" onClick={() => setSelectedMonth(null)}>All recorded months</button></div><section className="routine-calendar-sheet archive-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{monthLabel(activeMonth)}</h3></div><span className="archive-month-status">{selectedRoutine.status === "archived" ? "Ended routine" : "Routine record"}</span></div><div className="routine-summary"><div><span>Attended</span><strong>{archiveAttendedDates.size}</strong></div><div><span>Expected</span><strong>{archiveExpectedDays.length}</strong></div><div><span>On schedule</span><strong>{archiveExpectedAttended}/{archiveExpectedDays.length}</strong></div></div><div className="routine-weekdays">{(weekStartDay === 1 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid archive-calendar-grid">{archiveCalendar.map((day) => <div key={day.date} className={`routine-calendar-day static ${day.expected ? "expected" : ""} ${archiveAttendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</div>)}</div><p className="routine-calendar-note"><i /> Gold dates were recorded as attended. Expected days remain marked so you can understand the month at a glance.</p></section></div>}</> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
 }
 
-type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders" | "preferences";
+type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders" | "preferences" | "data";
 
 function SettingsView({ categories, reminderSettings, userPrefs, onOpenWorkspace, onOpenReports, onOpenAccounts, onOpenHistory }: {
   categories: Category[];
@@ -2603,6 +2682,7 @@ function SettingsView({ categories, reminderSettings, userPrefs, onOpenWorkspace
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="settings-destination-mark"><Wallet size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Money taxonomy</span><strong>Expense categories <em>({expenseCount})</em></strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-income")}><span className="settings-destination-mark"><ArrowUpRight size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Income taxonomy</span><strong>Income sources <em>({incomeCount})</em></strong><small>Reusable sources for every income entry.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={onOpenReports}><span className="settings-destination-mark"><Download size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter records, then download CSV or A4 PDF evidence.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-data")}><span className="settings-destination-mark"><FileText size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data & support</span><strong>Backup, reset & feedback</strong><small>Keep a copy of your ledger, reset recorded activity, or send product feedback.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={onOpenHistory}><span className="settings-destination-mark"><Calendar size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data history</span><strong>Two-year retained archive</strong><small>Review completed planning records and retained routine attendance.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
     </section>
   </>;
@@ -2623,7 +2703,7 @@ function CurrencyDirectory({ value, disabled, onChange }: { value: SupportedCurr
   </div>;
 }
 
-function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, userPrefs, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onSaveUserPrefs, onEnableDeviceReminder }: {
+function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, userPrefs, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onSaveUserPrefs, onEnableDeviceReminder, onClearRecordedLedgerActivity, onDownloadLedgerBackup }: {
   mode: SettingsWorkspaceMode;
   categories: Category[];
   subcategorySpent: Record<string, number>;
@@ -2639,6 +2719,8 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
   onSaveReminderSettings: (settings: ReminderSettings) => void;
   onSaveUserPrefs: (preferences: UserPrefs) => void;
   onEnableDeviceReminder: () => void;
+  onClearRecordedLedgerActivity: () => void;
+  onDownloadLedgerBackup: () => void;
 }) {
   const expenseParents = categories.filter((category) => category.type === "expense" && !category.parentId);
   const incomeList = categories.filter((category) => category.type === "income");
@@ -2646,12 +2728,14 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
   const timezoneChoices = Array.from(new Set([deviceTimezone, "Asia/Dhaka", "Asia/Kolkata", "Asia/Singapore", "Europe/London", "America/New_York", "UTC"]));
   const [openPicker, setOpenPicker] = useState<"time" | "timezone" | null>(null);
   const [draftReminderTime, setDraftReminderTime] = useState(reminderSettings.time);
+  const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
   const copy: Record<SettingsWorkspaceMode, { kicker: string; title: string; description: string }> = {
     expenses: { kicker: "Money taxonomy", title: "Expense categories", description: "Permanent spending types with detailed subcategories beneath each one." },
     income: { kicker: "Income taxonomy", title: "Income sources", description: "Name every income source once, then reuse it whenever you add money in." },
     currency: { kicker: "Ledger preference", title: "Ledger currency", description: "Choose one display currency across your ledger, insights, and exports." },
     reminders: { kicker: "Reminder preference", title: "Daily ledger reminder", description: "Set one calm end-of-day cue to record what happened today." },
     preferences: { kicker: "Calendar & time", title: "Your financial rhythm", description: "Choose how weeks, financial reporting periods, and all displayed times are presented." },
+    data: { kicker: "Data & support", title: "Keep your ledger in your hands", description: "Export a copy, safely reset recorded activity, or send a note without sharing data automatically." },
   };
   const meta = copy[mode];
   const draftTimeParts = reminderTimeParts(draftReminderTime);
@@ -2682,6 +2766,11 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
         <article className="preference-setting-card"><div><span className="draft-kicker">Reporting boundary</span><h2>Financial year begins</h2><p>This sets the year boundary used in Insights and report exports. It does not move, alter, or hide transaction dates.</p></div><div className="preference-month-grid" role="group" aria-label="Financial year start month">{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <button type="button" key={month} className={userPrefs.financialYearStartMonth === month ? "selected" : ""} onClick={() => onSaveUserPrefs({ ...userPrefs, financialYearStartMonth: month })} disabled={!signedIn} aria-pressed={userPrefs.financialYearStartMonth === month}>{new Date(2026, month - 1, 1).toLocaleDateString("en-US", { month: "short" })}</button>)}</div></article>
         <article className="preference-setting-card"><div><span className="draft-kicker">Displayed clock</span><h2>Time format</h2><p>This changes every visible reminder and notification time. Saved reminder times stay exactly the same.</p></div><div className="preference-option-grid" role="group" aria-label="Time format">{([{ value: "12h", label: "12-hour", note: "e.g. 10:00 PM" }, { value: "24h", label: "24-hour", note: "e.g. 22:00" }] as const).map((choice) => <button type="button" key={choice.value} className={`preference-option ${userPrefs.timeFormat === choice.value ? "selected" : ""}`} onClick={() => onSaveUserPrefs({ ...userPrefs, timeFormat: choice.value })} disabled={!signedIn} aria-pressed={userPrefs.timeFormat === choice.value}><strong>{choice.label}</strong><span>{choice.note}</span></button>)}</div></article>
         {!signedIn && <p className="reminder-settings-note">Sign in to keep these personal preferences after you leave this device.</p>}
+      </div>}
+      {mode === "data" && <div className="data-support-workspace">
+        <article className="data-support-card"><div><span className="draft-kicker">Private backup</span><h2>Save a complete ledger copy.</h2><p>Download a complete JSON backup, then store it in your own Google Drive or another secure place. No ledger data is uploaded by this app.</p></div><div className="data-support-actions"><button type="button" className="secondary-button" disabled={!signedIn} onClick={onDownloadLedgerBackup}>Download backup</button><a className="text-action-link" href="https://drive.google.com/drive/u/0/my-drive" target="_blank" rel="noreferrer">Open Google Drive <ChevronRight size={14} /></a></div></article>
+        <article className="data-support-card"><div><span className="draft-kicker">Feedback</span><h2>Send feedback by email.</h2><p>This opens your own mail app with a draft. Nothing is sent until you review and choose Send.</p></div><a className="secondary-button" href="mailto:marufmia1612@gmail.com?subject=Expense%20Ledger%20feedback&body=Hello%2C%0A%0AI%20would%20like%20to%20share%20this%20feedback%20about%20Expense%20Ledger%3A%0A%0A">Write feedback</a></article>
+        <article className="data-clear-card"><div><span className="draft-kicker">Clear recorded activity</span><h2>Start the ledger activity again.</h2><p>This permanently clears transactions, goals, trip plans, loans, recurring schedules, notifications, routines, and routine attendance. Your sign-in, accounts, categories, currency, calendar, and reminder preferences remain.</p></div>{clearConfirmationOpen ? <div className="data-clear-confirmation"><strong>Are you sure?</strong><span>This action cannot be undone.</span><div><button type="button" className="secondary-button" onClick={() => setClearConfirmationOpen(false)}>Keep my data</button><button type="button" className="delete-button" disabled={!signedIn} onClick={onClearRecordedLedgerActivity}>Clear recorded activity</button></div></div> : <button type="button" className="delete-button" disabled={!signedIn} onClick={() => setClearConfirmationOpen(true)}>Clear recorded activity</button>}{!signedIn && <p className="reminder-settings-note">Sign in to manage stored ledger data.</p>}</article>
       </div>}
       {mode === "reminders" && <>
         <div className="workspace-reminder-head">

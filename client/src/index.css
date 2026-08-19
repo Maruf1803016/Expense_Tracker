@@ -288,16 +288,23 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .chart-legend > div { display: inline-flex; align-items: center; gap: 5px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .dot.income { background: #2e4a42; }.dot.expense { background: #d5b77d; }
-.donut-ring { width: 168px; height: 168px; margin: 22px auto 20px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; transition: transform .18s cubic-bezier(.23,1,.32,1); }
+.donut-ring { width: 168px; height: 168px; margin: 22px auto 20px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; transform-origin: center; transition: transform .18s cubic-bezier(.23,1,.32,1); animation: category-mix-arrive .68s cubic-bezier(.23,1,.32,1) both; }
 .donut-ring:hover { transform: scale(1.02); }
 .donut-hole { width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; align-content: center; gap: 4px; background: #fffdf9; text-align: center; }
 .donut-hole strong { font: 600 22px/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
 .donut-hole span { color: #827a6d; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .category-mix-list { border-top: 1px solid #eee8dc; padding-top: 8px; }
-.mix-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; color: #5f5a51; font-size: 11px; }
+.mix-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; color: #5f5a51; font-size: 11px; animation: category-mix-row-in .34s cubic-bezier(.23,1,.32,1) both; }
+.mix-row:nth-child(1) { animation-delay: .16s; }
+.mix-row:nth-child(2) { animation-delay: .22s; }
+.mix-row:nth-child(3) { animation-delay: .28s; }
+.mix-row:nth-child(4) { animation-delay: .34s; }
+.mix-row:nth-child(5) { animation-delay: .4s; }
 .mix-row > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .mix-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mix-row b { color: #343936; font: 600 11px/1 "Space Grotesk", sans-serif; white-space: nowrap; }
+@keyframes category-mix-arrive { from { opacity: 0; transform: scale(.84) rotate(-18deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes category-mix-row-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: translateX(0); } }
 
 .horizon-hero { justify-content: space-between; align-items: end; gap: 22px; }
 .horizon-hero-text { position: relative; z-index: 1; max-width: 540px; }
@@ -472,7 +479,7 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .donut-ring, .mobile-fab, .rail-button, .transaction-button { transition: none; }
+  .donut-ring, .mix-row, .mobile-fab, .rail-button, .transaction-button { transition: none; animation: none; }
 }
 
 
@@ -1554,6 +1561,11 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .time-picker-fieldset legend { margin-bottom: 9px; color: #89755b; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .13em; text-transform: uppercase; }
 .time-picker-hour-grid, .time-picker-minute-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .time-picker-hour-grid button, .time-picker-minute-grid button, .time-picker-period-grid button { min-height: 43px; border: 1px solid #ded4c4; border-radius: 3px; background: #fffdf8; color: #35423b; font: 700 12px/1 "Space Grotesk", sans-serif; cursor: pointer; transition: border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), color .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) { grid-template-columns: repeat(5, 42px); grid-template-rows: repeat(5, 42px); justify-content: center; align-content: center; width: min(100%, 264px); aspect-ratio: 1; margin: 0 auto; padding: 17px; gap: 0; border: 1px solid #dfd2bb; border-radius: 50%; background: radial-gradient(circle at center, #fffdf8 0 24%, #f7f0e2 24.5% 25.5%, #fffaf1 26% 100%); box-shadow: inset 0 0 0 8px rgba(183, 138, 61, .05); }
+.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button { min-height: 34px; width: 34px; align-self: center; justify-self: center; border-radius: 50%; border-color: transparent; background: transparent; }
+.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:hover { border-color: #d8c49b; background: #fff5df; }
+.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button.selected { border-color: #1e392d; background: #1e392d; color: #fffdf8; box-shadow: 0 3px 7px rgba(29, 55, 43, .18); }
+.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(1) { grid-column: 4; grid-row: 1; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(2) { grid-column: 5; grid-row: 2; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(3) { grid-column: 5; grid-row: 3; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(4) { grid-column: 5; grid-row: 4; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(5) { grid-column: 4; grid-row: 5; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(6) { grid-column: 3; grid-row: 5; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(7) { grid-column: 2; grid-row: 5; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(8) { grid-column: 1; grid-row: 4; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(9) { grid-column: 1; grid-row: 3; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(10) { grid-column: 1; grid-row: 2; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(11) { grid-column: 2; grid-row: 1; }.time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:nth-child(12) { grid-column: 3; grid-row: 1; }
 .time-picker-hour-grid button:hover, .time-picker-minute-grid button:hover, .time-picker-period-grid button:hover { border-color: #b78a3d; background: #fff8eb; }
 .time-picker-hour-grid button.selected, .time-picker-minute-grid button.selected, .time-picker-period-grid button.selected { border-color: #1e392d; background: #1e392d; color: #fffdf8; box-shadow: inset 0 -2px 0 #c59643; }
 .time-picker-hour-grid button:active, .time-picker-minute-grid button:active, .time-picker-period-grid button:active, .picker-cancel-button:active, .picker-confirm-button:active { transform: scale(.97); }
@@ -1561,6 +1573,20 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .time-picker-period-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
 .workspace-choice-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e4dccf; }
 .picker-cancel-button, .picker-confirm-button { min-height: 43px; padding: 0 14px; border-radius: 3px; font: 800 10px/1 "Space Grotesk", sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; transition: transform .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), border-color .16s cubic-bezier(.23,1,.32,1); }
+.data-support-workspace { display: grid; gap: 13px; }
+.data-support-card, .data-clear-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px; border: 1px solid #e2d8c8; background: #fffdf8; }
+.data-support-card h2, .data-clear-card h2 { margin: 4px 0 6px; color: #1e392d; font: 700 clamp(18px, 2vw, 22px)/1.1 "Fraunces", Georgia, serif; }
+.data-support-card p, .data-clear-card p { max-width: 600px; margin: 0; color: #716a5e; font-size: 12px; line-height: 1.55; }
+.data-support-actions { display: grid; justify-items: end; gap: 9px; flex: 0 0 auto; }
+.data-support-actions .text-action-link { display: inline-flex; align-items: center; gap: 3px; color: #7d5e27; font: 800 10px/1 "Space Grotesk", sans-serif; letter-spacing: .04em; text-decoration: none; }
+.data-support-actions .text-action-link:hover { color: #1e392d; text-decoration: underline; }
+.data-clear-card { align-items: flex-start; border-color: #e2c9c2; background: #fffaf7; }
+.data-clear-confirmation { display: grid; gap: 5px; min-width: 205px; padding: 13px; border: 1px solid #ddb7ad; background: #fff4ef; color: #612f27; }
+.data-clear-confirmation strong { font: 800 11px/1.2 "Space Grotesk", sans-serif; letter-spacing: .05em; text-transform: uppercase; }
+.data-clear-confirmation > span { font-size: 11px; }
+.data-clear-confirmation > div { display: flex; gap: 7px; margin-top: 5px; }
+.data-clear-confirmation .secondary-button, .data-clear-confirmation .delete-button { min-height: 35px; padding: 0 9px; font-size: 9px; }
+@media (max-width: 620px) { .data-support-card, .data-clear-card { align-items: flex-start; flex-direction: column; } .data-support-card > .secondary-button, .data-clear-card > .delete-button, .data-support-actions { width: 100%; } .data-support-actions { justify-items: stretch; } .data-support-actions .secondary-button { justify-content: center; } .data-support-actions .text-action-link { justify-content: center; min-height: 30px; } .data-clear-confirmation { width: 100%; box-sizing: border-box; } .data-clear-confirmation > div { display: grid; grid-template-columns: 1fr 1fr; } }
 .picker-cancel-button { border: 1px solid #d8cebe; background: #fffdf8; color: #5a6059; }
 .picker-confirm-button { border: 1px solid #1e392d; background: #1e392d; color: #fffdf8; box-shadow: inset 0 -2px 0 #c59643; }
 .overview-ledger-head { align-items: center !important; flex-direction: row !important; gap: 12px; }
