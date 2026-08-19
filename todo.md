@@ -259,3 +259,6 @@
 - [x] Clarify that verification and password-recovery emails are sent only after an explicit user action and retain the current no-automatic-email safeguard.
 - [x] Add a clear month-and-year selection path to the custom Goal and Trip Plan deadline picker, including useful future-year navigation.
 - [x] Verify the repaired mobile Settings, reminder, email-action language, and Goal/Plan calendar flows with tests, type checking, production build, and responsive screenshots.
+
+## Owner final review
+- [x] Prepare a feature-by-feature final-review checklist covering the complete Ink & Ledger experience, release-only checks, and expected outcomes.
