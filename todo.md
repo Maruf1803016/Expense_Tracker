@@ -275,4 +275,4 @@
 - [x] Add a calendar-style monthly Work & Routine Log that lets the user tap attendance days and shows attended versus expected workdays.
 - [x] Replace the mobile currency tiles with a beautiful, searchable directory containing flag, code, name, symbol, and selected-state context.
 - [x] Add regression coverage and validate the new flows with TypeScript, Vitest, production build, and responsive screenshots.
-- [ ] Save a checkpoint and synchronize the validated work to GitHub `manus_repo`.
+- [x] Save a checkpoint and synchronize the validated work to GitHub `manus_repo`.
