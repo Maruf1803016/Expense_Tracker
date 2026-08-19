@@ -262,3 +262,7 @@
 
 ## Owner final review
 - [x] Prepare a feature-by-feature final-review checklist covering the complete Ink & Ledger experience, release-only checks, and expected outcomes.
+
+## Non-destructive release readiness audit
+- [x] Review the visible Firestore permission-error path and verify it gives a safe, understandable recovery message without exposing ledger data.
+- [x] Inspect browser-local prototype data only to determine whether migration is necessary, without migrating, deleting, or altering any record.

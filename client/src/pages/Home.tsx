@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
+import { ledgerErrorMessage } from "@/lib/ledgerError";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -656,9 +657,9 @@ export default function Home() {
     setCloudError(null);
     setCloudPrerequisitesLoaded({ accounts: false, categories: false });
     setStarterRequestedFor(null);
-    const handleError = () => {
+    const handleError = (error: Error) => {
       setCloudStatus("error");
-      setCloudError("Cloud ledger access was interrupted. Check your Firestore rules or connection, then refresh to retry.");
+      setCloudError(ledgerErrorMessage(error, "access"));
     };
     const received = () => setCloudStatus("synced");
     const unsubscribes = [
@@ -688,9 +689,9 @@ export default function Home() {
       { hasAccounts: accounts.length > 0, hasCategories: categories.length > 0 },
     ).then(() => {
       setCloudStatus("synced");
-    }).catch(() => {
+    }).catch((error) => {
       setCloudStatus("error");
-      setCloudError("Your starter account and categories could not be prepared. Refresh to retry once your connection is stable.");
+      setCloudError(ledgerErrorMessage(error, "prepare"));
     });
   }, [accounts.length, categories.length, cloudPrerequisitesLoaded, starterRequestedFor, user]);
 
@@ -709,9 +710,9 @@ export default function Home() {
     try {
       await saveLedgerRecord(user.uid, collectionName, record);
       setCloudStatus("synced");
-    } catch {
+    } catch (error) {
       setCloudStatus("error");
-      setCloudError("This change could not be saved to your cloud ledger. Keep this tab open and retry after checking your connection.");
+      setCloudError(ledgerErrorMessage(error, "save"));
     }
   }, [user]);
 
@@ -770,9 +771,9 @@ export default function Home() {
     try {
       await removeLedgerRecord(user.uid, collectionName, recordId);
       setCloudStatus("synced");
-    } catch {
+    } catch (error) {
       setCloudStatus("error");
-      setCloudError("This record could not be removed from your cloud ledger. Keep this tab open and retry after checking your connection.");
+      setCloudError(ledgerErrorMessage(error, "remove"));
     }
   }, [user]);
 
