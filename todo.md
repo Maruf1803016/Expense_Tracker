@@ -349,3 +349,8 @@
 - [x] Replace the placeholder Drive handoff with Google Identity Services authorization and a direct JSON upload to the signed-in person’s own Drive using the `drive.file` scope.
 - [x] Add focused regression coverage for Drive backup payloads and configuration-unavailable feedback, then run TypeScript, Vitest, production-build, and responsive checks.
 - [x] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
+
+## Controlled final in-app review
+- [x] Inspect the Overview, Insights, Plans & Progress, History, and Settings paths for concrete high-value usability or financial-clarity refinements without triggering external actions.
+- [x] Implement and test only the focused refinements supported by the review findings.
+- [ ] Run TypeScript, Vitest, production-build, and responsive checks; checkpoint and synchronize verified changes to GitHub `manus_repo`.

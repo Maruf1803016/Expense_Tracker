@@ -11,6 +11,7 @@ import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, t
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
+import { dashboardMonthLabel } from "@/lib/dashboardDate";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -2184,6 +2185,7 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
   const pendingTransactions = transactions.filter((transaction) => transaction.settlementStatus === "pending").slice(0, 4);
   const assetCount = accounts.filter((account) => account.kind === "asset").length;
   const liabilityCount = accounts.length - assetCount;
+  const currentMonthName = dashboardMonthLabel();
 
   return <>
     <header className="page-header"><div><div className="page-kicker">Today’s field note</div><h1>Money, in order.</h1><p className="page-subtitle">The few signals that matter before the day moves on.</p></div></header>
@@ -2195,7 +2197,7 @@ function OverviewView({ balance, netWorth, accounts, totals, categories, transac
             <div className="balance-label"><span /> Available balance</div>
             <div className="balance-number">{fmt.format(balance)}</div>
             <p className="balance-caption">Across your asset accounts, with liabilities held apart for a truthful net worth.</p>
-            <div className="balance-foot"><div><span>Cash in, August</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Cash out, August</span><strong>{fmt.format(totals.expense)}</strong></div></div>
+            <div className="balance-foot"><div><span>Cash in, {currentMonthName}</span><strong>{fmt.format(totals.income)}</strong></div><div><span>Cash out, {currentMonthName}</span><strong>{fmt.format(totals.expense)}</strong></div></div>
           </div>
         </section>
         <div className="summary-strip">
