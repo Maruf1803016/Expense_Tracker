@@ -299,3 +299,8 @@
 - [x] Replace the monotonous retained-attendance feed with a routine-first archive, using named routine cards and month selection.
 - [x] Present selected routine months as a calendar with an attended/not-attended summary, while preserving the two-year retained record.
 - [x] Validate the revised History and archive paths on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Routine archive drill-down and payment wording
+- [x] Rename the payment-method fallback from “Custom” to “Other” across the loan payment flow.
+- [x] Keep routine archive details closed by default, then guide the user from routine selection to month selection to one calendar history view.
+- [x] Validate the progressive routine archive and payment wording on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.
