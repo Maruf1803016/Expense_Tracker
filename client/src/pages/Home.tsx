@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 import { enableExpenseReminderPush } from "@/lib/firebase";
+import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -352,7 +353,7 @@ function goalMetrics(goal: Goal) {
   const financed = Math.min(goal.target, Math.max(0, goal.financedAmount ?? 0));
   const personalTarget = Math.max(0, goal.target - financed);
   const remaining = Math.max(0, personalTarget - goal.saved);
-  const parsedDeadline = new Date(goal.deadline.replace(/^By\s+/i, ""));
+  const parsedDeadline = new Date(`${normaliseCalendarDate(goal.deadline, new Date())}T12:00:00`);
   const daysLeft = Number.isNaN(parsedDeadline.getTime()) ? null : Math.max(0, Math.ceil((new Date(parsedDeadline.getFullYear(), parsedDeadline.getMonth(), parsedDeadline.getDate()).getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()).getTime()) / 86400000));
   return {
     financed,
@@ -370,6 +371,17 @@ function dateInputValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function oneYearFromToday() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 1);
+  return dateInputValue(date);
+}
+
+function goalDeadlineLabel(value: string) {
+  const normalised = normaliseCalendarDate(value, new Date());
+  return `By ${new Date(`${normalised}T12:00:00`).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
 function advanceScheduleDate(date: string, frequency: ScheduleFrequency) {
@@ -776,27 +788,51 @@ export default function Home() {
     setDismissedFallbackNotificationIds((current) => current.includes(notificationId) ? current : [...current, notificationId]);
   };
 
-  const saveReminderSettings = (nextSettings: ReminderSettings) => {
-    setReminderSettings(nextSettings);
-    void persistRecord("reminderSettings", nextSettings);
-  };
+  const saveReminderSettings = useCallback(async (nextSettings: ReminderSettings) => {
+    if (!user) {
+      setReminderPushStatus("Sign in first to save this reminder to your personal ledger.");
+      return false;
+    }
+    setReminderPushBusy(true);
+    setReminderPushStatus("Saving your reminder…");
+    setCloudError(null);
+    try {
+      await saveLedgerRecord(user.uid, "reminderSettings", nextSettings);
+      setReminderSettings(nextSettings);
+      setCloudStatus("synced");
+      setReminderPushStatus(nextSettings.enabled ? `Daily reminder saved for ${nextSettings.time}.` : "Daily reminder turned off.");
+      return true;
+    } catch {
+      setCloudStatus("error");
+      setCloudError("Your reminder could not be saved to the cloud ledger. Check your connection and try again.");
+      setReminderPushStatus("Not saved yet. Please try again.");
+      return false;
+    } finally {
+      setReminderPushBusy(false);
+    }
+  }, [user]);
 
   const enableDailyDeviceReminder = async () => {
     if (!user) {
       setReminderPushStatus("Sign in first to save reminders to your personal ledger.");
       return;
     }
+    const nextSettings = {
+      ...reminderSettings,
+      enabled: true,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    };
+    const saved = await saveReminderSettings(nextSettings);
+    if (!saved) return;
     setReminderPushBusy(true);
-    const result = await enableExpenseReminderPush(user.uid);
-    setReminderPushStatus(result.message);
-    if (result.status === "enabled") {
-      saveReminderSettings({
-        ...reminderSettings,
-        enabled: true,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-      });
+    try {
+      const result = await enableExpenseReminderPush(user.uid);
+      setReminderPushStatus(result.status === "enabled" ? "Daily reminder saved. Device notifications are ready for this browser." : `Daily reminder saved. ${result.message}`);
+    } catch {
+      setReminderPushStatus("Daily reminder saved. Device notifications can be enabled later from this browser.");
+    } finally {
+      setReminderPushBusy(false);
     }
-    setReminderPushBusy(false);
   };
 
   const deleteCategory = (categoryId: string) => {
@@ -820,8 +856,7 @@ export default function Home() {
     try {
       if (profileMode === "signUp") {
         await signUp(authEmailInput, authPasswordInput);
-        await sendVerification();
-        setProfileNotice("Your account is ready. A verification link has been sent to your inbox.");
+        setProfileNotice("Your account is ready. You can request a verification link later from Profile when you are ready.");
       } else {
         await signIn(authEmailInput, authPasswordInput);
       }
@@ -969,7 +1004,7 @@ export default function Home() {
     setEditingGoalId(null);
     setDraftTitle("");
     setDraftAmount("");
-    setDraftDate("By Dec 2026");
+    setDraftDate(oneYearFromToday());
     setGoalFinancingInput("");
     setDraft("goal");
   };
@@ -978,7 +1013,7 @@ export default function Home() {
     setEditingTripId(null);
     setDraftTitle("");
     setDraftAmount("");
-    setDraftDate("Upcoming");
+    setDraftDate(oneYearFromToday());
     setDraft("trip");
   };
 
@@ -1012,7 +1047,7 @@ export default function Home() {
     setEditingGoalId(goal.id);
     setDraftTitle(goal.name);
     setDraftAmount(String(goal.target));
-    setDraftDate(goal.deadline);
+    setDraftDate(normaliseCalendarDate(goal.deadline, new Date()));
     setGoalFinancingInput(goal.financedAmount ? String(goal.financedAmount) : "");
     setDraft("goal");
   };
@@ -1022,7 +1057,7 @@ export default function Home() {
     setEditingTripId(trip.id);
     setDraftTitle(trip.name);
     setDraftAmount(String(trip.budget));
-    setDraftDate(trip.dates);
+    setDraftDate(normaliseCalendarDate(trip.dates, new Date()));
     setDraft("trip");
   };
 
@@ -1268,7 +1303,8 @@ export default function Home() {
       }
       const financed = Math.min(parsed, Math.max(0, parseFloat(goalFinancingInput) || 0));
       const previousGoal = editingGoalId ? goals.find((goal) => goal.id === editingGoalId) : undefined;
-      const nextGoal: Goal = previousGoal ? { ...previousGoal, name: draftTitle.trim(), target: parsed, deadline: draftDate || "By Dec 2026", financedAmount: financed, saved: Math.min(previousGoal.saved, Math.max(0, parsed - financed)), fundingHistory: previousGoal.fundingHistory ?? [] } : { id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline: draftDate || "By Dec 2026", financedAmount: financed, fundingHistory: [] };
+      const deadline = normaliseCalendarDate(draftDate, new Date());
+      const nextGoal: Goal = previousGoal ? { ...previousGoal, name: draftTitle.trim(), target: parsed, deadline, financedAmount: financed, saved: Math.min(previousGoal.saved, Math.max(0, parsed - financed)), fundingHistory: previousGoal.fundingHistory ?? [] } : { id: `goal-${Date.now()}`, name: draftTitle.trim(), target: parsed, saved: 0, deadline, financedAmount: financed, fundingHistory: [] };
       setGoals((current) => editingGoalId ? current.map((goal) => goal.id === editingGoalId ? nextGoal : goal) : [nextGoal, ...current]);
       void persistRecord("plans", { ...nextGoal, title: nextGoal.name, history: nextGoal.fundingHistory });
       resetDraft();
@@ -1278,7 +1314,8 @@ export default function Home() {
         alert("Please enter a valid trip name and budget.");
         return;
       }
-      const nextTrip: Trip = editingTripId ? { id: editingTripId, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" } : { id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates: draftDate || "Upcoming" };
+      const dates = normaliseCalendarDate(draftDate, new Date());
+      const nextTrip: Trip = editingTripId ? { id: editingTripId, name: draftTitle.trim(), budget: parsed, dates } : { id: `trip-${Date.now()}`, name: draftTitle.trim(), budget: parsed, dates };
       setTrips((current) => editingTripId ? current.map((trip) => trip.id === editingTripId ? nextTrip : trip) : [nextTrip, ...current]);
       void persistRecord("tripPlans", { ...nextTrip, title: nextTrip.name, dateRange: nextTrip.dates });
       resetDraft();
@@ -1698,8 +1735,8 @@ export default function Home() {
                 <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
                 <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
               </div>
-              {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>We will send one link to {user.email}. Open it in this browser, then refresh your status here.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>{authSubmitting ? "Sending…" : "Send verification email"}</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>Refresh status</button></div></div>}
-              <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>A secure reset link will be sent to {user.email ?? "your account email"}. Check Inbox, Spam, and Promotions.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>{authSubmitting ? "Sending…" : "Send reset link"}</button></div>
+              {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>No email is sent automatically. When you are ready, choose Send verification email to request one link for {user.email}.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>{authSubmitting ? "Sending…" : "Send verification email"}</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>Refresh status</button></div></div>}
+              <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>No reset email is sent unless you select the action. A secure link will be sent to {user.email ?? "your account email"} only after you choose Send reset link.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>{authSubmitting ? "Sending…" : "Send reset link"}</button></div>
               {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}
               {profileNotice && <p className="account-notice" role="status">{profileNotice}</p>}
               <div className="draft-actions"><button className="secondary-button" onClick={resetDraft}><ShieldCheck size={16} /> Continue to ledger</button><button className="delete-button" onClick={() => { void signOut(); resetDraft(); }}><LogOut size={16} /> Sign out</button></div>
@@ -2245,12 +2282,12 @@ function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenRep
   return <>
     <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Open one workspace at a time to organise your ledger without losing focus.</p></div></header>
     <section className="settings-destination-grid">
-      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span><span><span className="page-kicker">Daily ledger reminder</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${reminderSettings.time}` : "Choose a time when you are ready."}</small></span><ChevronRight size={20} /></button>
-      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-currency")}><span className="category-symbol"><CircleDollarSign size={17} /></span><span><span className="page-kicker">Ledger currency</span><strong>{currency?.label ?? reminderSettings.currency}</strong><small>Display one clear currency across your ledger, insights, and exports.</small></span><ChevronRight size={20} /></button>
-      <button className="paper-card settings-destination" onClick={onOpenAccounts}><span className="category-symbol"><HandCoins size={17} /></span><span><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight size={20} /></button>
-      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="category-symbol"><Wallet size={17} /></span><span><span className="page-kicker">Money taxonomy</span><strong>Expense categories ({expenseCount})</strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight size={20} /></button>
-      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-income")}><span className="category-symbol"><ArrowUpRight size={17} /></span><span><span className="page-kicker">Income taxonomy</span><strong>Income sources ({incomeCount})</strong><small>Reusable sources for every income entry.</small></span><ChevronRight size={20} /></button>
-      <button className="paper-card settings-destination" onClick={onOpenReports}><span className="category-symbol"><Download size={17} /></span><span><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter records, then download CSV or A4 PDF evidence.</small></span><ChevronRight size={20} /></button>
+      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className="settings-destination-mark"><Bell size={18} /></span><span className="settings-destination-copy"><span className="settings-destination-topline"><span className="page-kicker">Daily ledger reminder</span><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span></span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${reminderSettings.time}` : "Choose a time when you are ready."}</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-currency")}><span className="settings-destination-mark"><CircleDollarSign size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Ledger currency</span><strong>{currency?.label ?? reminderSettings.currency}</strong><small>Display one clear currency across your ledger, insights, and exports.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={onOpenAccounts}><span className="settings-destination-mark"><HandCoins size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="settings-destination-mark"><Wallet size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Money taxonomy</span><strong>Expense categories <em>({expenseCount})</em></strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-income")}><span className="settings-destination-mark"><ArrowUpRight size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Income taxonomy</span><strong>Income sources <em>({incomeCount})</em></strong><small>Reusable sources for every income entry.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={onOpenReports}><span className="settings-destination-mark"><Download size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Data & records</span><strong>Export ledger files</strong><small>Filter records, then download CSV or A4 PDF evidence.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
     </section>
   </>;
 }
@@ -2294,16 +2331,16 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
 
   return <>
     <header className="workspace-page-header"><button className="workspace-back-button" onClick={onBack}><ArrowLeft size={15} /> Back to Settings</button><div><div className="page-kicker">{meta.kicker}</div><h1>{meta.title}</h1><p className="page-subtitle">{meta.description}</p></div></header>
-    <section className={`paper-card settings-workspace ${mode}`}>
+    <section className={`paper-card workspace-sheet settings-workspace ${mode}`}>
       {mode === "expenses" && <><p className="category-section-note">Add detailed subcategories beneath the permanent spending types. Category budgets always remain with the parent.</p><div className="category-groups">{expenseParents.map((parent) => { const children = categories.filter((category) => category.parentId === parent.id); return <article className="category-group" key={parent.id}><div className="category-group-head"><span className="category-symbol" style={{ color: parent.color }}><CategoryIcon icon={parent.icon} size={18} /></span><div><strong>{parent.name}</strong><small><span className="permanent-category-marker">Permanent type</span></small></div><em>Budget: {fmt.format(parent.monthlyBudget ?? 0)}</em></div><button className="category-add-sub" onClick={() => onOpenAddSub(parent.id)}><FolderPlus size={14} /> Add subcategory</button><div className="subcategory-list">{children.map((child) => <div className="subcategory-row" key={child.id}><span><CategoryIcon icon={child.icon} size={14} /> {child.name}</span><strong>{fmt.format(subcategorySpent[child.id] ?? 0)}</strong><button className="delete-button" onClick={() => onDeleteCategory(child.id)} aria-label={`Delete ${child.name}`}><Trash2 size={13} /></button></div>)}</div></article>; })}</div></>}
       {mode === "income" && <><div className="workspace-action-row"><p className="category-section-note">Add a source once, then reuse it on every income entry. Income stays flat and focused.</p><button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /> Add income category</button></div><div className="income-workspace-list">{incomeList.map((income) => <article className="income-workspace-row" key={income.id}><span className="category-symbol" style={{ color: income.color }}><CategoryIcon icon={income.icon} size={18} /></span><strong>{income.name}</strong><button className="delete-button" onClick={() => onDeleteCategory(income.id)} aria-label={`Delete ${income.name}`}><Trash2 size={14} /></button></article>)}</div></>}
       {mode === "currency" && <><div className="currency-choice-summary"><span>Display currency</span><strong>{reminderSettings.currency}</strong><p>This changes labels only; it does not convert amounts that were already recorded.</p></div><div className="currency-options currency-workspace-options">{CURRENCY_OPTIONS.map((currency) => <button key={currency.code} type="button" className={`currency-option ${reminderSettings.currency === currency.code ? "active" : ""}`} disabled={!signedIn} onClick={() => onSaveReminderSettings({ ...reminderSettings, currency: currency.code })}><b>{currency.code}</b><span>{currency.label.replace(/\s*\([^)]*\)/, "")}</span><em>{currency.label.match(/\(([^)]+)\)/)?.[1] ?? currency.code}</em></button>)}</div>{!signedIn && <p className="reminder-settings-note">Sign in to save your display preference.</p>}</>}
       {mode === "reminders" && <>
-        <div className="reminder-workspace-intro">
+        <div className="workspace-reminder-head">
           <div><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span><h2>Close the day with a complete ledger.</h2><p>Choose a daily moment for a discreet reminder that keeps your personal record complete.</p></div>
           <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}><span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}</button>
         </div>
-        <div className="reminder-workspace-controls">
+        <div className="workspace-picker-grid">
           <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("time")}><span><small>Daily check-in time</small><strong>{new Date(`2000-01-01T${reminderSettings.time}:00`).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</strong></span><ChevronRight size={18} /></button>
           <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("timezone")}><span><small>Reminder location</small><strong>{reminderSettings.timezone === deviceTimezone ? `${reminderSettings.timezone} · this device` : reminderSettings.timezone}</strong><em>Your selected time follows this location’s local clock.</em></span><ChevronRight size={18} /></button>
         </div>
@@ -2333,17 +2370,41 @@ function accountBalance(acc: Account) {
 }
 
 function LedgerDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  const initial = value ? new Date(`${value}T12:00:00`) : new Date();
+  const normalisedValue = value ? normaliseCalendarDate(value, new Date()) : "";
+  const initial = normalisedValue ? new Date(`${normalisedValue}T12:00:00`) : new Date();
   const [isOpen, setIsOpen] = useState(false);
+  const [yearPickerOpen, setYearPickerOpen] = useState(false);
   const [cursor, setCursor] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1));
-  const selected = value ? new Date(`${value}T12:00:00`) : null;
+  const selected = normalisedValue ? new Date(`${normalisedValue}T12:00:00`) : null;
   const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const gridStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1 - monthStart.getDay());
   const days = Array.from({ length: 42 }, (_, index) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index));
   const labelDate = selected ? selected.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Choose date";
   const isSameDay = (left: Date, right: Date | null) => Boolean(right && left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate());
+  const yearChoices = calendarYearChoices(cursor.getFullYear());
 
-  return <div className="form-field ledger-date-field"><label>{label}</label><button type="button" className="ledger-date-trigger" onClick={() => { setCursor(new Date(initial.getFullYear(), initial.getMonth(), 1)); setIsOpen(true); }}><span><Calendar size={16} /> {labelDate}</span><ChevronRight size={16} /></button>{isOpen && <div className="ledger-calendar-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsOpen(false); }}><section className="ledger-calendar" role="dialog" aria-modal="true" aria-label={`Choose ${label.toLowerCase()}`}><div className="ledger-calendar-top"><button type="button" className="calendar-nav-button" aria-label="Previous month" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}><ChevronLeft size={16} /></button><div><span className="draft-kicker">Choose {label.toLowerCase()}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><button type="button" className="calendar-nav-button" aria-label="Next month" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}><ChevronRight size={16} /></button></div><div className="ledger-calendar-weekdays">{["S", "M", "T", "W", "T", "F", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div><div className="ledger-calendar-grid">{days.map((day) => <button type="button" key={dateInputValue(day)} className={`ledger-calendar-day ${day.getMonth() !== cursor.getMonth() ? "outside" : ""} ${isSameDay(day, selected) ? "selected" : ""}`} onClick={() => { onChange(dateInputValue(day)); setIsOpen(false); }}>{day.getDate()}</button>)}</div><div className="ledger-calendar-actions"><button type="button" className="text-link" onClick={() => { onChange(dateInputValue(new Date())); setIsOpen(false); }}>Today</button><button type="button" className="secondary-button" onClick={() => setIsOpen(false)}>Close</button></div></section></div>}</div>;
+  return (
+    <div className="form-field ledger-date-field">
+      <label>{label}</label>
+      <button type="button" className="ledger-date-trigger" onClick={() => { setCursor(new Date(initial.getFullYear(), initial.getMonth(), 1)); setYearPickerOpen(false); setIsOpen(true); }}>
+        <span><Calendar size={16} /> {labelDate}</span><ChevronRight size={16} />
+      </button>
+      {isOpen && <div className="ledger-calendar-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setYearPickerOpen(false); setIsOpen(false); } }}>
+        <section className="ledger-calendar" role="dialog" aria-modal="true" aria-label={`Choose ${label.toLowerCase()}`}>
+          <div className="ledger-calendar-top">
+            <button type="button" className="calendar-nav-button" aria-label="Previous month" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}><ChevronLeft size={16} /></button>
+            <div className="calendar-heading">
+              <span className="draft-kicker">Choose {label.toLowerCase()}</span>
+              <button type="button" className="calendar-year-trigger" onClick={() => setYearPickerOpen((open) => !open)} aria-expanded={yearPickerOpen} aria-label="Choose year">{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</button>
+            </div>
+            <button type="button" className="calendar-nav-button" aria-label="Next month" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}><ChevronRight size={16} /></button>
+          </div>
+          {yearPickerOpen ? <div className="calendar-year-picker" aria-label="Choose year"><div className="calendar-year-picker-head"><button type="button" className="calendar-nav-button" aria-label="Earlier years" onClick={() => setCursor((current) => new Date(current.getFullYear() - yearChoices.length, current.getMonth(), 1))}><ChevronLeft size={16} /></button><span>Choose a year</span><button type="button" className="calendar-nav-button" aria-label="Later years" onClick={() => setCursor((current) => new Date(current.getFullYear() + yearChoices.length, current.getMonth(), 1))}><ChevronRight size={16} /></button></div><div className="calendar-year-grid">{yearChoices.map((year) => <button key={year} type="button" className={year === cursor.getFullYear() ? "selected" : ""} onClick={() => { setCursor((current) => new Date(year, current.getMonth(), 1)); setYearPickerOpen(false); }}>{year}</button>)}</div></div> : <><div className="ledger-calendar-weekdays">{["S", "M", "T", "W", "T", "F", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div><div className="ledger-calendar-grid">{days.map((day) => <button type="button" key={dateInputValue(day)} className={`ledger-calendar-day ${day.getMonth() !== cursor.getMonth() ? "outside" : ""} ${isSameDay(day, selected) ? "selected" : ""}`} onClick={() => { onChange(dateInputValue(day)); setYearPickerOpen(false); setIsOpen(false); }}>{day.getDate()}</button>)}</div></>}
+          <div className="ledger-calendar-actions"><button type="button" className="text-link" onClick={() => { onChange(dateInputValue(new Date())); setYearPickerOpen(false); setIsOpen(false); }}>Today</button><button type="button" className="secondary-button" onClick={() => { setYearPickerOpen(false); setIsOpen(false); }}>Close</button></div>
+        </section>
+      </div>}
+    </div>
+  );
 }
 
 function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onViewEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
@@ -2461,13 +2522,13 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div>
           <div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div>
           <div className="form-field"><label>Financing contribution <em>(optional)</em></label><input value={goalFinancing} onChange={(event) => onGoalFinancing(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 1,500 from a loan or grant" inputMode="decimal" /><small>This reduces the amount you need to personally save.</small></div>
-          <div className="form-field"><label>Target timeline</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. By Dec 2026" /></div>
+          <LedgerDateField label="Target timeline" value={dateVal} onChange={onDate} />
         </>}
 
         {kind === "trip" && <>
           <div className="form-field"><label>Plan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Autumn in Lisbon" autoFocus /></div>
           <div className="form-field"><label>Working budget</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="1,200" inputMode="decimal" /></div>
-          <div className="form-field"><label>Dates</label><input value={dateVal} onChange={(event) => onDate(event.target.value)} placeholder="e.g. 12–19 Oct 2026" /></div>
+          <LedgerDateField label="Plan date" value={dateVal} onChange={onDate} />
         </>}
 
         {kind === "loan" && <>

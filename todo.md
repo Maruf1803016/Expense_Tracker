@@ -251,3 +251,11 @@
 - [x] Refine the calendar date picker into a beautiful, touch-friendly choice experience across transaction, goal, plan, report, and schedule flows.
 - [x] Restore the Recent Ledger heading to its original fixed hierarchy while retaining a visible, right-aligned full-history action.
 - [x] Validate the workspace navigation, picker controls, and ledger hierarchy with automated checks, production build, and desktop/mobile screenshots.
+
+## Reported mobile Settings and calendar regressions
+- [x] Rebuild the mobile Settings destination cards so their icons, eyebrow text, titles, summaries, counts, and chevrons never collide or overflow.
+- [x] Rework all dedicated Settings workspace lists and controls for readable touch targets, consistent card spacing, and a mobile-first single-column layout.
+- [x] Repair Daily Ledger Reminder persistence so enabling the setting saves successfully and shows a configured state only after confirmation.
+- [x] Clarify that verification and password-recovery emails are sent only after an explicit user action and retain the current no-automatic-email safeguard.
+- [x] Add a clear month-and-year selection path to the custom Goal and Trip Plan deadline picker, including useful future-year navigation.
+- [x] Verify the repaired mobile Settings, reminder, email-action language, and Goal/Plan calendar flows with tests, type checking, production build, and responsive screenshots.
