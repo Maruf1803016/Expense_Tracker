@@ -331,7 +331,7 @@
 - [x] Add a guarded Clear recorded activity action at the bottom of Settings, with explicit scope and irreversible-action confirmation.
 - [x] Add a feedback-by-email option that opens the user’s mail client without sending mail automatically.
 - [x] Validate the new Settings controls on mobile and desktop, including the safe private-backup handoff.
-- [ ] Checkpoint the completed work and synchronize it to GitHub `manus_repo`.
+- [x] Checkpoint the completed work and synchronize it to GitHub `manus_repo`.
 
 ## Insight animation and return navigation
 - [x] Replace forced Overview returns with previous-workspace navigation throughout Settings, Insights, History, Plans & Progress, and detail flows.
