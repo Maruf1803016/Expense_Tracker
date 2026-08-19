@@ -165,6 +165,8 @@ interface WorkRoutine {
   color: string;
   icon: string;
   createdAt: string;
+  status?: "active" | "archived";
+  archivedAt?: string;
 }
 
 interface RoutineAttendance {
@@ -336,6 +338,8 @@ function normaliseRoutine(record: StoredRecord): WorkRoutine {
     color: storedString(record.color, "#b78a3d"),
     icon: storedString(record.icon, "ClipboardCheck"),
     createdAt: storedDate(record.createdAt, new Date().toISOString()),
+    status: record.status === "archived" ? "archived" : "active",
+    archivedAt: typeof record.archivedAt === "string" ? record.archivedAt : undefined,
   };
 }
 
@@ -597,6 +601,7 @@ export default function Home() {
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [historyPendingOnly, setHistoryPendingOnly] = useState(false);
+  const [historyOrigin, setHistoryOrigin] = useState<"overview" | "settings-history">("overview");
 
   const [accounts, setAccounts] = useState<Account[]>(INITIAL_ACCOUNTS);
   const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
@@ -860,6 +865,7 @@ export default function Home() {
       color: "#b78a3d",
       icon: "ClipboardCheck",
       createdAt: new Date().toISOString(),
+      status: "active",
     };
     setRoutines((current) => [routine, ...current]);
     void persistRecord("routines", routine);
@@ -880,12 +886,10 @@ export default function Home() {
   };
 
   const removeRoutine = (routine: WorkRoutine) => {
-    if (!window.confirm(`Remove ${routine.name} and its attendance record? This does not affect your money records.`)) return;
-    setRoutines((current) => current.filter((item) => item.id !== routine.id));
-    const attendanceToRemove = routineAttendance.filter((item) => item.routineId === routine.id);
-    setRoutineAttendance((current) => current.filter((item) => item.routineId !== routine.id));
-    void deletePersistedRecord("routines", routine.id);
-    attendanceToRemove.forEach((item) => void deletePersistedRecord("routineAttendance", item.id));
+    if (!window.confirm(`End ${routine.name}? It will leave Plans & Progress, while its attendance stays available in Data History for two years. Your money records are not affected.`)) return;
+    const next: WorkRoutine = { ...routine, status: "archived", archivedAt: new Date().toISOString() };
+    setRoutines((current) => current.map((item) => item.id === routine.id ? next : item));
+    void persistRecord("routines", next);
   };
 
   const setPlanningCompletion = (kind: "goal" | "trip" | "loan", record: Goal | Trip | Loan, completed: boolean) => {
@@ -1561,7 +1565,7 @@ export default function Home() {
         <div className="rail-section-label">Your ledger</div>
         <nav className="rail-nav">
           <button className={`rail-button ${activeTab === "overview" ? "active" : ""}`} onClick={() => setActiveTab("overview")}><Wallet size={16} /> Overview</button>
-          <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}><Layers size={16} /> History</button>
+          <button className={`rail-button ${activeTab === "history" ? "active" : ""}`} onClick={() => { setHistoryOrigin("overview"); setActiveTab("history"); }}><Layers size={16} /> History</button>
           <button className={`rail-button ${activeTab === "insights" ? "active" : ""}`} onClick={() => setActiveTab("insights")}><ArrowUpRight size={16} /> Insights</button>
           <button className={`rail-button ${activeTab === "horizon" ? "active" : ""}`} onClick={() => setActiveTab("horizon")}><Compass size={16} /> Plans & Progress</button>
           <button className={`rail-button ${isSettingsRoute ? "active" : ""}`} onClick={() => setActiveTab("settings")}><ShieldCheck size={16} /> Settings</button>
@@ -1602,8 +1606,8 @@ export default function Home() {
               onClearCategory={() => setCategoryFilterId(null)}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
-              onOpenHistory={() => { setHistoryPendingOnly(false); setActiveTab("history"); }}
-              onOpenPendingHistory={() => { setHistoryPendingOnly(true); setActiveTab("history"); }}
+              onOpenHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(false); setActiveTab("history"); }}
+              onOpenPendingHistory={() => { setHistoryOrigin("overview"); setHistoryPendingOnly(true); setActiveTab("history"); }}
             />
           )}
 
@@ -1630,7 +1634,8 @@ export default function Home() {
               onOpenGoal={(goal) => setGoalDetail(goal)}
               onOpenTrip={(trip) => setTripDetail(trip)}
               onOpenLoan={(loan) => setLoanDetail(loan)}
-              onBack={() => setActiveTab("overview")}
+              backLabel={historyOrigin === "settings-history" ? "Back to Data History" : "Back to Overview"}
+              onBack={() => setActiveTab(historyOrigin)}
             />
           )}
 
@@ -1648,7 +1653,7 @@ export default function Home() {
               transactions={transactions}
               categories={categories}
               categorySpent={categorySpent}
-              onOpenCategory={(id) => { setCategoryFilterId(id); setActiveTab("history"); }}
+              onOpenCategory={(id) => { setHistoryOrigin("overview"); setCategoryFilterId(id); setActiveTab("history"); }}
             />
           )}
 
@@ -1713,7 +1718,7 @@ export default function Home() {
               trips={trips}
               loans={loans}
               onBack={() => setActiveTab("settings")}
-              onOpenOverviewHistory={() => setActiveTab("history")}
+              onOpenOverviewHistory={() => { setHistoryOrigin("settings-history"); setActiveTab("history"); }}
             />
           )}
 
@@ -2052,7 +2057,7 @@ function AccountsAssetsView({ accounts, netWorth, onOpenAddAccount, onBack }: { 
   </>;
 }
 
-function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, pendingOnly, onPendingOnlyChange, archivedGoals, archivedTrips, archivedLoans, onOpenGoal, onOpenTrip, onOpenLoan, onBack }: { totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; pendingOnly: boolean; onPendingOnlyChange: (value: boolean) => void; archivedGoals: Goal[]; archivedTrips: Trip[]; archivedLoans: Loan[]; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onBack: () => void }) {
+function HistoryView({ totals, categories, categorySpent, transactions, visibleTransactions, filter, categoryFilterId, query, onFilter, onQuery, onClearCategory, onOpenCategory, onSelectTransaction, pendingOnly, onPendingOnlyChange, archivedGoals, archivedTrips, archivedLoans, onOpenGoal, onOpenTrip, onOpenLoan, backLabel, onBack }: { totals: { income: number; expense: number; ordinaryIncome: number; ordinaryExpense: number; loanInflow: number; loanOutflow: number }; categories: Category[]; categorySpent: Record<string, number>; transactions: Transaction[]; visibleTransactions: Transaction[]; filter: "all" | TransactionType; categoryFilterId: string | null; query: string; onFilter: (value: "all" | TransactionType) => void; onQuery: (value: string) => void; onClearCategory: () => void; onOpenCategory: (id: string) => void; onSelectTransaction: (transaction: Transaction) => void; pendingOnly: boolean; onPendingOnlyChange: (value: boolean) => void; archivedGoals: Goal[]; archivedTrips: Trip[]; archivedLoans: Loan[]; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; backLabel: string; onBack: () => void }) {
   const expenseTopCategories = categories.filter((category) => category.type === "expense" && !category.parentId);
   const plannedBudget = expenseTopCategories.reduce((sum, category) => sum + category.monthlyBudget, 0);
   const selectedCategory = categories.find((category) => category.id === categoryFilterId);
@@ -2074,7 +2079,7 @@ function HistoryView({ totals, categories, categorySpent, transactions, visibleT
   const registerTransactions = pendingOnly ? visibleTransactions.filter((transaction) => transaction.settlementStatus === "pending") : visibleTransactions;
   const pendingCount = transactions.filter((transaction) => transaction.settlementStatus === "pending").length;
   return <>
-    <header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Overview</button></div><div className="page-kicker">Recorded movement</div><h1>History, held to account.</h1><p className="page-subtitle">Follow every month, category, and entry without crowding the daily overview.</p></div></header>
+    <header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> {backLabel}</button></div><div className="page-kicker">Recorded movement</div><h1>History, held to account.</h1><p className="page-subtitle">Follow every month, category, and entry without crowding the daily overview.</p></div></header>
     <section className="paper-card month-hand-section history-budget-section"><div className="section-head month-hand-head"><div><div className="page-kicker">Monthly allocation</div><h2>Month in hand</h2></div><span className="month-hand-date">{monthLabel(currentMonthKey)}</span></div><div className="month-hand-grid"><div className="month-hand-summary"><div className="field-note"><div className="field-note-row"><span>Allocated capital</span><b>{fmt.format(plannedBudget)}</b></div><div className="field-note-row"><span>Expense entries</span><b>{transactions.filter((transaction) => transaction.type === "expense" && !transaction.cashFlowKind).length} records</b></div></div><p className="budget-note">Budget pacing uses regular spending only. Loan movements remain visible in the cash ledger, not in category budgets.</p></div><div className="month-hand-progress"><div className="budget-meter"><div className="budget-label"><span>Planned spending</span><span>{fmt.format(totals.ordinaryExpense)} / {fmt.format(plannedBudget)}</span></div><div className="budget-track"><div className="budget-fill" style={{ width: `${Math.min(100, plannedBudget ? (totals.ordinaryExpense / plannedBudget) * 100 : 0)}%` }} /></div></div><div className="month-hand-progress-note"><strong>{plannedBudget ? Math.round((totals.ordinaryExpense / plannedBudget) * 100) : 0}% committed</strong><span>Loan cash flow is tracked separately.</span></div></div></div><div className="upcoming-list month-category-pulse"><div className="upcoming-title">Category pulse · tap a category to filter its register</div>{expenseTopCategories.slice(0, 4).map((category) => <button className="upcoming-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(categorySpent[category.id] ?? 0)}</b><strong>of {fmt.format(category.monthlyBudget)}</strong></button>)}</div></section>
     <section className="paper-card month-history-section"><div className="section-head month-history-head"><div><div className="page-kicker">Historical overview</div><h2>Ledger by month</h2></div><span className="month-hand-date">{monthRows.length} month{monthRows.length === 1 ? "" : "s"} with records</span></div><div className="month-history-list">{monthRows.map((month) => { const isOpen = Boolean(openMonths[month.key]); return <div className={`month-history-item ${isOpen ? "open" : ""}`} key={month.key}><button type="button" className="month-history-toggle" onClick={() => setOpenMonths((current) => ({ ...current, [month.key]: !current[month.key] }))} aria-expanded={isOpen} aria-controls={`history-month-${month.key}`}><span className="month-history-title"><b>{month.label}</b><small>{month.isCurrent ? "Current month" : `${month.entries.length} ledger entries`}</small></span><span className="month-history-net"><strong className={month.net >= 0 ? "amount-income" : "amount-expense"}>{month.net >= 0 ? "+" : "−"}{fmt.format(Math.abs(month.net))}</strong><small>{isOpen ? "Tap to close" : "Tap to view"}</small></span><ChevronRight size={17} className="month-history-chevron" /></button>{isOpen && <div className="month-history-detail" id={`history-month-${month.key}`}><div className="month-history-metrics"><div><span>Income</span><b className="amount-income">{fmt.format(month.income)}</b></div><div><span>Expenses</span><b className="amount-expense">{fmt.format(month.expense)}</b></div><div><span>Daily outflow</span><b>{fmt.format(month.averageDailyExpense)}</b></div></div><div className="month-history-entry-list">{month.entries.length ? month.entries.slice(0, 5).map((entry) => <div className="month-history-entry" key={entry.id}><span>{entry.merchantNote}</span><b className={entry.type === "income" ? "amount-income" : entry.type === "expense" ? "amount-expense" : "amount-transfer"}>{entry.type === "income" ? "+" : entry.type === "expense" ? "−" : "↔"}{fmt.format(entry.amount)}</b></div>) : <span className="budget-note">No transactions recorded for this month.</span>}</div></div>}</div>; })}</div></section>
     {(archivedGoals.length + archivedTrips.length + archivedLoans.length) > 0 && <section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Completed plans</div><h2>Still part of the story.</h2></div><span className="month-hand-date">Kept for two years</span></div><p className="category-section-note">Finished goals, trips, and loans leave Plans & Progress but remain editable here.</p><div className="schedule-list">{archivedGoals.map((goal) => <button key={goal.id} className="paper-card schedule-card" onClick={() => onOpenGoal(goal)}><div className="horizon-card-topline"><span className="schedule-status paused">Goal complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{goal.name}</h3><span className="horizon-card-action">Completed {shortDate(goal.completedAt ?? goal.deadline)}</span></div><strong>{fmt.format(goal.saved)}</strong></div></button>)}{archivedTrips.map((trip) => <button key={trip.id} className="paper-card schedule-card" onClick={() => onOpenTrip(trip)}><div className="horizon-card-topline"><span className="schedule-status paused">Plan complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{trip.name}</h3><span className="horizon-card-action">Completed {shortDate(trip.completedAt ?? trip.dates)}</span></div><strong>{fmt.format(trip.budget)}</strong></div></button>)}{archivedLoans.map((loan) => <button key={loan.id} className="paper-card schedule-card" onClick={() => onOpenLoan(loan)}><div className="horizon-card-topline"><span className="schedule-status paused">Loan complete</span><ChevronRight size={17} /></div><div className="horizon-card-main"><div><h3>{loan.title}</h3><span className="horizon-card-action">Completed {shortDate(loan.completedAt ?? loan.dueDate)}</span></div><strong>{fmt.format(loan.totalAmount)}</strong></div></button>)}</div></section>}
@@ -2217,12 +2222,13 @@ function NotificationInboxView({ items, unreadCount, onBack, onOpenNotice, onMar
 }
 
 function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+  const activeRoutines = routines.filter((routine) => routine.status !== "archived");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [name, setName] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
   const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
-  const selectedRoutine = routines.find((routine) => routine.id === selectedRoutineId) ?? routines[0] ?? null;
+  const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? activeRoutines[0] ?? null;
   const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
   const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
   const attendedDates = new Set(attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended).map((item) => item.date));
@@ -2237,8 +2243,8 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
 
   return <div className="routine-workspace">
     <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
-    {(composerOpen || routines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{routines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
-    {routines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{routines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`Remove ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
+    {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
+    {activeRoutines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{activeRoutines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`End ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
       {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={`${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Your rolling work view holds this month plus the prior eleven. Attendance remains available for two years in Data History.</p></section>}</>}
   </div>;
 }
@@ -2471,7 +2477,24 @@ function RetainedDataView({ routines, attendance, goals, trips, loans, onBack, o
   const completedGoals = goals.filter((goal) => !planningIsActive(goal) && isWithinTwoYearRetention(goal.completedAt));
   const completedTrips = trips.filter((trip) => !planningIsActive(trip) && isWithinTwoYearRetention(trip.completedAt));
   const completedLoans = loans.filter((loan) => !planningIsActive(loan) && isWithinTwoYearRetention(loan.completedAt));
-  return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open Overview History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.length}</b></div></div></section><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Retained attendance</h2></div><span className="month-hand-date">Last 24 months</span></div>{retainedAttendance.length ? <div className="loan-history">{retainedAttendance.slice().sort((a, b) => b.date.localeCompare(a.date)).map((item) => <div className="loan-history-row" key={item.id}><div><strong>{routines.find((routine) => routine.id === item.routineId)?.name ?? "Removed routine"}</strong><span>{shortDate(item.date)} · {item.attended ? "Attended" : "Not attended"}</span></div><b>{item.attended ? "Recorded" : "Cleared"}</b></div>)}</div> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
+  const archiveRoutines = routines.filter((routine) => retainedAttendance.some((item) => item.routineId === routine.id));
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(archiveRoutines[0]?.id ?? null);
+  const selectedRoutine = archiveRoutines.find((routine) => routine.id === selectedRoutineId) ?? archiveRoutines[0] ?? null;
+  const availableMonths = selectedRoutine ? Array.from(new Set(retainedAttendance.filter((item) => item.routineId === selectedRoutine.id).map((item) => item.date.slice(0, 7)))).sort((a, b) => b.localeCompare(a)) : [];
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(availableMonths[0] ?? null);
+  const activeMonth = availableMonths.includes(selectedMonth ?? "") ? selectedMonth : availableMonths[0] ?? null;
+  const [year, monthIndex] = (activeMonth ?? new Date().toISOString().slice(0, 7)).split("-").map(Number);
+  const archiveCalendar = selectedRoutine ? routineCalendarDays(year, monthIndex - 1, selectedRoutine.daysPerWeek) : [];
+  const archiveMonthEntries = retainedAttendance.filter((item) => item.routineId === selectedRoutine?.id && item.date.startsWith(activeMonth ?? ""));
+  const archiveAttendedDates = new Set(archiveMonthEntries.filter((item) => item.attended).map((item) => item.date));
+  const archiveExpectedDays = selectedRoutine ? expectedRoutineDaysInMonth(year, monthIndex - 1, selectedRoutine.daysPerWeek) : [];
+  const archiveExpectedAttended = archiveExpectedDays.filter((date) => archiveAttendedDates.has(date)).length;
+  const selectRoutine = (routineId: string) => {
+    const firstMonth = Array.from(new Set(retainedAttendance.filter((item) => item.routineId === routineId).map((item) => item.date.slice(0, 7)))).sort((a, b) => b.localeCompare(a))[0] ?? null;
+    setSelectedRoutineId(routineId);
+    setSelectedMonth(firstMonth);
+  };
+  return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open full ledger History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.filter((routine) => routine.status !== "archived").length}</b></div></div></section><section className="paper-card section-card routine-archive"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Routine calendar archive</h2></div><span className="month-hand-date">Last 24 months</span></div><p className="category-section-note">Choose a routine, then a month. The calendar keeps each month readable instead of repeating every day as a long list.</p>{archiveRoutines.length ? <><div className="routine-archive-list" aria-label="Choose a routine archive">{archiveRoutines.map((routine) => { const routineMonths = new Set(retainedAttendance.filter((item) => item.routineId === routine.id).map((item) => item.date.slice(0, 7))); const routineEntries = retainedAttendance.filter((item) => item.routineId === routine.id); return <button type="button" key={routine.id} className={`routine-archive-card ${selectedRoutine?.id === routine.id ? "selected" : ""}`} onClick={() => selectRoutine(routine.id)}><span className="routine-archive-card-icon" style={{ color: routine.color }}><ClipboardCheck size={18} /></span><span><b>{routine.name}</b><small>{routineMonths.size} recorded month{routineMonths.size === 1 ? "" : "s"} · {routineEntries.filter((item) => item.attended).length} attended day{routineEntries.filter((item) => item.attended).length === 1 ? "" : "s"}</small></span><span className="routine-archive-card-meta">{routine.status === "archived" ? "Ended" : "Active"}<ChevronRight size={16} /></span></button>; })}</div>{selectedRoutine && activeMonth && <div className="routine-archive-detail"><div className="routine-archive-months" aria-label={`Choose a month for ${selectedRoutine.name}`}>{availableMonths.map((item) => <button type="button" key={item} className={item === activeMonth ? "selected" : ""} onClick={() => setSelectedMonth(item)}>{monthLabel(item)}</button>)}</div><section className="routine-calendar-sheet archive-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{monthLabel(activeMonth)}</h3></div><span className="archive-month-status">{selectedRoutine.status === "archived" ? "Ended routine" : "Routine record"}</span></div><div className="routine-summary"><div><span>Attended</span><strong>{archiveAttendedDates.size}</strong></div><div><span>Expected</span><strong>{archiveExpectedDays.length}</strong></div><div><span>On schedule</span><strong>{archiveExpectedAttended}/{archiveExpectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid archive-calendar-grid">{archiveCalendar.map((day) => <div key={day.date} className={`routine-calendar-day static ${day.expected ? "expected" : ""} ${archiveAttendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</div>)}</div><p className="routine-calendar-note"><i /> Gold dates were recorded as attended. Expected days remain marked so you can understand the month at a glance.</p></section></div>}</> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
 }
 
 type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders";

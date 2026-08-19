@@ -293,3 +293,9 @@
 - [x] Allow completed records to be edited and automatically return to Plans & Progress when an edit makes them active again.
 - [x] Add clear Overview and Settings navigation for browsing the retained history without overwhelming the dashboard.
 - [x] Add regression coverage, validate mobile and desktop history flows, checkpoint, and synchronize the work to GitHub `manus_repo`.
+
+## Settings history and routine archive refinement
+- [x] Return from History to Settings when the History workspace was opened from Settings.
+- [x] Replace the monotonous retained-attendance feed with a routine-first archive, using named routine cards and month selection.
+- [x] Present selected routine months as a calendar with an attended/not-attended summary, while preserving the two-year retained record.
+- [x] Validate the revised History and archive paths on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.

@@ -1652,6 +1652,26 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .routine-calendar-day.attended { color: #fffdf8; border-color: #1d2524; background: #1d2524; box-shadow: inset 0 -3px 0 #c59643; }
 .routine-calendar-day.attended i { background: #f2cf8d; }
 .routine-calendar-day.outside { color: #c5bbae; background: transparent; cursor: default; }
+
+/* Two-year archive: group the record by routine and month rather than repeating every attendance day. */
+.routine-archive { overflow: hidden; }
+.routine-archive-list { display: grid; gap: 10px; margin-top: 18px; }
+.routine-archive-card { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 15px 16px; border: 1px solid #dfd9cc; border-radius: 14px; background: #fcfaf6; color: #1d2524; text-align: left; cursor: pointer; transition: border-color .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1); }
+.routine-archive-card:hover, .routine-archive-card.selected { border-color: #b78a3d; background: #fffdf7; }
+.routine-archive-card:active { transform: scale(.98); }
+.routine-archive-card-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #f2eadb; }
+.routine-archive-card span:nth-child(2) { display: grid; gap: 3px; min-width: 0; }
+.routine-archive-card b { font-size: 15px; }
+.routine-archive-card small, .routine-archive-card-meta { color: #7b786f; font-size: 12px; }
+.routine-archive-card-meta { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+.routine-archive-detail { margin-top: 18px; padding-top: 18px; border-top: 1px solid #dfd9cc; }
+.routine-archive-months { display: flex; gap: 8px; overflow-x: auto; padding: 1px 1px 12px; scrollbar-width: thin; }
+.routine-archive-months button { flex: 0 0 auto; border: 1px solid #ded8ca; border-radius: 999px; padding: 8px 12px; background: transparent; color: #605d57; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .16s cubic-bezier(.23,1,.32,1), border-color .16s cubic-bezier(.23,1,.32,1), color .16s cubic-bezier(.23,1,.32,1); }
+.routine-archive-months button.selected { border-color: #b78a3d; background: #1d2524; color: #fffdf7; }
+.archive-calendar-sheet { margin-top: 0; }
+.archive-month-status { border: 1px solid #e4ddcf; border-radius: 999px; padding: 6px 9px; color: #807a6d; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.routine-calendar-day.static { cursor: default; }
+@media (max-width: 640px) { .routine-archive-card { padding: 13px; gap: 10px; }.routine-archive-card-meta { font-size: 0; }.routine-archive-card-meta svg { width: 17px; height: 17px; }.archive-month-status { display: none; } }
 .routine-calendar-note { display: flex; align-items: center; gap: 7px; margin: 14px 0 0; color: #817667; font-size: 10px; line-height: 1.4; }
 .routine-calendar-note i { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: #b78a3d; }
 
