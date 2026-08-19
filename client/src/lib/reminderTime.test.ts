@@ -14,6 +14,7 @@ describe("reminder time selection", () => {
 
   it("formats a saved time for the confirmation summary and falls back safely", () => {
     expect(formatReminderTime("17:00")).toBe("5:00 PM");
+    expect(formatReminderTime("16:30")).toBe("4:30 PM");
     expect(formatReminderTime("not-a-time")).toBe("10:00 PM");
   });
 });

@@ -281,3 +281,7 @@
 - [x] Replace the cramped single-line reminder time options with an accessible, touch-friendly hour-and-minute picker.
 - [x] Preserve the current reminder time until the user explicitly confirms the new choice, with a clear selected-time summary.
 - [x] Validate the revised picker on mobile, run TypeScript, Vitest, and production-build checks, then synchronize the checkpoint to GitHub `manus_repo`.
+
+## Reminder time-format consistency
+- [x] Use the 12-hour AM/PM display format in every user-facing reminder status and confirmation message.
+- [x] Add regression coverage, validate the correction, and synchronize the checkpoint to GitHub `manus_repo`.

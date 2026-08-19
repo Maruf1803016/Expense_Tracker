@@ -884,7 +884,7 @@ export default function Home() {
       await saveLedgerRecord(user.uid, "reminderSettings", nextSettings);
       setReminderSettings(nextSettings);
       setCloudStatus("synced");
-      setReminderPushStatus(nextSettings.enabled ? `Daily reminder saved for ${nextSettings.time}.` : "Daily reminder turned off.");
+      setReminderPushStatus(nextSettings.enabled ? `Daily reminder saved for ${formatReminderTime(nextSettings.time)}.` : "Daily reminder turned off.");
       return true;
     } catch {
       setCloudStatus("error");
@@ -2301,7 +2301,7 @@ function LegacySettingsView({ categories, subcategorySpent, reminderSettings, re
         <article className="paper-card settings-card reminder-settings-card" style={{ padding: 24 }}>
           <button type="button" className="settings-accordion-trigger" onClick={() => toggleSection("notifications")} aria-expanded={openSection === "notifications"}>
             <span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span>
-            <span><span className="page-kicker">Day-end ledger reminder</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in set for ${reminderSettings.time}` : "Choose a time when you are ready"}</small></span>
+            <span><span className="page-kicker">Day-end ledger reminder</span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in set for ${formatReminderTime(reminderSettings.time)}` : "Choose a time when you are ready"}</small></span>
             <ChevronRight className={openSection === "notifications" ? "is-open" : ""} size={19} aria-hidden="true" />
           </button>
           {openSection === "notifications" && <div className="settings-accordion-content">
@@ -2419,7 +2419,7 @@ function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenRep
   return <>
     <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Open one workspace at a time to organise your ledger without losing focus.</p></div></header>
     <section className="settings-destination-grid">
-      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className="settings-destination-mark"><Bell size={18} /></span><span className="settings-destination-copy"><span className="settings-destination-topline"><span className="page-kicker">Daily ledger reminder</span><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span></span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${reminderSettings.time}` : "Choose a time when you are ready."}</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className="settings-destination-mark"><Bell size={18} /></span><span className="settings-destination-copy"><span className="settings-destination-topline"><span className="page-kicker">Daily ledger reminder</span><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span></span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${formatReminderTime(reminderSettings.time)}` : "Choose a time when you are ready."}</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-currency")}><span className="settings-destination-mark"><CircleDollarSign size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Ledger currency</span><strong>{currency?.label ?? reminderSettings.currency}</strong><small>Display one clear currency across your ledger, insights, and exports.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={onOpenAccounts}><span className="settings-destination-mark"><HandCoins size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="settings-destination-mark"><Wallet size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Money taxonomy</span><strong>Expense categories <em>({expenseCount})</em></strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
