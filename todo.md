@@ -353,4 +353,4 @@
 ## Controlled final in-app review
 - [x] Inspect the Overview, Insights, Plans & Progress, History, and Settings paths for concrete high-value usability or financial-clarity refinements without triggering external actions.
 - [x] Implement and test only the focused refinements supported by the review findings.
-- [ ] Run TypeScript, Vitest, production-build, and responsive checks; checkpoint and synchronize verified changes to GitHub `manus_repo`.
+- [x] Run TypeScript, Vitest, production-build, and responsive checks; checkpoint and synchronize verified changes to GitHub `manus_repo`.
