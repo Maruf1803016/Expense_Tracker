@@ -266,3 +266,4 @@
 ## Non-destructive release readiness audit
 - [x] Review the visible Firestore permission-error path and verify it gives a safe, understandable recovery message without exposing ledger data.
 - [x] Inspect browser-local prototype data only to determine whether migration is necessary, without migrating, deleting, or altering any record.
+- [ ] Push the validated Firestore-resilience audit checkpoint to the GitHub `manus_repo` branch and verify the remote commit.
