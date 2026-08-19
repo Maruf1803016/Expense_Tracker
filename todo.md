@@ -313,3 +313,8 @@
 - [x] Correct displaced currency values and symbols in the exported PDF ledger.
 - [x] Review and refine Insights with concise, useful analysis rather than adding unnecessary panels.
 - [x] Validate the navigation, work tracking, PDF export, and Insights improvements on mobile and desktop, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Safe final in-app review
+- [x] Audit the core ledger, planning, history, account, category, and Settings workflows for remaining in-app usability issues without triggering external emails or publishing.
+- [x] Replace remaining browser-native validation alerts with consistent Ink & Ledger in-app feedback where a safe non-blocking message is appropriate.
+- [x] Implement and validate any concrete, low-risk in-app improvements identified during the audit, then checkpoint and synchronize them to GitHub `manus_repo`.

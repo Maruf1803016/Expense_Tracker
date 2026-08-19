@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { ensureLedgerStarter, removeLedgerRecord, saveLedgerRecord, subscribeToLedgerCollection, type LedgerCollection } from "@/lib/ledgerStore";
 import { enableExpenseReminderPush } from "@/lib/firebase";
@@ -964,7 +965,7 @@ export default function Home() {
   const deleteCategory = (categoryId: string) => {
     const category = categories.find((item) => item.id === categoryId);
     if (category?.isPermanent) {
-      alert("This is a permanent expense type. You can add detailed subcategories beneath it, but the container stays in place.");
+      toast.error("This permanent expense type stays in place. Add detailed subcategories beneath it instead.");
       return;
     }
     const idsToDelete = categories.filter((category) => category.id === categoryId || category.parentId === categoryId).map((category) => category.id);
@@ -974,7 +975,7 @@ export default function Home() {
 
   const submitAuthentication = async () => {
     if (!authEmailInput.trim() || !authPasswordInput) {
-      alert("Enter both your email address and password.");
+      toast.error("Enter both your email address and password.");
       return;
     }
     setAuthSubmitting(true);
@@ -1216,13 +1217,13 @@ export default function Home() {
   const submitGoalAdjustment = () => {
     const parsed = parseFloat(goalAdjustmentAmount);
     if (!goalDetail || !goalAdjustment || isNaN(parsed) || parsed <= 0) {
-      alert("Please enter a valid adjustment amount.");
+      toast.error("Please enter a valid adjustment amount.");
       return;
     }
     const metrics = goalMetrics(goalDetail);
     const applied = goalAdjustment === "deposit" ? Math.min(parsed, metrics.remaining) : Math.min(parsed, goalDetail.saved);
     if (applied <= 0) {
-      alert(goalAdjustment === "deposit" ? "This goal is already fully funded." : "There is no saved balance available to withdraw.");
+      toast.error(goalAdjustment === "deposit" ? "This goal is already fully funded." : "There is no saved balance available to withdraw.");
       return;
     }
     const nextSaved = goalAdjustment === "deposit" ? goalDetail.saved + applied : goalDetail.saved - applied;
@@ -1247,7 +1248,7 @@ export default function Home() {
   const submitLoanPayment = () => {
     const parsed = parseFloat(loanPaymentAmount);
     if (!loanDetail || isNaN(parsed) || parsed <= 0) {
-      alert("Please enter a valid payment amount.");
+      toast.error("Please enter a valid payment amount.");
       return;
     }
     const remaining = Math.max(0, loanDetail.totalAmount - loanDetail.paidAmount);
@@ -1390,7 +1391,7 @@ export default function Home() {
     if (draft === "transaction") {
       const parsedAmount = parseFloat(transactionDraft.amount);
       if (!transactionDraft.merchantNote.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
-        alert("Please provide a merchant note and a valid amount.");
+        toast.error("Please provide a merchant note and a valid amount.");
         return;
       }
       const newTransaction: Transaction = {
@@ -1424,7 +1425,7 @@ export default function Home() {
     } else if (draft === "goal") {
       const parsed = parseFloat(draftAmount);
       if (!draftTitle.trim() || isNaN(parsed) || parsed <= 0) {
-        alert("Please enter a valid goal title and target amount.");
+        toast.error("Please enter a valid goal title and target amount.");
         return;
       }
       const financed = Math.min(parsed, Math.max(0, parseFloat(goalFinancingInput) || 0));
@@ -1437,7 +1438,7 @@ export default function Home() {
     } else if (draft === "trip") {
       const parsed = parseFloat(draftAmount);
       if (!draftTitle.trim() || isNaN(parsed) || parsed <= 0) {
-        alert("Please enter a valid trip name and budget.");
+        toast.error("Please enter a valid trip name and budget.");
         return;
       }
       const dates = normaliseCalendarDate(draftDate, new Date());
@@ -1449,11 +1450,11 @@ export default function Home() {
     } else if (draft === "loan") {
       const parsed = parseFloat(draftAmount);
       if (!draftTitle.trim() || !loanCounterpartyInput.trim() || isNaN(parsed) || parsed <= 0 || !draftDate) {
-        alert("Please enter a loan name, counterparty, original amount, and due date.");
+        toast.error("Please enter a loan name, counterparty, original amount, and due date.");
         return;
       }
       if (!loanAccountInput) {
-        alert("Choose the cash account that received or provided this loan.");
+        toast.error("Choose the cash account that received or provided this loan.");
         return;
       }
       const previousLoan = editingLoanId ? loans.find((loan) => loan.id === editingLoanId) : undefined;
@@ -1482,7 +1483,7 @@ export default function Home() {
       const parsed = parseFloat(draftAmount);
       const selectedCategory = categories.find((category) => category.id === scheduleCategoryInput);
       if (!draftTitle.trim() || isNaN(parsed) || parsed <= 0 || !draftDate || !scheduleAccountInput || !selectedCategory || selectedCategory.type !== scheduleTypeInput) {
-        alert("Please enter a schedule name, amount, matching category, account, and next due date.");
+        toast.error("Please enter a schedule name, amount, matching category, account, and next due date.");
         return;
       }
       const existing = editingScheduleId ? schedules.find((schedule) => schedule.id === editingScheduleId) : undefined;
@@ -1503,7 +1504,7 @@ export default function Home() {
       resetDraft();
     } else if (draft === "category") {
       if (!catNameInput.trim()) {
-        alert("Please enter a category name.");
+        toast.error("Please enter a category name.");
         return;
       }
       const newCat: Category = {
@@ -1519,7 +1520,7 @@ export default function Home() {
       resetDraft();
     } else if (draft === "subcategory") {
       if (!subNameInput.trim() || !parentTargetId) {
-        alert("Please select a parent category and enter a subcategory name.");
+        toast.error("Please select a parent category and enter a subcategory name.");
         return;
       }
       const newSub: Category = {
@@ -1537,7 +1538,7 @@ export default function Home() {
     } else if (draft === "account") {
       const parsed = parseFloat(accBalanceInput);
       if (!accNameInput.trim() || isNaN(parsed)) {
-        alert("Please enter a valid account name and starting balance.");
+        toast.error("Please enter a valid account name and starting balance.");
         return;
       }
       const newAcc: Account = {
