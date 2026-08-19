@@ -1506,6 +1506,19 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .workspace-picker-trigger > svg { flex: 0 0 auto; color: #9a7434; }
 .workspace-picker-trigger:hover:not(:disabled), .workspace-picker-trigger:focus-visible { border-color: #b78a3d; background: #fff8eb; outline: none; transform: translateY(-1px); }
 .workspace-picker-trigger:disabled { cursor: not-allowed; opacity: .58; }
+.preferences-workspace { display: grid; gap: 13px; }
+.preference-setting-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .88fr); gap: 24px; align-items: start; padding: 19px; border: 1px solid #e3dacb; border-radius: 4px; background: linear-gradient(135deg, #fffdf8, #fbf7ed); }
+.preference-setting-card h2 { margin: 7px 0 8px; color: #1d2924; font: 500 25px/1.08 "Fraunces", Georgia, serif; letter-spacing: -.035em; }
+.preference-setting-card p { max-width: 480px; margin: 0; color: #71695d; font-size: 12px; line-height: 1.55; }
+.preference-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; align-self: center; }
+.preference-option, .preference-month-grid button { min-height: 72px; display: grid; align-content: center; gap: 5px; padding: 12px; border: 1px solid #dcd2c1; border-radius: 3px; background: #fffdf8; color: #334139; text-align: left; cursor: pointer; transition: border-color .18s cubic-bezier(.23,1,.32,1), background .18s cubic-bezier(.23,1,.32,1), transform .18s cubic-bezier(.23,1,.32,1), box-shadow .18s cubic-bezier(.23,1,.32,1); }
+.preference-option strong { font: 800 11px/1.1 "Space Grotesk", sans-serif; letter-spacing: .02em; }
+.preference-option span { color: #807567; font-size: 10px; line-height: 1.25; }
+.preference-option:hover:not(:disabled), .preference-option:focus-visible, .preference-month-grid button:hover:not(:disabled), .preference-month-grid button:focus-visible { border-color: #b78a3d; background: #fff8e8; outline: none; transform: translateY(-1px); }
+.preference-option.selected, .preference-month-grid button.selected { border-color: #2b5340; background: #edf4ed; box-shadow: inset 3px 0 0 #2b5340; }
+.preference-option:disabled, .preference-month-grid button:disabled { cursor: not-allowed; opacity: .58; }
+.preference-month-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; align-self: center; }
+.preference-month-grid button { min-height: 40px; padding: 8px 5px; text-align: center; font: 800 10px/1 "Space Grotesk", sans-serif; letter-spacing: .03em; }
 .settings-workspace .category-groups { display: grid; gap: 11px; }
 .settings-workspace .category-group { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 15px 0; border-bottom: 1px solid #e5ded2; }
 .settings-workspace .category-group-head { min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; }
@@ -1573,6 +1586,9 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
   .currency-workspace-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace-picker-grid { grid-template-columns: 1fr; }
   .workspace-picker-trigger { min-height: 92px; }
+  .preference-setting-card { grid-template-columns: 1fr; gap: 16px; padding: 16px; }
+  .preference-setting-card h2 { font-size: 23px; }
+  .preference-month-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .settings-workspace .category-group { grid-template-columns: 1fr; gap: 10px; padding: 14px 0; }
   .settings-workspace .category-group-head { grid-template-columns: 30px minmax(0, 1fr); align-items: start; }
   .settings-workspace .category-group-head em { grid-column: 2; padding-left: 0; padding-top: 1px; text-align: left; white-space: normal; }

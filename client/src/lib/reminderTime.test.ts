@@ -17,4 +17,10 @@ describe("reminder time selection", () => {
     expect(formatReminderTime("16:30")).toBe("4:30 PM");
     expect(formatReminderTime("not-a-time")).toBe("10:00 PM");
   });
+
+  it("uses a leading-zero 24-hour display when the personal clock preference requires it", () => {
+    expect(formatReminderTime("17:00", "24h")).toBe("17:00");
+    expect(formatReminderTime("04:30", "24h")).toBe("04:30");
+    expect(formatReminderTime("not-a-time", "24h")).toBe("22:00");
+  });
 });

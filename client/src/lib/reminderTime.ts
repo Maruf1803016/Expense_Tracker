@@ -1,4 +1,5 @@
 export type ReminderMeridiem = "AM" | "PM";
+export type ReminderTimeFormat = "12h" | "24h";
 
 const FALLBACK_TIME = "22:00";
 
@@ -20,7 +21,10 @@ export function reminderTimeFromParts(hour: number, minute: string, meridiem: Re
   return `${String(hour24).padStart(2, "0")}:${normalisedMinute}`;
 }
 
-export function formatReminderTime(time: string): string {
+export function formatReminderTime(time: string, timeFormat: ReminderTimeFormat = "12h"): string {
+  if (timeFormat === "24h") {
+    return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : FALLBACK_TIME;
+  }
   const { hour, minute, meridiem } = reminderTimeParts(time);
   return `${hour}:${minute} ${meridiem}`;
 }

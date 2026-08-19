@@ -318,3 +318,9 @@
 - [x] Audit the core ledger, planning, history, account, category, and Settings workflows for remaining in-app usability issues without triggering external emails or publishing.
 - [x] Replace remaining browser-native validation alerts with consistent Ink & Ledger in-app feedback where a safe non-blocking message is appropriate.
 - [x] Implement and validate any concrete, low-risk in-app improvements identified during the audit, then checkpoint and synchronize them to GitHub `manus_repo`.
+
+## Financial calendar and time preferences
+- [x] Add a dedicated Settings preference for the first day of the week, with a clear explanation that it changes calendar and routine-week layouts.
+- [x] Add a financial-year start-month preference, with a clear explanation that it changes reporting and Insights reporting periods rather than transaction dates.
+- [x] Add a persisted 12-hour or 24-hour clock preference and apply it to reminder and visible time displays.
+- [ ] Validate persisted preference behavior on mobile and desktop, then checkpoint and synchronize the update to GitHub `manus_repo`.

@@ -8,7 +8,7 @@ import { enableExpenseReminderPush } from "@/lib/firebase";
 import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek } from "@/lib/routineCalendar";
-import { formatReminderTime, reminderTimeFromParts, reminderTimeParts } from "@/lib/reminderTime";
+import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
@@ -158,6 +158,20 @@ interface ReminderSettings {
   timezone: string;
   currency: SupportedCurrency;
 }
+
+interface UserPrefs {
+  id: "settings";
+  weekStartDay: 0 | 1;
+  financialYearStartMonth: number;
+  timeFormat: ReminderTimeFormat;
+}
+
+const DEFAULT_USER_PREFS: UserPrefs = {
+  id: "settings",
+  weekStartDay: 1,
+  financialYearStartMonth: 1,
+  timeFormat: "12h",
+};
 
 interface WorkRoutine {
   id: string;
@@ -329,6 +343,16 @@ function normaliseReminderSettings(record: StoredRecord): ReminderSettings {
   };
 }
 
+function normaliseUserPrefs(record: StoredRecord): UserPrefs {
+  const financialYearStartMonth = storedNumber(record.financialYearStartMonth, DEFAULT_USER_PREFS.financialYearStartMonth);
+  return {
+    id: "settings",
+    weekStartDay: record.weekStartDay === 0 ? 0 : 1,
+    financialYearStartMonth: Number.isInteger(financialYearStartMonth) && financialYearStartMonth >= 1 && financialYearStartMonth <= 12 ? financialYearStartMonth : DEFAULT_USER_PREFS.financialYearStartMonth,
+    timeFormat: record.timeFormat === "24h" ? "24h" : "12h",
+  };
+}
+
 function normaliseRoutine(record: StoredRecord): WorkRoutine {
   const rawDays = storedNumber(record.daysPerWeek, 5);
   const daysPerWeek: RoutineDaysPerWeek = rawDays === 3 || rawDays === 4 || rawDays === 5 || rawDays === 6 || rawDays === 7 ? rawDays : 5;
@@ -426,6 +450,18 @@ function dateInputValue(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function financialYearStartDate(today: Date, financialYearStartMonth: number) {
+  const safeMonth = Number.isInteger(financialYearStartMonth) && financialYearStartMonth >= 1 && financialYearStartMonth <= 12 ? financialYearStartMonth : 1;
+  const startMonthIndex = safeMonth - 1;
+  const startYear = today.getMonth() >= startMonthIndex ? today.getFullYear() : today.getFullYear() - 1;
+  return new Date(startYear, startMonthIndex, 1);
+}
+
+function financialYearRangeLabel(startDate: Date, financialYearStartMonth: number) {
+  if (financialYearStartMonth === 1) return `FY ${startDate.getFullYear()}`;
+  return `FY ${startDate.getFullYear()}/${String(startDate.getFullYear() + 1).slice(-2)}`;
 }
 
 function oneYearFromToday() {
@@ -597,7 +633,7 @@ const INITIAL_SCHEDULES: RecurringSchedule[] = [
 
 export default function Home() {
   const { user, loading: authLoading, error: authError, signIn, signUp, sendVerification, refreshVerification, requestPasswordReset, signOut, clearError } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-history">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-preferences" | "settings-history">("overview");
   const [inboxOrigin, setInboxOrigin] = useState<Exclude<typeof activeTab, "inbox">>("overview");
   const [filter, setFilter] = useState<"all" | TransactionType>("all");
   const [categoryFilterId, setCategoryFilterId] = useState<string | null>(null);
@@ -685,6 +721,7 @@ export default function Home() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [dismissedFallbackNotificationIds, setDismissedFallbackNotificationIds] = useState<string[]>([]);
   const [reminderSettings, setReminderSettings] = useState<ReminderSettings>({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", currency: "USD" });
+  const [userPrefs, setUserPrefs] = useState<UserPrefs>(DEFAULT_USER_PREFS);
   const [reminderPushStatus, setReminderPushStatus] = useState<string | null>(null);
   const [reminderPushBusy, setReminderPushBusy] = useState(false);
   activeCurrency = reminderSettings.currency;
@@ -708,6 +745,7 @@ export default function Home() {
       setNotifications([]);
       setDismissedFallbackNotificationIds([]);
       setReminderSettings({ id: "daily-expense-reminder", enabled: false, time: "22:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC", currency: "USD" });
+      setUserPrefs(DEFAULT_USER_PREFS);
       setReminderPushStatus(null);
       return;
     }
@@ -733,6 +771,7 @@ export default function Home() {
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "routineAttendance", (records) => { setRoutineAttendance(records.map(normaliseRoutineAttendance)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "notifications", (records) => { setNotifications(records.map(normaliseNotification)); received(); }, handleError),
       subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "reminderSettings", (records) => { const normalized = records.map(normaliseReminderSettings); const saved = normalized.find((record) => record.id === "daily-expense-reminder") ?? normalized[0]; if (saved) setReminderSettings(saved); received(); }, handleError),
+      subscribeToLedgerCollection<StoredRecordWithId>(user.uid, "userPrefs", (records) => { const saved = records.find((record) => record.id === "settings"); setUserPrefs(saved ? normaliseUserPrefs(saved) : DEFAULT_USER_PREFS); received(); }, handleError),
     ];
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }, [user]);
@@ -936,6 +975,26 @@ export default function Home() {
       return false;
     } finally {
       setReminderPushBusy(false);
+    }
+  }, [user]);
+
+  const saveUserPrefs = useCallback(async (nextPrefs: UserPrefs) => {
+    if (!user) {
+      toast.error("Sign in first to save personal calendar and time preferences.");
+      return false;
+    }
+    setCloudError(null);
+    try {
+      await saveLedgerRecord(user.uid, "userPrefs", nextPrefs);
+      setUserPrefs(nextPrefs);
+      setCloudStatus("synced");
+      toast.success("Preferences saved to your personal ledger.");
+      return true;
+    } catch {
+      setCloudStatus("error");
+      setCloudError("Your preferences could not be saved to the cloud ledger. Check your connection and try again.");
+      toast.error("Preferences were not saved yet. Please try again.");
+      return false;
     }
   }, [user]);
 
@@ -1582,7 +1641,7 @@ export default function Home() {
       <main className="content-viewport">
         <header className="top-nav-bar">
           <div className="mobile-brand-lockup"><span className="mobile-brand-mark" aria-hidden="true"><i className="ledger-spine ledger-spine-left" /><i className="ledger-spine ledger-spine-right" /></span><div><strong>EXPENSE</strong><span>FIELD BOOK</span></div></div>
-          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Plans & Progress" : activeTab === "inbox" ? "Notification inbox" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
+          <div className="breadcrumb"><span>/</span><strong>{activeTab === "horizon" ? "Plans & Progress" : activeTab === "inbox" ? "Notification inbox" : activeTab === "accounts" ? "Accounts & Assets" : activeTab === "settings-expenses" ? "Expense categories" : activeTab === "settings-income" ? "Income sources" : activeTab === "settings-currency" ? "Ledger currency" : activeTab === "settings-reminders" ? "Daily ledger reminder" : activeTab === "settings-preferences" ? "Calendar & time" : activeTab[0].toUpperCase() + activeTab.slice(1)}</strong></div>
           <div className="top-nav-actions">
             <div className="notification-wrap">
               <button className={`icon-badge ${unreadNotificationCount ? "has-unread" : ""} ${activeTab === "inbox" ? "is-active" : ""}`} onClick={() => { if (activeTab === "inbox") setActiveTab(inboxOrigin); else { setInboxOrigin(activeTab); setActiveTab("inbox"); } }} aria-label={activeTab === "inbox" ? "Return to previous workspace" : `Open notification inbox${unreadNotificationCount ? `, ${unreadNotificationCount} unread` : ""}`} aria-current={activeTab === "inbox" ? "page" : undefined}><Bell size={16} />{unreadNotificationCount > 0 && <i aria-hidden="true">{unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}</i>}</button>
@@ -1656,6 +1715,7 @@ export default function Home() {
               transactions={transactions}
               categories={categories}
               categorySpent={categorySpent}
+              financialYearStartMonth={userPrefs.financialYearStartMonth}
               onOpenCategory={(id) => { setHistoryOrigin("overview"); setCategoryFilterId(id); setActiveTab("history"); }}
             />
           )}
@@ -1665,6 +1725,8 @@ export default function Home() {
               transactions={transactions}
               categories={categories}
               accounts={accountsWithBalance}
+              financialYearStartMonth={userPrefs.financialYearStartMonth}
+              weekStartDay={userPrefs.weekStartDay}
               onSelectTransaction={(tx) => setTransactionDetail(tx)}
               onBack={() => setActiveTab("settings")}
             />
@@ -1689,6 +1751,7 @@ export default function Home() {
               schedules={schedules}
               routines={routines}
               attendance={routineAttendance}
+              weekStartDay={userPrefs.weekStartDay}
               onOpenAddGoal={startCreatingGoal}
               onOpenAddTrip={startCreatingTrip}
               onOpenAddLoan={startCreatingLoan}
@@ -1707,6 +1770,7 @@ export default function Home() {
             <SettingsView
               categories={categories}
               reminderSettings={reminderSettings}
+              userPrefs={userPrefs}
               onOpenWorkspace={(workspace) => setActiveTab(workspace)}
               onOpenReports={() => setActiveTab("reports")}
               onOpenAccounts={() => setActiveTab("accounts")}
@@ -1718,6 +1782,7 @@ export default function Home() {
             <RetainedDataView
               routines={routines}
               attendance={routineAttendance}
+              weekStartDay={userPrefs.weekStartDay}
               goals={goals}
               trips={trips}
               loans={loans}
@@ -1726,12 +1791,13 @@ export default function Home() {
             />
           )}
 
-          {(activeTab === "settings-expenses" || activeTab === "settings-income" || activeTab === "settings-currency" || activeTab === "settings-reminders") && (
+          {(activeTab === "settings-expenses" || activeTab === "settings-income" || activeTab === "settings-currency" || activeTab === "settings-reminders" || activeTab === "settings-preferences") && (
             <SettingsWorkspaceView
               mode={activeTab.replace("settings-", "") as SettingsWorkspaceMode}
               categories={categories}
               subcategorySpent={subcategorySpent}
               reminderSettings={reminderSettings}
+              userPrefs={userPrefs}
               reminderPushStatus={reminderPushStatus}
               reminderPushBusy={reminderPushBusy}
               signedIn={Boolean(user)}
@@ -1740,6 +1806,7 @@ export default function Home() {
               onOpenAddSub={(parentId) => { setParentTargetId(parentId); setDraft("subcategory"); }}
               onDeleteCategory={deleteCategory}
               onSaveReminderSettings={saveReminderSettings}
+              onSaveUserPrefs={saveUserPrefs}
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
             />
           )}
@@ -1924,6 +1991,7 @@ export default function Home() {
           title={draftTitle}
           amount={draftAmount}
           dateVal={draftDate}
+          weekStartDay={userPrefs.weekStartDay}
           transaction={transactionDraft}
           accounts={accounts}
           categories={categories}
@@ -2099,11 +2167,15 @@ function TransactionRow({ transaction, categories, onSelect }: { transaction: Tr
   return <button className="transaction-row transaction-button" onClick={() => onSelect(transaction)}><div className="transaction-title"><span className="entry-kind">{transaction.cashFlowKind ? "Loan flow" : transaction.type === "income" ? "Inflow" : transaction.type === "expense" ? "Outflow" : "Transfer"}</span><strong title={transaction.merchantNote}>{transaction.merchantNote}</strong><span className="category-picker-label">{category && <CategoryIcon icon={category.icon} size={14} />}{descriptor}{transaction.tag?.goalId ? " · Goal tagged" : ""}{transaction.tag?.tripId ? " · Trip tagged" : ""}</span></div><div className="transaction-amount">{transaction.settlementStatus === "pending" && <span className="pending-payment-chip">Pending</span>}<strong className={amountClass}>{signed}{fmt.format(transaction.amount)}</strong><span className="transaction-date-stamp">{transaction.date}</span></div></button>;
 }
 
-function InsightsView({ transactions, categories, categorySpent, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; onOpenCategory: (id: string) => void }) {
+function InsightsView({ transactions, categories, categorySpent, financialYearStartMonth, onOpenCategory }: { transactions: Transaction[]; categories: Category[]; categorySpent: Record<string, number>; financialYearStartMonth: number; onOpenCategory: (id: string) => void }) {
   const [statsTab, setStatsTab] = useState<"insight" | "summary">("insight");
   const today = new Date();
+  const financialYearStart = financialYearStartDate(today, financialYearStartMonth);
+  const financialYearLabel = financialYearRangeLabel(financialYearStart, financialYearStartMonth);
+  const financialYearTransactions = transactions.filter((transaction) => transaction.date >= dateInputValue(financialYearStart));
+  const financialYearMonthCount = Math.max(1, Math.min(6, (today.getFullYear() - financialYearStart.getFullYear()) * 12 + today.getMonth() - financialYearStart.getMonth() + 1));
   const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
+    const date = new Date(today.getFullYear(), today.getMonth() - financialYearMonthCount + 1 + index, 1);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     const entries = transactions.filter((transaction) => transaction.date.startsWith(key));
     const label = date.toLocaleDateString("en-US", { month: "short" });
@@ -2111,8 +2183,8 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   });
   const max = Math.max(...months.flatMap((month) => [month.income, month.expense]), 1);
   const expenseTopCategories = categories.filter((c) => c.type === "expense" && !c.parentId);
-  const incomeTotal = transactions.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0);
-  const expenseTotal = transactions.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0);
+  const incomeTotal = financialYearTransactions.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0);
+  const expenseTotal = financialYearTransactions.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0);
   const spent = expenseTopCategories.reduce((sum, category) => sum + (categorySpent[category.id] ?? 0), 0);
   const mix = expenseTopCategories.filter((category) => category.monthlyBudget > 0 && (categorySpent[category.id] ?? 0) > 0).sort((a, b) => (categorySpent[b.id] ?? 0) - (categorySpent[a.id] ?? 0));
   const stops = mix.reduce((parts, category, index) => { const start = parts.end; const size = spent ? ((categorySpent[category.id] ?? 0) / spent) * 100 : 0; return { end: start + size, gradient: `${parts.gradient}${category.color} ${start}% ${start + size}%${index < mix.length - 1 ? ", " : ""}` }; }, { end: 0, gradient: "" });
@@ -2128,13 +2200,14 @@ function InsightsView({ transactions, categories, categorySpent, onOpenCategory 
   });
   return <>
     <header className="page-header stats-page-header"><div><div className="page-kicker">Analytics & patterns</div><h1>Spending insight<br />& category mix.</h1><p className="page-subtitle">Understand where capital concentrates over time.</p></div><div className="analytics-mode-switch" role="tablist" aria-label="Analytics workspace"><div className="analytics-mode-label">Choose a lens</div><div className="analytics-mode-tabs"><button className={`analytics-mode-tab ${statsTab === "insight" ? "active" : ""}`} onClick={() => setStatsTab("insight")}><strong>Trend & mix</strong><span>Cash flow and category pressure</span></button><button className={`analytics-mode-tab ${statsTab === "summary" ? "active" : ""}`} onClick={() => setStatsTab("summary")}><strong>Monthly summary</strong><span>Net savings and budget bars</span></button></div></div></header>
-    {statsTab === "insight" ? <><div className="insights-grid"><article className="paper-card section-card"><h2>Six-month cash flow</h2><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div className="category-picker-label"><span className="category-symbol" style={{ color: category.color }}><CategoryIcon icon={category.icon} size={14} /></span><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div><section className="paper-card budget-pacing-sheet"><div className="section-head"><div><div className="page-kicker">Budget pacing</div><h2>Are your categories on track?</h2></div><span className="month-hand-date">Day {elapsedDays} of {daysInCurrentMonth}</span></div><p className="budget-note">Daily burn rate and projected month-end spend make pressure visible before the month closes.</p><div className="budget-pacing-list">{budgetPacing.map(({ category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining }) => { const percentage = category.monthlyBudget ? Math.min(100, (spentAmount / category.monthlyBudget) * 100) : 0; const statusClass = status === "On pace" ? "on-pace" : "warning"; return <div className="budget-pacing-row" key={category.id}><div className="budget-pacing-top"><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} /><strong>{category.name}</strong></span><b>{fmt.format(spentAmount)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${percentage}%`, background: category.color }} /></div><div className="budget-pacing-meta"><span className={`pacing-status ${statusClass}`}>{status}</span><span>{fmt.format(averageDaily)} / day</span><span>Projected {fmt.format(projected)}</span><span>{fmt.format(remaining)} left</span></div>{spentAmount > safeSpendToDate && <div className="pacing-warning">Spending is above the safe pace for day {elapsedDays}.</div>}</div>; })}</div></section></> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Monthly summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>Income less recorded expenses. Transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">August 2026</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
+    {statsTab === "insight" ? <><div className="insights-grid"><article className="paper-card section-card"><div className="section-head"><h2>Cash flow trend</h2><span className="month-hand-date">{financialYearLabel}</span></div><div className="trend-chart">{months.map((month) => <div className="trend-column" key={month.label}><div className="bars"><div className="bar income" style={{ height: `${(month.income / max) * 100}%` }} /><div className="bar expense" style={{ height: `${(month.expense / max) * 100}%` }} /></div><span>{month.label}</span></div>)}</div><div className="chart-legend"><div><span className="dot income" /> Inflow</div><div><span className="dot expense" /> Outflow</div></div></article><aside className="paper-card side-summary"><div className="card-head"><h2>Category mix</h2><span className="text-link">Tap a slice</span></div><div className="donut-ring" onClick={() => mix[0] && onOpenCategory(mix[0].id)} style={{ background: stops.gradient ? `conic-gradient(${stops.gradient})` : "#ded8ca" }}><div className="donut-hole"><strong>{fmt.format(spent)}</strong><span>Total out</span></div></div><div className="category-mix-list">{expenseTopCategories.map((category) => <button className="mix-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div className="category-picker-label"><span className="category-symbol" style={{ color: category.color }}><CategoryIcon icon={category.icon} size={14} /></span><strong>{category.name}</strong></div><b>{fmt.format(categorySpent[category.id] ?? 0)}</b></button>)}</div></aside></div><section className="paper-card budget-pacing-sheet"><div className="section-head"><div><div className="page-kicker">Budget pacing</div><h2>Are your categories on track?</h2></div><span className="month-hand-date">Day {elapsedDays} of {daysInCurrentMonth}</span></div><p className="budget-note">Daily burn rate and projected month-end spend make pressure visible before the month closes.</p><div className="budget-pacing-list">{budgetPacing.map(({ category, spentAmount, averageDaily, projected, safeSpendToDate, status, remaining }) => { const percentage = category.monthlyBudget ? Math.min(100, (spentAmount / category.monthlyBudget) * 100) : 0; const statusClass = status === "On pace" ? "on-pace" : "warning"; return <div className="budget-pacing-row" key={category.id}><div className="budget-pacing-top"><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} /><strong>{category.name}</strong></span><b>{fmt.format(spentAmount)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${percentage}%`, background: category.color }} /></div><div className="budget-pacing-meta"><span className={`pacing-status ${statusClass}`}>{status}</span><span>{fmt.format(averageDaily)} / day</span><span>Projected {fmt.format(projected)}</span><span>{fmt.format(remaining)} left</span></div>{spentAmount > safeSpendToDate && <div className="pacing-warning">Spending is above the safe pace for day {elapsedDays}.</div>}</div>; })}</div></section></> : <div className="summary-view-grid"><article className="paper-card summary-hero"><div className="page-kicker">Financial-year summary</div><h2>Net savings</h2><strong>{fmt.format(incomeTotal - expenseTotal)}</strong><p>{financialYearLabel}. Income less recorded expenses; transfers stay outside this calculation.</p></article><section className="paper-card summary-breakdown"><div className="section-head"><h2>Category breakdown</h2><span className="month-hand-date">{today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</span></div>{expenseTopCategories.map((category) => { const value = categorySpent[category.id] ?? 0; const base = category.monthlyBudget || Math.max(value, 1); return <button className="summary-category-row category-trigger" key={category.id} onClick={() => onOpenCategory(category.id)}><div><span className="category-picker-label"><CategoryIcon icon={category.icon} size={15} />{category.name}</span><b>{fmt.format(value)} <em>of {fmt.format(category.monthlyBudget)}</em></b></div><div className="progress-track"><div className="progress-fill" style={{ width: `${Math.min(100, (value / base) * 100)}%`, background: category.color }} /></div></button>; })}</section></div>}
   </>;
 }
 
-function ReportsView({ transactions, categories, accounts, onSelectTransaction, onBack }: { transactions: Transaction[]; categories: Category[]; accounts: Array<Account & { balance: number }>; onSelectTransaction: (transaction: Transaction) => void; onBack: () => void }) {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+function ReportsView({ transactions, categories, accounts, financialYearStartMonth, weekStartDay, onSelectTransaction, onBack }: { transactions: Transaction[]; categories: Category[]; accounts: Array<Account & { balance: number }>; financialYearStartMonth: number; weekStartDay: 0 | 1; onSelectTransaction: (transaction: Transaction) => void; onBack: () => void }) {
+  const defaultReportStart = dateInputValue(financialYearStartDate(new Date(), financialYearStartMonth));
+  const [startDate, setStartDate] = useState(defaultReportStart);
+  const [endDate, setEndDate] = useState(dateInputValue(new Date()));
   const [accountId, setAccountId] = useState("all");
   const [categoryId, setCategoryId] = useState("all");
   const [transactionType, setTransactionType] = useState<"all" | TransactionType>("all");
@@ -2164,9 +2237,9 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
     });
     return Object.entries(values).map(([id, amount]) => { const category = categories.find((item) => item.id === id); return { id, amount, name: categoryName(id), icon: category?.icon }; }).sort((a, b) => b.amount - a.amount).slice(0, 4);
   }, [filteredLedger, categories]);
-  const reportPeriod = `${startDate || "All dates"} → ${endDate || "Today"}`;
+  const reportPeriod = `${financialYearRangeLabel(financialYearStartDate(new Date(), financialYearStartMonth), financialYearStartMonth)} · ${startDate || "All dates"} → ${endDate || "Today"}`;
   const reportFileName = `expense-ledger-${startDate || "all"}-${endDate || "to-date"}`;
-  const resetFilters = () => { setStartDate(""); setEndDate(""); setAccountId("all"); setCategoryId("all"); setTransactionType("all"); };
+  const resetFilters = () => { setStartDate(defaultReportStart); setEndDate(dateInputValue(new Date())); setAccountId("all"); setCategoryId("all"); setTransactionType("all"); };
   const downloadBlob = (blob: Blob, extension: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -2212,7 +2285,7 @@ function ReportsView({ transactions, categories, accounts, onSelectTransaction, 
 
   return <>
     <header className="page-header reports-page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Reports & export</div><h1>Report, on record.</h1><p className="page-subtitle">Cut the ledger to the period and context that needs an answer.</p></div></header>
-    <section className="paper-card report-filter-sheet"><div className="section-head report-filter-head"><div><div className="page-kicker">Ledger scope</div><h2>Filter the record</h2></div><button className="text-link report-reset" onClick={resetFilters}>Reset filters <X size={13} /></button></div><div className="report-filter-grid"><LedgerDateField label="From date" value={startDate} onChange={setStartDate} /><LedgerDateField label="To date" value={endDate} onChange={setEndDate} /><label><span>Account</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="all">All accounts</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label><label><span>Category</span><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="all">All categories</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `↳ ${category.name}` : category.name}</option>)}</select>{categoryId !== "all" && <small className="selected-category-caption"><CategoryIcon icon={categories.find((category) => category.id === categoryId)?.icon} size={13} /> Selected category</small>}</label><label><span>Movement</span><select value={transactionType} onChange={(event) => setTransactionType(event.target.value as "all" | TransactionType)}><option value="all">All movement</option><option value="income">Inflow</option><option value="expense">Outflow</option><option value="transfer">Transfer</option></select></label></div><div className="report-scope-line"><span>Viewing <b>{summary.count}</b> matching record{summary.count === 1 ? "" : "s"}</span><span>{reportPeriod}</span></div></section>
+    <section className="paper-card report-filter-sheet"><div className="section-head report-filter-head"><div><div className="page-kicker">Ledger scope</div><h2>Filter the record</h2></div><button className="text-link report-reset" onClick={resetFilters}>Reset filters <X size={13} /></button></div><div className="report-filter-grid"><LedgerDateField label="From date" value={startDate} weekStartDay={weekStartDay} onChange={setStartDate} /><LedgerDateField label="To date" value={endDate} weekStartDay={weekStartDay} onChange={setEndDate} /><label><span>Account</span><select value={accountId} onChange={(event) => setAccountId(event.target.value)}><option value="all">All accounts</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label><label><span>Category</span><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="all">All categories</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.parentId ? `↳ ${category.name}` : category.name}</option>)}</select>{categoryId !== "all" && <small className="selected-category-caption"><CategoryIcon icon={categories.find((category) => category.id === categoryId)?.icon} size={13} /> Selected category</small>}</label><label><span>Movement</span><select value={transactionType} onChange={(event) => setTransactionType(event.target.value as "all" | TransactionType)}><option value="all">All movement</option><option value="income">Inflow</option><option value="expense">Outflow</option><option value="transfer">Transfer</option></select></label></div><div className="report-scope-line"><span>Viewing <b>{summary.count}</b> matching record{summary.count === 1 ? "" : "s"}</span><span>{reportPeriod}</span></div></section>
     <section className="report-summary-grid"><article className="paper-card report-stat income"><span>Filtered inflow</span><strong>{fmt.format(summary.income)}</strong><small>Income entries only</small></article><article className="paper-card report-stat expense"><span>Filtered outflow</span><strong>{fmt.format(summary.expense)}</strong><small>Expense entries only</small></article><article className="paper-card report-stat net"><span>Net movement</span><strong>{summary.net >= 0 ? "+" : "−"}{fmt.format(Math.abs(summary.net))}</strong><small>Transfers remain neutral</small></article><article className="paper-card report-stat allocation"><span>Records held</span><strong>{summary.count}</strong><small>{summary.transfers ? `${fmt.format(summary.transfers)} in transfers` : "No transfers in scope"}</small></article></section>
     <section className="paper-card report-register"><div className="section-head report-register-head"><div><div className="page-kicker">Filtered register</div><h2>Entries ready to export</h2></div><div className="report-export-actions"><button className="report-export-button csv" onClick={exportCsv}><Download size={14} /> Download CSV</button><button className="report-export-button pdf" onClick={exportPdf}><FileText size={14} /> Download PDF</button></div></div>{allocation.length > 0 && <div className="report-allocation"><span>Expense allocation</span>{allocation.map((item) => <b key={item.id} className="category-picker-label"><CategoryIcon icon={item.icon} size={13} />{item.name} <em>{fmt.format(item.amount)}</em></b>)}</div>}<div className="transaction-list report-transaction-list">{filteredLedger.length ? filteredLedger.map((transaction) => <TransactionRow key={transaction.id} transaction={transaction} categories={categories} onSelect={onSelectTransaction} />) : <div className="horizon-empty"><strong>No records in this scope.</strong>Change the date, account, category, or movement filter to reopen the register.</div>}</div></section>
   </>;
@@ -2228,7 +2301,7 @@ function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpen
   </>;
 }
 
-function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function WorkRoutineView({ routines, attendance, weekStartDay, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: 0 | 1; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const activeRoutines = routines.filter((routine) => routine.status !== "archived");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -2236,8 +2309,8 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
   const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
   const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? null;
-  const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek).map((day) => isFutureRoutineDate(day.date) ? { ...day, inCurrentMonth: false } : day) : [];
-  const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek) : [];
+  const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek, weekStartDay).map((day) => isFutureRoutineDate(day.date) ? { ...day, inCurrentMonth: false } : day) : [];
+  const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek, weekStartDay) : [];
   const attendedDates = new Set(attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended).map((item) => item.date));
   const attendedThisMonth = expectedDays.filter((date) => attendedDates.has(date)).length;
   const totalAttendedThisMonth = calendar.filter((day) => day.inCurrentMonth && attendedDates.has(day.date)).length;
@@ -2251,14 +2324,14 @@ function WorkRoutineView({ routines, attendance, onCreateRoutine, onToggleRoutin
   return <div className="routine-workspace">
     <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
     <section className="field-note routine-income-guidance"><b>Keep work and money clear.</b><span>Each tuition role and permanent job is counted as its own routine. Attendance never changes expense budgets; when you are paid, record the money as income using Salary, Freelance income, or a dedicated Tuition category.</span></section>
-    {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each Monday–Sunday workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
+    {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each {weekStartDay === 1 ? "Monday–Sunday" : "Sunday–Saturday"} workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
     {activeRoutines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{activeRoutines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`End ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
       {selectedRoutine && <div className="back-line"><button type="button" className="back-control" onClick={() => setSelectedRoutineId(null)}><ArrowLeft size={14} /> Back to routines</button></div>}
-      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : `${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Future dates are unavailable until they arrive. Your rolling work view holds this month plus the prior eleven; attendance remains available for two years in Data History.</p></section>}</>}
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{(weekStartDay === 1 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : `${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Future dates are unavailable until they arrive. Your rolling work view holds this month plus the prior eleven; attendance remains available for two years in Data History.</p></section>}</>}
   </div>;
 }
 
-function HorizonView({ goals, trips, loans, schedules, routines, attendance, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function HorizonView({ goals, trips, loans, schedules, routines, attendance, weekStartDay, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: 0 | 1; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring" | "routines">("goals");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
   const activeGoals = goals.filter(planningIsActive);
@@ -2352,7 +2425,7 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, onO
         </div>
       )}
 
-      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} onRemoveRoutine={onRemoveRoutine} />}
+      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} weekStartDay={weekStartDay} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} onRemoveRoutine={onRemoveRoutine} />}
     </>
   );
 }
@@ -2479,7 +2552,7 @@ function LegacySettingsView({ categories, subcategorySpent, reminderSettings, re
   );
 }
 
-function RetainedDataView({ routines, attendance, goals, trips, loans, onBack, onOpenOverviewHistory }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; goals: Goal[]; trips: Trip[]; loans: Loan[]; onBack: () => void; onOpenOverviewHistory: () => void }) {
+function RetainedDataView({ routines, attendance, goals, trips, loans, weekStartDay, onBack, onOpenOverviewHistory }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; goals: Goal[]; trips: Trip[]; loans: Loan[]; weekStartDay: 0 | 1; onBack: () => void; onOpenOverviewHistory: () => void }) {
   const twoYearsAgo = new Date();
   twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
   const retainedAttendance = attendance.filter((item) => new Date(item.date) >= twoYearsAgo);
@@ -2493,23 +2566,24 @@ function RetainedDataView({ routines, attendance, goals, trips, loans, onBack, o
   const [selectedMonth, setSelectedMonth] = useState<string | null>(availableMonths[0] ?? null);
   const activeMonth = availableMonths.includes(selectedMonth ?? "") ? selectedMonth : null;
   const [year, monthIndex] = (activeMonth ?? new Date().toISOString().slice(0, 7)).split("-").map(Number);
-  const archiveCalendar = selectedRoutine ? routineCalendarDays(year, monthIndex - 1, selectedRoutine.daysPerWeek) : [];
+  const archiveCalendar = selectedRoutine ? routineCalendarDays(year, monthIndex - 1, selectedRoutine.daysPerWeek, weekStartDay) : [];
   const archiveMonthEntries = retainedAttendance.filter((item) => item.routineId === selectedRoutine?.id && item.date.startsWith(activeMonth ?? ""));
   const archiveAttendedDates = new Set(archiveMonthEntries.filter((item) => item.attended).map((item) => item.date));
-  const archiveExpectedDays = selectedRoutine ? expectedRoutineDaysInMonth(year, monthIndex - 1, selectedRoutine.daysPerWeek) : [];
+  const archiveExpectedDays = selectedRoutine ? expectedRoutineDaysInMonth(year, monthIndex - 1, selectedRoutine.daysPerWeek, weekStartDay) : [];
   const archiveExpectedAttended = archiveExpectedDays.filter((date) => archiveAttendedDates.has(date)).length;
   const selectRoutine = (routineId: string) => {
     setSelectedRoutineId(routineId);
     setSelectedMonth(null);
   };
-  return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open full ledger History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.filter((routine) => routine.status !== "archived").length}</b></div></div></section><section className="paper-card section-card routine-archive"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Routine calendar archive</h2></div><span className="month-hand-date">Last 24 months</span></div><p className="category-section-note">Open one routine, choose a recorded month, then view that month’s calendar. Nothing is expanded until you ask for it.</p>{archiveRoutines.length ? <><div className="routine-archive-list" aria-label="Choose a routine archive">{archiveRoutines.map((routine) => { const routineMonths = new Set(retainedAttendance.filter((item) => item.routineId === routine.id).map((item) => item.date.slice(0, 7))); const routineEntries = retainedAttendance.filter((item) => item.routineId === routine.id); return <button type="button" key={routine.id} className={`routine-archive-card ${selectedRoutine?.id === routine.id ? "selected" : ""}`} onClick={() => selectRoutine(routine.id)}><span className="routine-archive-card-icon" style={{ color: routine.color }}><ClipboardCheck size={18} /></span><span><b>{routine.name}</b><small>{routineMonths.size} recorded month{routineMonths.size === 1 ? "" : "s"} · {routineEntries.filter((item) => item.attended).length} attended day{routineEntries.filter((item) => item.attended).length === 1 ? "" : "s"}</small></span><span className="routine-archive-card-meta">{routine.status === "archived" ? "Ended" : "Active"}<ChevronRight size={16} /></span></button>; })}</div>{selectedRoutine && !activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>Recorded months for {selectedRoutine.name}</span><button type="button" className="text-link" onClick={() => setSelectedRoutineId(null)}>Close</button></div><div className="routine-archive-months" aria-label={`Choose a month for ${selectedRoutine.name}`}>{availableMonths.map((item) => <button type="button" key={item} onClick={() => setSelectedMonth(item)}>{monthLabel(item)}</button>)}</div></div>}{selectedRoutine && activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>{selectedRoutine.name} · {monthLabel(activeMonth)}</span><button type="button" className="text-link" onClick={() => setSelectedMonth(null)}>All recorded months</button></div><section className="routine-calendar-sheet archive-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{monthLabel(activeMonth)}</h3></div><span className="archive-month-status">{selectedRoutine.status === "archived" ? "Ended routine" : "Routine record"}</span></div><div className="routine-summary"><div><span>Attended</span><strong>{archiveAttendedDates.size}</strong></div><div><span>Expected</span><strong>{archiveExpectedDays.length}</strong></div><div><span>On schedule</span><strong>{archiveExpectedAttended}/{archiveExpectedDays.length}</strong></div></div><div className="routine-weekdays">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid archive-calendar-grid">{archiveCalendar.map((day) => <div key={day.date} className={`routine-calendar-day static ${day.expected ? "expected" : ""} ${archiveAttendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</div>)}</div><p className="routine-calendar-note"><i /> Gold dates were recorded as attended. Expected days remain marked so you can understand the month at a glance.</p></section></div>}</> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
+  return <><header className="page-header"><div><div className="back-line"><button className="back-control" onClick={onBack}><ArrowLeft size={14} /> Back to Settings</button></div><div className="page-kicker">Data history</div><h1>Two years, kept in reach.</h1><p className="page-subtitle">Your rolling routine view stays focused on twelve months. This archive keeps the retained planning and attendance record accessible for two years.</p></div></header><section className="paper-card section-card"><div className="section-head"><div><div className="page-kicker">Retention summary</div><h2>Stored planning history</h2></div><button className="secondary-button" onClick={onOpenOverviewHistory}>Open full ledger History</button></div><div className="routine-summary"><div><span>Completed goals</span><strong>{completedGoals.length}</strong></div><div><span>Completed plans</span><strong>{completedTrips.length}</strong></div><div><span>Completed loans</span><strong>{completedLoans.length}</strong></div></div><div className="field-note"><div className="field-note-row"><span>Routine records retained</span><b>{retainedAttendance.length}</b></div><div className="field-note-row"><span>Active routines</span><b>{routines.filter((routine) => routine.status !== "archived").length}</b></div></div></section><section className="paper-card section-card routine-archive"><div className="section-head"><div><div className="page-kicker">Work & routine log</div><h2>Routine calendar archive</h2></div><span className="month-hand-date">Last 24 months</span></div><p className="category-section-note">Open one routine, choose a recorded month, then view that month’s calendar. Nothing is expanded until you ask for it.</p>{archiveRoutines.length ? <><div className="routine-archive-list" aria-label="Choose a routine archive">{archiveRoutines.map((routine) => { const routineMonths = new Set(retainedAttendance.filter((item) => item.routineId === routine.id).map((item) => item.date.slice(0, 7))); const routineEntries = retainedAttendance.filter((item) => item.routineId === routine.id); return <button type="button" key={routine.id} className={`routine-archive-card ${selectedRoutine?.id === routine.id ? "selected" : ""}`} onClick={() => selectRoutine(routine.id)}><span className="routine-archive-card-icon" style={{ color: routine.color }}><ClipboardCheck size={18} /></span><span><b>{routine.name}</b><small>{routineMonths.size} recorded month{routineMonths.size === 1 ? "" : "s"} · {routineEntries.filter((item) => item.attended).length} attended day{routineEntries.filter((item) => item.attended).length === 1 ? "" : "s"}</small></span><span className="routine-archive-card-meta">{routine.status === "archived" ? "Ended" : "Active"}<ChevronRight size={16} /></span></button>; })}</div>{selectedRoutine && !activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>Recorded months for {selectedRoutine.name}</span><button type="button" className="text-link" onClick={() => setSelectedRoutineId(null)}>Close</button></div><div className="routine-archive-months" aria-label={`Choose a month for ${selectedRoutine.name}`}>{availableMonths.map((item) => <button type="button" key={item} onClick={() => setSelectedMonth(item)}>{monthLabel(item)}</button>)}</div></div>}{selectedRoutine && activeMonth && <div className="routine-archive-detail"><div className="section-mini-head"><span>{selectedRoutine.name} · {monthLabel(activeMonth)}</span><button type="button" className="text-link" onClick={() => setSelectedMonth(null)}>All recorded months</button></div><section className="routine-calendar-sheet archive-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{monthLabel(activeMonth)}</h3></div><span className="archive-month-status">{selectedRoutine.status === "archived" ? "Ended routine" : "Routine record"}</span></div><div className="routine-summary"><div><span>Attended</span><strong>{archiveAttendedDates.size}</strong></div><div><span>Expected</span><strong>{archiveExpectedDays.length}</strong></div><div><span>On schedule</span><strong>{archiveExpectedAttended}/{archiveExpectedDays.length}</strong></div></div><div className="routine-weekdays">{(weekStartDay === 1 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid archive-calendar-grid">{archiveCalendar.map((day) => <div key={day.date} className={`routine-calendar-day static ${day.expected ? "expected" : ""} ${archiveAttendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</div>)}</div><p className="routine-calendar-note"><i /> Gold dates were recorded as attended. Expected days remain marked so you can understand the month at a glance.</p></section></div>}</> : <p className="empty-hint">No routine attendance has been recorded in the retained period.</p>}</section></>;
 }
 
-type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders";
+type SettingsWorkspaceMode = "expenses" | "income" | "currency" | "reminders" | "preferences";
 
-function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenReports, onOpenAccounts, onOpenHistory }: {
+function SettingsView({ categories, reminderSettings, userPrefs, onOpenWorkspace, onOpenReports, onOpenAccounts, onOpenHistory }: {
   categories: Category[];
   reminderSettings: ReminderSettings;
+  userPrefs: UserPrefs;
   onOpenWorkspace: (workspace: `settings-${SettingsWorkspaceMode}`) => void;
   onOpenReports: () => void;
   onOpenAccounts: () => void;
@@ -2522,7 +2596,8 @@ function SettingsView({ categories, reminderSettings, onOpenWorkspace, onOpenRep
   return <>
     <header className="page-header"><div><div className="page-kicker">Preferences & taxonomy</div><h1>Settings.</h1><p className="page-subtitle">Open one workspace at a time to organise your ledger without losing focus.</p></div></header>
     <section className="settings-destination-grid">
-      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className="settings-destination-mark"><Bell size={18} /></span><span className="settings-destination-copy"><span className="settings-destination-topline"><span className="page-kicker">Daily ledger reminder</span><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span></span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${formatReminderTime(reminderSettings.time)}` : "Choose a time when you are ready."}</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination reminder" onClick={() => onOpenWorkspace("settings-reminders")}><span className="settings-destination-mark"><Bell size={18} /></span><span className="settings-destination-copy"><span className="settings-destination-topline"><span className="page-kicker">Daily ledger reminder</span><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Set" : "Not set"}</span></span><strong>Close the day with a complete ledger.</strong><small>{reminderSettings.enabled ? `Daily check-in at ${formatReminderTime(reminderSettings.time, userPrefs.timeFormat)}` : "Choose a time when you are ready."}</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
+      <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-preferences")}><span className="settings-destination-mark"><Calendar size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Calendar & time</span><strong>{userPrefs.weekStartDay === 1 ? "Monday-first" : "Sunday-first"} · {userPrefs.timeFormat}</strong><small>Set your calendar week, financial year, and displayed clock.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-currency")}><span className="settings-destination-mark"><CircleDollarSign size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Ledger currency</span><strong>{currency?.label ?? reminderSettings.currency}</strong><small>Display one clear currency across your ledger, insights, and exports.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={onOpenAccounts}><span className="settings-destination-mark"><HandCoins size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Accounts</span><strong>Accounts & assets</strong><small>Review balances, liabilities, and account registers.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
       <button className="paper-card settings-destination" onClick={() => onOpenWorkspace("settings-expenses")}><span className="settings-destination-mark"><Wallet size={18} /></span><span className="settings-destination-copy"><span className="page-kicker">Money taxonomy</span><strong>Expense categories <em>({expenseCount})</em></strong><small>Permanent spending types and their detailed subcategories.</small></span><ChevronRight className="settings-destination-arrow" size={20} /></button>
@@ -2548,11 +2623,12 @@ function CurrencyDirectory({ value, disabled, onChange }: { value: SupportedCurr
   </div>;
 }
 
-function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onEnableDeviceReminder }: {
+function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSettings, userPrefs, reminderPushStatus, reminderPushBusy, signedIn, onBack, onOpenAddIncomeCategory, onOpenAddSub, onDeleteCategory, onSaveReminderSettings, onSaveUserPrefs, onEnableDeviceReminder }: {
   mode: SettingsWorkspaceMode;
   categories: Category[];
   subcategorySpent: Record<string, number>;
   reminderSettings: ReminderSettings;
+  userPrefs: UserPrefs;
   reminderPushStatus: string | null;
   reminderPushBusy: boolean;
   signedIn: boolean;
@@ -2561,6 +2637,7 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
   onOpenAddSub: (parentId: string) => void;
   onDeleteCategory: (id: string) => void;
   onSaveReminderSettings: (settings: ReminderSettings) => void;
+  onSaveUserPrefs: (preferences: UserPrefs) => void;
   onEnableDeviceReminder: () => void;
 }) {
   const expenseParents = categories.filter((category) => category.type === "expense" && !category.parentId);
@@ -2574,6 +2651,7 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
     income: { kicker: "Income taxonomy", title: "Income sources", description: "Name every income source once, then reuse it whenever you add money in." },
     currency: { kicker: "Ledger preference", title: "Ledger currency", description: "Choose one display currency across your ledger, insights, and exports." },
     reminders: { kicker: "Reminder preference", title: "Daily ledger reminder", description: "Set one calm end-of-day cue to record what happened today." },
+    preferences: { kicker: "Calendar & time", title: "Your financial rhythm", description: "Choose how weeks, financial reporting periods, and all displayed times are presented." },
   };
   const meta = copy[mode];
   const draftTimeParts = reminderTimeParts(draftReminderTime);
@@ -2599,13 +2677,19 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
       {mode === "expenses" && <><p className="category-section-note">Add detailed subcategories beneath the permanent spending types. Category budgets always remain with the parent.</p><div className="category-groups">{expenseParents.map((parent) => { const children = categories.filter((category) => category.parentId === parent.id); return <article className="category-group" key={parent.id}><div className="category-group-head"><span className="category-symbol" style={{ color: parent.color }}><CategoryIcon icon={parent.icon} size={18} /></span><div><strong>{parent.name}</strong><small><span className="permanent-category-marker">Permanent type</span></small></div><em>Budget: {fmt.format(parent.monthlyBudget ?? 0)}</em></div><button className="category-add-sub" onClick={() => onOpenAddSub(parent.id)}><FolderPlus size={14} /> Add subcategory</button><div className="subcategory-list">{children.map((child) => <div className="subcategory-row" key={child.id}><span><CategoryIcon icon={child.icon} size={14} /> {child.name}</span><strong>{fmt.format(subcategorySpent[child.id] ?? 0)}</strong><button className="delete-button" onClick={() => onDeleteCategory(child.id)} aria-label={`Delete ${child.name}`}><Trash2 size={13} /></button></div>)}</div></article>; })}</div></>}
       {mode === "income" && <><div className="workspace-action-row"><p className="category-section-note">Add a source once, then reuse it on every income entry. Income stays flat and focused.</p><button className="add-button" onClick={onOpenAddIncomeCategory}><Plus size={15} /> Add income category</button></div><div className="income-workspace-list">{incomeList.map((income) => <article className="income-workspace-row" key={income.id}><span className="category-symbol" style={{ color: income.color }}><CategoryIcon icon={income.icon} size={18} /></span><strong>{income.name}</strong><button className="delete-button" onClick={() => onDeleteCategory(income.id)} aria-label={`Delete ${income.name}`}><Trash2 size={14} /></button></article>)}</div></>}
       {mode === "currency" && <><div className="currency-choice-summary"><span>Display currency</span><strong>{reminderSettings.currency}</strong><p>This changes labels only; it does not convert amounts that were already recorded.</p></div><CurrencyDirectory value={reminderSettings.currency} disabled={!signedIn} onChange={(currency) => onSaveReminderSettings({ ...reminderSettings, currency })} />{!signedIn && <p className="reminder-settings-note">Sign in to save your display preference.</p>}</>}
+      {mode === "preferences" && <div className="preferences-workspace">
+        <article className="preference-setting-card"><div><span className="draft-kicker">Calendar layout</span><h2>First day of the week</h2><p>This reorders date-picker calendars and routine-week layouts. It does not change any recorded transaction dates.</p></div><div className="preference-option-grid" role="group" aria-label="First day of the week">{([{ value: 1, label: "Monday", note: "Monday-first" }, { value: 0, label: "Sunday", note: "Sunday-first" }] as const).map((choice) => <button type="button" key={choice.value} className={`preference-option ${userPrefs.weekStartDay === choice.value ? "selected" : ""}`} onClick={() => onSaveUserPrefs({ ...userPrefs, weekStartDay: choice.value })} disabled={!signedIn} aria-pressed={userPrefs.weekStartDay === choice.value}><strong>{choice.label}</strong><span>{choice.note}</span></button>)}</div></article>
+        <article className="preference-setting-card"><div><span className="draft-kicker">Reporting boundary</span><h2>Financial year begins</h2><p>This sets the year boundary used in Insights and report exports. It does not move, alter, or hide transaction dates.</p></div><div className="preference-month-grid" role="group" aria-label="Financial year start month">{Array.from({ length: 12 }, (_, index) => index + 1).map((month) => <button type="button" key={month} className={userPrefs.financialYearStartMonth === month ? "selected" : ""} onClick={() => onSaveUserPrefs({ ...userPrefs, financialYearStartMonth: month })} disabled={!signedIn} aria-pressed={userPrefs.financialYearStartMonth === month}>{new Date(2026, month - 1, 1).toLocaleDateString("en-US", { month: "short" })}</button>)}</div></article>
+        <article className="preference-setting-card"><div><span className="draft-kicker">Displayed clock</span><h2>Time format</h2><p>This changes every visible reminder and notification time. Saved reminder times stay exactly the same.</p></div><div className="preference-option-grid" role="group" aria-label="Time format">{([{ value: "12h", label: "12-hour", note: "e.g. 10:00 PM" }, { value: "24h", label: "24-hour", note: "e.g. 22:00" }] as const).map((choice) => <button type="button" key={choice.value} className={`preference-option ${userPrefs.timeFormat === choice.value ? "selected" : ""}`} onClick={() => onSaveUserPrefs({ ...userPrefs, timeFormat: choice.value })} disabled={!signedIn} aria-pressed={userPrefs.timeFormat === choice.value}><strong>{choice.label}</strong><span>{choice.note}</span></button>)}</div></article>
+        {!signedIn && <p className="reminder-settings-note">Sign in to keep these personal preferences after you leave this device.</p>}
+      </div>}
       {mode === "reminders" && <>
         <div className="workspace-reminder-head">
           <div><span className={`settings-status-chip ${reminderSettings.enabled ? "is-active" : ""}`}>{reminderSettings.enabled ? "Configured" : "Not set"}</span><h2>Close the day with a complete ledger.</h2><p>Choose a daily moment for a discreet reminder that keeps your personal record complete.</p></div>
           <button type="button" className={`reminder-toggle ${reminderSettings.enabled ? "is-enabled" : ""}`} onClick={() => reminderSettings.enabled ? onSaveReminderSettings({ ...reminderSettings, enabled: false }) : onEnableDeviceReminder()} disabled={!signedIn || reminderPushBusy} aria-pressed={reminderSettings.enabled}><span aria-hidden="true" />{reminderSettings.enabled ? "Daily reminder on" : reminderPushBusy ? "Connecting device…" : "Enable daily reminder"}</button>
         </div>
         <div className="workspace-picker-grid">
-          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={openTimePicker}><span><small>Daily check-in time</small><strong>{formatReminderTime(reminderSettings.time)}</strong><em>Tap to choose the exact time.</em></span><ChevronRight size={18} /></button>
+          <button className="workspace-picker-trigger" disabled={!signedIn} onClick={openTimePicker}><span><small>Daily check-in time</small><strong>{formatReminderTime(reminderSettings.time, userPrefs.timeFormat)}</strong><em>Tap to choose the exact time.</em></span><ChevronRight size={18} /></button>
           <button className="workspace-picker-trigger" disabled={!signedIn} onClick={() => setOpenPicker("timezone")}><span><small>Reminder location</small><strong>{reminderSettings.timezone === deviceTimezone ? `${reminderSettings.timezone} · this device` : reminderSettings.timezone}</strong><em>Your selected time follows this location’s local clock.</em></span><ChevronRight size={18} /></button>
         </div>
         {!signedIn && <p className="reminder-settings-note">Sign in to save a reminder that follows your personal ledger.</p>}
@@ -2615,12 +2699,12 @@ function SettingsWorkspaceView({ mode, categories, subcategorySpent, reminderSet
           <section className={`workspace-choice-sheet ${openPicker === "time" ? "time-picker-sheet" : ""}`} role="dialog" aria-modal="true" aria-label="Choose reminder preference">
             <div className="workspace-choice-head"><div><span className="draft-kicker">{openPicker === "time" ? "Daily check-in time" : "Reminder location"}</span><h3>{openPicker === "time" ? "Choose a moment" : "Choose local time"}</h3></div><button className="close-button" onClick={() => setOpenPicker(null)} aria-label="Close"><X size={16} /></button></div>
             {openPicker === "time" ? <>
-              <div className="time-picker-summary" aria-live="polite"><span>Selected check-in</span><strong>{formatReminderTime(draftReminderTime)}</strong><p>Your saved reminder will not change until you confirm.</p></div>
+              <div className="time-picker-summary" aria-live="polite"><span>Selected check-in</span><strong>{formatReminderTime(draftReminderTime, userPrefs.timeFormat)}</strong><p>Your saved reminder will not change until you confirm.</p></div>
               <div className="time-picker-columns">
-                <fieldset className="time-picker-fieldset"><legend>Hour</legend><div className="time-picker-hour-grid">{Array.from({ length: 12 }, (_, index) => index + 1).map((hour) => <button key={hour} type="button" className={hour === draftTimeParts.hour ? "selected" : ""} aria-pressed={hour === draftTimeParts.hour} onClick={() => setDraftReminderTime(reminderTimeFromParts(hour, draftTimeParts.minute, draftTimeParts.meridiem))}>{hour}</button>)}</div></fieldset>
-                <fieldset className="time-picker-fieldset"><legend>Minutes</legend><div className="time-picker-minute-grid">{minuteChoices.map((minute) => <button key={minute} type="button" className={minute === draftTimeParts.minute ? "selected" : ""} aria-pressed={minute === draftTimeParts.minute} onClick={() => setDraftReminderTime(reminderTimeFromParts(draftTimeParts.hour, minute, draftTimeParts.meridiem))}>:{minute}</button>)}</div><div className="time-picker-period-grid">{(["AM", "PM"] as const).map((meridiem) => <button key={meridiem} type="button" className={meridiem === draftTimeParts.meridiem ? "selected" : ""} aria-pressed={meridiem === draftTimeParts.meridiem} onClick={() => setDraftReminderTime(reminderTimeFromParts(draftTimeParts.hour, draftTimeParts.minute, meridiem))}>{meridiem}</button>)}</div></fieldset>
+                <fieldset className="time-picker-fieldset"><legend>Hour</legend><div className="time-picker-hour-grid">{(userPrefs.timeFormat === "24h" ? Array.from({ length: 24 }, (_, index) => index) : Array.from({ length: 12 }, (_, index) => index + 1)).map((hour) => { const selectedHour = userPrefs.timeFormat === "24h" ? Number(draftReminderTime.slice(0, 2)) : draftTimeParts.hour; return <button key={hour} type="button" className={hour === selectedHour ? "selected" : ""} aria-pressed={hour === selectedHour} onClick={() => setDraftReminderTime(userPrefs.timeFormat === "24h" ? `${String(hour).padStart(2, "0")}:${draftTimeParts.minute}` : reminderTimeFromParts(hour, draftTimeParts.minute, draftTimeParts.meridiem))}>{userPrefs.timeFormat === "24h" ? String(hour).padStart(2, "0") : hour}</button>; })}</div></fieldset>
+                <fieldset className="time-picker-fieldset"><legend>Minutes</legend><div className="time-picker-minute-grid">{minuteChoices.map((minute) => <button key={minute} type="button" className={minute === draftTimeParts.minute ? "selected" : ""} aria-pressed={minute === draftTimeParts.minute} onClick={() => setDraftReminderTime(userPrefs.timeFormat === "24h" ? `${draftReminderTime.slice(0, 2)}:${minute}` : reminderTimeFromParts(draftTimeParts.hour, minute, draftTimeParts.meridiem))}>:{minute}</button>)}</div>{userPrefs.timeFormat === "12h" && <div className="time-picker-period-grid">{(["AM", "PM"] as const).map((meridiem) => <button key={meridiem} type="button" className={meridiem === draftTimeParts.meridiem ? "selected" : ""} aria-pressed={meridiem === draftTimeParts.meridiem} onClick={() => setDraftReminderTime(reminderTimeFromParts(draftTimeParts.hour, draftTimeParts.minute, meridiem))}>{meridiem}</button>)}</div>}</fieldset>
               </div>
-              <div className="workspace-choice-actions"><button type="button" className="picker-cancel-button" onClick={() => setOpenPicker(null)}>Cancel</button><button type="button" className="picker-confirm-button" onClick={confirmReminderTime}>Save {formatReminderTime(draftReminderTime)}</button></div>
+              <div className="workspace-choice-actions"><button type="button" className="picker-cancel-button" onClick={() => setOpenPicker(null)}>Cancel</button><button type="button" className="picker-confirm-button" onClick={confirmReminderTime}>Save {formatReminderTime(draftReminderTime, userPrefs.timeFormat)}</button></div>
             </> : <div className="workspace-choice-list">{timezoneChoices.map((choice) => { const selected = choice === reminderSettings.timezone; const label = choice === deviceTimezone ? `${choice} · this device` : choice; return <button key={choice} className={selected ? "selected" : ""} onClick={() => selectTimezoneChoice(choice)}><span>{label}</span>{selected && <CheckCircle2 size={15} />}</button>; })}</div>}
           </section>
         </div>}
@@ -2633,7 +2717,7 @@ function accountBalance(acc: Account) {
   return acc.balance;
 }
 
-function LedgerDateField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function LedgerDateField({ label, value, weekStartDay, onChange }: { label: string; value: string; weekStartDay: 0 | 1; onChange: (value: string) => void }) {
   const normalisedValue = value ? normaliseCalendarDate(value, new Date()) : "";
   const initial = normalisedValue ? new Date(`${normalisedValue}T12:00:00`) : new Date();
   const [isOpen, setIsOpen] = useState(false);
@@ -2641,7 +2725,8 @@ function LedgerDateField({ label, value, onChange }: { label: string; value: str
   const [cursor, setCursor] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1));
   const selected = normalisedValue ? new Date(`${normalisedValue}T12:00:00`) : null;
   const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  const gridStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1 - monthStart.getDay());
+  const gridOffset = weekStartDay === 1 ? (monthStart.getDay() + 6) % 7 : monthStart.getDay();
+  const gridStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1 - gridOffset);
   const days = Array.from({ length: 42 }, (_, index) => new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index));
   const labelDate = selected ? selected.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "Choose date";
   const isSameDay = (left: Date, right: Date | null) => Boolean(right && left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate());
@@ -2663,7 +2748,7 @@ function LedgerDateField({ label, value, onChange }: { label: string; value: str
             </div>
             <button type="button" className="calendar-nav-button" aria-label="Next month" onClick={() => setCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}><ChevronRight size={16} /></button>
           </div>
-          {yearPickerOpen ? <div className="calendar-year-picker" aria-label="Choose year"><div className="calendar-year-picker-head"><button type="button" className="calendar-nav-button" aria-label="Earlier years" onClick={() => setCursor((current) => new Date(current.getFullYear() - yearChoices.length, current.getMonth(), 1))}><ChevronLeft size={16} /></button><span>Choose a year</span><button type="button" className="calendar-nav-button" aria-label="Later years" onClick={() => setCursor((current) => new Date(current.getFullYear() + yearChoices.length, current.getMonth(), 1))}><ChevronRight size={16} /></button></div><div className="calendar-year-grid">{yearChoices.map((year) => <button key={year} type="button" className={year === cursor.getFullYear() ? "selected" : ""} onClick={() => { setCursor((current) => new Date(year, current.getMonth(), 1)); setYearPickerOpen(false); }}>{year}</button>)}</div></div> : <><div className="ledger-calendar-weekdays">{["S", "M", "T", "W", "T", "F", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div><div className="ledger-calendar-grid">{days.map((day) => <button type="button" key={dateInputValue(day)} className={`ledger-calendar-day ${day.getMonth() !== cursor.getMonth() ? "outside" : ""} ${isSameDay(day, selected) ? "selected" : ""}`} onClick={() => { onChange(dateInputValue(day)); setYearPickerOpen(false); setIsOpen(false); }}>{day.getDate()}</button>)}</div></>}
+          {yearPickerOpen ? <div className="calendar-year-picker" aria-label="Choose year"><div className="calendar-year-picker-head"><button type="button" className="calendar-nav-button" aria-label="Earlier years" onClick={() => setCursor((current) => new Date(current.getFullYear() - yearChoices.length, current.getMonth(), 1))}><ChevronLeft size={16} /></button><span>Choose a year</span><button type="button" className="calendar-nav-button" aria-label="Later years" onClick={() => setCursor((current) => new Date(current.getFullYear() + yearChoices.length, current.getMonth(), 1))}><ChevronRight size={16} /></button></div><div className="calendar-year-grid">{yearChoices.map((year) => <button key={year} type="button" className={year === cursor.getFullYear() ? "selected" : ""} onClick={() => { setCursor((current) => new Date(year, current.getMonth(), 1)); setYearPickerOpen(false); }}>{year}</button>)}</div></div> : <><div className="ledger-calendar-weekdays">{(weekStartDay === 1 ? ["M", "T", "W", "T", "F", "S", "S"] : ["S", "M", "T", "W", "T", "F", "S"]).map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div><div className="ledger-calendar-grid">{days.map((day) => <button type="button" key={dateInputValue(day)} className={`ledger-calendar-day ${day.getMonth() !== cursor.getMonth() ? "outside" : ""} ${isSameDay(day, selected) ? "selected" : ""}`} onClick={() => { onChange(dateInputValue(day)); setYearPickerOpen(false); setIsOpen(false); }}>{day.getDate()}</button>)}</div></>}
           <div className="ledger-calendar-actions"><button type="button" className="text-link" onClick={() => { onChange(dateInputValue(new Date())); setYearPickerOpen(false); setIsOpen(false); }}>Today</button><button type="button" className="secondary-button" onClick={() => { setYearPickerOpen(false); setIsOpen(false); }}>Close</button></div>
         </section>
       </div>}
@@ -2671,8 +2756,8 @@ function LedgerDateField({ label, value, onChange }: { label: string; value: str
   );
 }
 
-function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onViewEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
-  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; loanAccount: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
+function DraftPanel({ kind, title, amount, dateVal, weekStartDay, transaction, accounts, categories, goals, trips, editingGoalId, editingTripId, editingLoanId, editingScheduleId, catName, catBudget, catType, catIcon, parentTarget, subName, subIcon, accName, accKind, accBalance, accNumber, loanDirection, loanCounterparty, loanTerms, loanAccount, goalFinancing, scheduleType, scheduleFrequency, scheduleAccount, scheduleCategory, onTitle, onAmount, onDate, onTransaction, onUploadEvidence, onViewEvidence, onCatName, onCatBudget, onCatType, onCatIcon, onParentTarget, onSubName, onSubIcon, onAccName, onAccKind, onAccBalance, onAccNumber, onLoanDirection, onLoanCounterparty, onLoanTerms, onLoanAccount, onGoalFinancing, onScheduleType, onScheduleFrequency, onScheduleAccount, onScheduleCategory, onClose, onSave, onOpenAddSub, onOpenAddIncomeCategory }: {
+  kind: Exclude<DraftKind, null | "profile">; title: string; amount: string; dateVal: string; weekStartDay: 0 | 1; transaction: TransactionDraft; accounts: Account[]; categories: Category[]; goals: Goal[]; trips: Trip[]; editingGoalId: string | null; editingTripId: string | null; editingLoanId: string | null; editingScheduleId: string | null; catName: string; catBudget: string; catType: "expense" | "income"; catIcon: string; parentTarget: string; subName: string; subIcon: string; accName: string; accKind: "asset" | "liability"; accBalance: string; accNumber: string; loanDirection: Loan["direction"]; loanCounterparty: string; loanTerms: string; loanAccount: string; goalFinancing: string; scheduleType: RecurringSchedule["type"]; scheduleFrequency: ScheduleFrequency; scheduleAccount: string; scheduleCategory: string;
   onTitle: (value: string) => void; onAmount: (value: string) => void; onDate: (value: string) => void; onTransaction: (value: TransactionDraft | ((current: TransactionDraft) => TransactionDraft)) => void; onUploadEvidence: (file: File) => Promise<TransactionAttachment>; onViewEvidence: (attachment: TransactionAttachment) => Promise<void>; onCatName: (value: string) => void; onCatBudget: (value: string) => void; onCatType: (value: "expense" | "income") => void; onCatIcon: (value: string) => void; onParentTarget: (value: string) => void; onSubName: (value: string) => void; onSubIcon: (value: string) => void; onAccName: (value: string) => void; onAccKind: (value: "asset" | "liability") => void; onAccBalance: (value: string) => void; onAccNumber: (value: string) => void; onLoanDirection: (value: Loan["direction"]) => void; onLoanCounterparty: (value: string) => void; onLoanTerms: (value: string) => void; onLoanAccount: (value: string) => void; onGoalFinancing: (value: string) => void; onScheduleType: (value: RecurringSchedule["type"]) => void; onScheduleFrequency: (value: ScheduleFrequency) => void; onScheduleAccount: (value: string) => void; onScheduleCategory: (value: string) => void; onClose: () => void; onSave: () => void; onOpenAddSub: (parentId: string) => void; onOpenAddIncomeCategory: () => void;
 }) {
   const heading = kind === "transaction" ? (transaction.id ? "Edit transaction" : "Draft a transaction") : kind === "goal" ? (editingGoalId ? "Edit savings goal" : "Set a new savings goal") : kind === "trip" ? (editingTripId ? "Edit trip or event plan" : "Plan a trip or event") : kind === "loan" ? (editingLoanId ? "Edit debt or loan" : "Add debt or loan") : kind === "schedule" ? (editingScheduleId ? "Edit recurring schedule" : "Add recurring schedule") : kind === "category" ? (catType === "expense" ? "Add expense category" : "Add income category") : kind === "subcategory" ? "Add subcategory" : "Add bank account or asset";
@@ -2775,7 +2860,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
             </div>
           )}
 
-          <LedgerDateField label="Date" value={transaction.date} onChange={(value) => update({ date: value })} />
+          <LedgerDateField label="Date" value={transaction.date} weekStartDay={weekStartDay} onChange={(value) => update({ date: value })} />
           <div className="tag-grid"><div className="form-field"><label>Payee <em>(optional)</em></label><input value={transaction.payee} onChange={(event) => update({ payee: event.target.value })} placeholder={transaction.type === "income" ? "Who paid you?" : "Who received it?"} /></div><div className="form-field"><label>Payer <em>(optional)</em></label><input value={transaction.payer} onChange={(event) => update({ payer: event.target.value })} placeholder={transaction.type === "income" ? "Who sent it?" : "Who paid?"} /></div></div>
           <div className="form-field"><label>Settlement</label><div className="type-options"><button type="button" className={`type-option ${transaction.settlementStatus === "paid" ? "active" : ""}`} onClick={() => update({ settlementStatus: "paid" })}><CircleCheck size={15} /> Paid</button><button type="button" className={`type-option ${transaction.settlementStatus === "pending" ? "active" : ""}`} onClick={() => update({ settlementStatus: "pending" })}><Clock3 size={15} /> Pending</button></div></div>
           <div className="form-field transaction-evidence"><label>Receipts & proof <em>(optional)</em></label><small>Keep a photo, digital receipt, or document with this entry.</small><div className="evidence-actions"><label className="evidence-action"><Camera size={15} /> Take photo<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><Image size={15} /> Choose image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><label className="evidence-action"><FileText size={15} /> Add document<input type="file" accept="application/pdf" onChange={(event) => { void addEvidence(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label></div>{evidenceUploading && <small className="evidence-progress">Saving attachment…</small>}{evidenceNotice && <small className="evidence-error">{evidenceNotice}</small>}{transaction.attachments.length > 0 && <div className="evidence-list">{transaction.attachments.map((attachment) => <span className="evidence-chip" key={attachment.id}><Paperclip size={13} /><button type="button" className="evidence-view-button" onClick={() => { void onViewEvidence(attachment); }}>{attachment.name}</button><button type="button" aria-label={`Remove ${attachment.name}`} onClick={() => onTransaction((current) => ({ ...current, attachments: current.attachments.filter((item) => item.id !== attachment.id) }))}><X size={13} /></button></span>)}</div>}</div>
@@ -2786,13 +2871,13 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>Goal title</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Home reserve" autoFocus /></div>
           <div className="form-field"><label>Target amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="5,000" inputMode="decimal" /></div>
           <div className="form-field"><label>Financing contribution <em>(optional)</em></label><input value={goalFinancing} onChange={(event) => onGoalFinancing(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="e.g. 1,500 from a loan or grant" inputMode="decimal" /><small>This reduces the amount you need to personally save.</small></div>
-          <LedgerDateField label="Target timeline" value={dateVal} onChange={onDate} />
+          <LedgerDateField label="Target timeline" value={dateVal} weekStartDay={weekStartDay} onChange={onDate} />
         </>}
 
         {kind === "trip" && <>
           <div className="form-field"><label>Plan name</label><input value={title} onChange={(event) => onTitle(event.target.value)} placeholder="e.g. Autumn in Lisbon" autoFocus /></div>
           <div className="form-field"><label>Working budget</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="1,200" inputMode="decimal" /></div>
-          <LedgerDateField label="Plan date" value={dateVal} onChange={onDate} />
+          <LedgerDateField label="Plan date" value={dateVal} weekStartDay={weekStartDay} onChange={onDate} />
         </>}
 
         {kind === "loan" && <>
@@ -2801,7 +2886,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
           <div className="form-field"><label>{loanDirection === "borrowed" ? "Lender" : "Borrower"}</label><input value={loanCounterparty} onChange={(event) => onLoanCounterparty(event.target.value)} placeholder={loanDirection === "borrowed" ? "e.g. Morgan" : "e.g. Alex"} /></div>
           <div className="form-field"><label>Original amount</label><input value={amount} onChange={(event) => onAmount(event.target.value.replace(/[^0-9.]/g, ""))} placeholder="2,400" inputMode="decimal" /></div>
           <div className="form-field"><label>{loanDirection === "borrowed" ? "Cash received into" : "Cash advanced from"}</label><select value={loanAccount} onChange={(event) => onLoanAccount(event.target.value)} disabled={!accounts.length}>{accounts.length ? accounts.map((account) => <option value={account.id} key={account.id}>{account.name} · {account.kind}</option>) : <option value="">Preparing your Main Account…</option>}</select><small>{loanDirection === "borrowed" ? "Saving creates an income cash movement in this account." : "Saving creates an expense cash movement from this account."}</small></div>
-          <LedgerDateField label="Due date" value={dateVal} onChange={onDate} />
+          <LedgerDateField label="Due date" value={dateVal} weekStartDay={weekStartDay} onChange={onDate} />
           <div className="form-field"><label>Repayment terms <em>(optional)</em></label><input value={loanTerms} onChange={(event) => onLoanTerms(event.target.value)} placeholder="e.g. $300 on the 1st of each month" /></div>
         </>}
 
@@ -2815,7 +2900,7 @@ function DraftPanel({ kind, title, amount, dateVal, transaction, accounts, categ
             <div className="form-field"><label>Expense category</label><button type="button" className="picker-trigger" onClick={() => setScheduleParentPickerOpen(true)} disabled={!scheduleParent}><span className="category-picker-label">{scheduleParent && <CategoryIcon icon={scheduleParent.icon} size={16} />} {scheduleParent?.name ?? "Choose a category"}</span><ChevronRight size={16} /></button><small>Choose the broad budget group for this bill first.</small></div>
             <div className="form-field"><label>Subcategory <em>(optional)</em></label><button type="button" className="picker-trigger" onClick={() => setScheduleSubcategoryPickerOpen(true)} disabled={!scheduleParent}><span className="category-picker-label">{scheduleSelectedSubcategory ? <><CategoryIcon icon={scheduleSelectedSubcategory.icon} size={16} /> {scheduleSelectedSubcategory.name}</> : "No subcategory"}</span><ChevronRight size={16} /></button><small>{scheduleParent ? `Add detail under ${scheduleParent.name} or keep the parent category.` : "Choose an expense category first."}</small></div>
           </> : <div className="form-field"><label>Income category</label><select value={scheduleCategory} onChange={(event) => onScheduleCategory(event.target.value)} disabled={!scheduleCategories.length}>{scheduleCategories.length ? scheduleCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>) : <option value="">Preparing income categories…</option>}</select>{scheduleSelectedCategory && <small className="selected-category-caption"><CategoryIcon icon={scheduleSelectedCategory.icon} size={13} /> A flat income category keeps recurring income simple.</small>}</div>}
-          <LedgerDateField label="Next due date" value={dateVal} onChange={onDate} />
+          <LedgerDateField label="Next due date" value={dateVal} weekStartDay={weekStartDay} onChange={onDate} />
           <p className="form-field-note">When you mark this schedule paid or received, its matching entry is added to the ledger and the next due date moves forward.</p>
         </>}
 

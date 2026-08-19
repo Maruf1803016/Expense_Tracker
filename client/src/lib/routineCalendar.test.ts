@@ -8,6 +8,12 @@ describe("Work & Routine calendar", () => {
     expect(isExpectedRoutineDay(new Date(2026, 7, 8), 6)).toBe(true);
   });
 
+  it("reorders the week and expected days when Sunday is chosen as the first day", () => {
+    expect(isExpectedRoutineDay(new Date(2026, 7, 2), 5, 0)).toBe(true); // Sunday
+    expect(isExpectedRoutineDay(new Date(2026, 7, 7), 5, 0)).toBe(false); // Friday
+    expect(routineCalendarDays(2026, 7, 3, 0)[0].date).toBe("2026-07-26");
+  });
+
   it("counts expected workdays only inside the selected month", () => {
     expect(expectedRoutineDaysInMonth(2026, 7, 5)).toHaveLength(21);
     expect(expectedRoutineDaysInMonth(2026, 7, 7)).toHaveLength(31);
