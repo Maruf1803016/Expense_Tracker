@@ -7,7 +7,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(GoogleDriveAuthorizationPlugin.class);
         super.onCreate(savedInstanceState);
+        registerPlugin(GoogleDriveAuthorizationPlugin.class);
     }
 }

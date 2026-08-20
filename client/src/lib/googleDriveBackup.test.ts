@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_MULTIPART_UPLOAD_URL, createLedgerBackupFile, getGoogleDriveClientId } from "./googleDriveBackup";
+import { GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_MULTIPART_UPLOAD_URL, createLedgerBackupFile, getGoogleDriveClientId, resolveNativeGoogleDriveAccessToken } from "./googleDriveBackup";
 
 describe("Google Drive ledger backup", () => {
   it("accepts only the public Google Web client ID shape", () => {
@@ -25,5 +25,14 @@ describe("Google Drive ledger backup", () => {
     expect(GOOGLE_DRIVE_FILE_SCOPE).toBe("https://www.googleapis.com/auth/drive.file");
     expect(GOOGLE_DRIVE_MULTIPART_UPLOAD_URL).toContain("uploadType=multipart");
     expect(GOOGLE_DRIVE_MULTIPART_UPLOAD_URL).toContain("fields=id,name,webViewLink");
+  });
+
+  it("settles native Drive authorization with a usable access token or a helpful failure", async () => {
+    await expect(resolveNativeGoogleDriveAccessToken(() => Promise.resolve({ accessToken: " short-lived-token " }), 100)).resolves.toBe("short-lived-token");
+    await expect(resolveNativeGoogleDriveAccessToken(() => Promise.resolve({}), 100)).rejects.toThrow("usable access token");
+  });
+
+  it("does not leave the Android backup control waiting when native authorization never returns", async () => {
+    await expect(resolveNativeGoogleDriveAccessToken(() => new Promise(() => undefined), 1)).rejects.toThrow("did not open its account picker");
   });
 });

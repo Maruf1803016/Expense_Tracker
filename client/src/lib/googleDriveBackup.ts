@@ -36,6 +36,7 @@ type NativeGoogleDriveAuthorizationPlugin = {
 };
 
 const NativeGoogleDriveAuthorization = registerPlugin<NativeGoogleDriveAuthorizationPlugin>("GoogleDriveAuth");
+export const NATIVE_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS = 15_000;
 
 function getGoogleOAuth2(): GoogleOAuth2 | undefined {
   return (window as GoogleIdentityWindow).google?.accounts?.oauth2;
@@ -143,9 +144,20 @@ function uploadLedgerBackupToDrive(accessToken: string, backup: LedgerBackupFile
   });
 }
 
-async function authorizeNativeAndroidDriveBackup(): Promise<string> {
+export async function resolveNativeGoogleDriveAccessToken(
+  authorize: () => Promise<{ accessToken?: string }>,
+  timeoutMs = NATIVE_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS,
+): Promise<string> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
   try {
-    const response = await NativeGoogleDriveAuthorization.authorize();
+    const response = await new Promise<{ accessToken?: string }>((resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error("Google Drive did not open its account picker. Please close this screen, reopen the app, and try again."));
+      }, timeoutMs);
+
+      void authorize().then(resolve, reject);
+    });
     const accessToken = response.accessToken?.trim();
     if (!accessToken) {
       throw new Error("Android Google Drive authorization did not return a usable access token.");
@@ -154,7 +166,13 @@ async function authorizeNativeAndroidDriveBackup(): Promise<string> {
   } catch (error) {
     if (error instanceof Error) throw error;
     throw new Error("Android Google Drive authorization could not be completed. Please try again.");
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
+}
+
+async function authorizeNativeAndroidDriveBackup(): Promise<string> {
+  return resolveNativeGoogleDriveAccessToken(() => NativeGoogleDriveAuthorization.authorize());
 }
 
 async function authorizeBrowserDriveBackup(clientId: string | undefined): Promise<string> {

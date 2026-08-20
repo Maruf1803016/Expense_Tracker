@@ -39,11 +39,14 @@ describe("Android direct-test release configuration", () => {
 
     expect(gradle).toContain('com.google.android.gms:play-services-auth:21.6.0');
     expect(mainActivity).toContain("registerPlugin(GoogleDriveAuthorizationPlugin.class)");
+    expect(mainActivity.indexOf("super.onCreate(savedInstanceState)")).toBeLessThan(mainActivity.indexOf("registerPlugin(GoogleDriveAuthorizationPlugin.class)"));
     expect(nativePlugin).toContain('@CapacitorPlugin(name = "GoogleDriveAuth")');
     expect(nativeActivity).toContain("https://www.googleapis.com/auth/drive.file");
     expect(nativeActivity).toContain("getAccessToken()");
     expect(driveBackup).toContain("isNativeAndroidDriveBackup");
     expect(driveBackup).toContain("authorizeNativeAndroidDriveBackup");
+    expect(driveBackup).toContain("NATIVE_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS");
+    expect(driveBackup).toContain("resolveNativeGoogleDriveAccessToken");
     expect(driveBackup).toContain("authorizeBrowserDriveBackup");
   });
 });

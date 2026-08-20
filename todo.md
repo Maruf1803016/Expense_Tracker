@@ -209,6 +209,11 @@
 - [x] Create the Android OAuth client in the owner’s `expense-tracker-79ef7` Google Cloud project with the verified package/SHA-1 pair.
 - [ ] Real-device acceptance: consent to a `drive.file` backup in the debug APK and confirm the created JSON file appears in the chosen user’s Google Drive.
 
+## Android Drive authorization regression
+- [x] Diagnose and repair the native Drive authorization handoff that remains on “Connecting to Google Drive…” after the user initiates backup in the Android APK.
+- [x] Add regression coverage for native authorization failure, cancellation, and completion so the backup button always leaves its loading state.
+- [ ] Rebuild the Firebase-configured APK and complete a real-device Drive backup acceptance retry.
+
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
 - [x] Add a persistent currency setting in Settings and format ledger, analytics, and export monetary values using the saved preference.
