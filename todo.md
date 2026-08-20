@@ -365,3 +365,12 @@
 - [x] Replace the Android-native check-in and check-out picker with an in-app Ink & Ledger time-selection sheet.
 - [x] Preserve 12-hour and 24-hour preference behavior, keyboard accessibility, explicit confirmation, and the existing saved-time validation.
 - [x] Verify the new workday time selector on phone and desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Workday picker theme alignment
+- [x] Retain the familiar workday time-selection behavior while revising the custom picker’s colors, selected state, and hierarchy to match Ink & Ledger.
+- [x] Verify 12-hour/24-hour presentation and phone/desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize the themed refinement to GitHub `manus_repo`.
+
+## Shared themed time wheel
+- [x] Build a reusable warm-paper, ink, and gold wheel-style time picker for both workday time entries and the daily reminder timer.
+- [x] Preserve explicit Save/Cancel behavior, keyboard access, current 12-hour/24-hour formatting, and existing routine-time validation.
+- [ ] Verify the shared picker in both flows at phone and desktop widths, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.

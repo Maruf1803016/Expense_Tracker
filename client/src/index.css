@@ -1642,6 +1642,25 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 @media (max-width: 620px) { .data-support-card, .data-clear-card { align-items: flex-start; flex-direction: column; } .data-support-card > .secondary-button, .data-clear-card > .delete-button, .data-support-actions { width: 100%; } .data-support-actions { justify-items: stretch; } .data-support-actions .secondary-button { justify-content: center; } .data-support-actions .text-action-link { justify-content: center; min-height: 30px; } .data-clear-confirmation { width: 100%; box-sizing: border-box; } .data-clear-confirmation > div { display: grid; grid-template-columns: 1fr 1fr; } }
 .picker-cancel-button { border: 1px solid #d8cebe; background: #fffdf8; color: #5a6059; }
 .picker-confirm-button { border: 1px solid #1e392d; background: #1e392d; color: #fffdf8; box-shadow: inset 0 -2px 0 #c59643; }
+
+/* One shared, app-owned time wheel: used by both the daily reminder and workday records. */
+.time-picker-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.time-picker-fieldset { padding: 13px; border: 1px solid #ddcfb8; border-radius: 5px; background: linear-gradient(145deg, #fffdf8, #f8efdf); box-shadow: inset 0 0 0 4px rgba(183, 138, 61, .045); }
+.time-picker-fieldset legend { padding: 0 2px; color: #7e6843; }
+.time-picker-hour-grid, .time-picker-minute-grid { position: relative; display: flex !important; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; height: 156px; margin: 0; padding: 57px 8px; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scrollbar-width: thin; scrollbar-color: #c59a52 transparent; border: 1px solid #e3d8c7; border-radius: 4px; background: linear-gradient(to bottom, rgba(255,253,248,.98), rgba(246,235,213,.72) 37%, rgba(246,235,213,.72) 63%, rgba(255,253,248,.98)); box-sizing: border-box; }
+.time-picker-hour-grid::before, .time-picker-minute-grid::before { content: ""; position: sticky; top: 39px; z-index: 0; display: block; height: 36px; margin: -39px -3px 3px; border-top: 1px solid #b78a3d; border-bottom: 1px solid #b78a3d; background: rgba(183, 138, 61, .12); pointer-events: none; }
+.time-picker-hour-grid button, .time-picker-minute-grid button, .time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button { position: relative; z-index: 1; flex: 0 0 36px; width: 100% !important; min-height: 36px !important; align-self: auto; justify-self: auto; scroll-snap-align: center; border: 0 !important; border-radius: 3px !important; background: transparent !important; color: #5d625d; font-size: 14px; }
+.time-picker-hour-grid button:hover, .time-picker-minute-grid button:hover, .time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button:hover { background: rgba(183, 138, 61, .09) !important; color: #1e392d; }
+.time-picker-hour-grid button.selected, .time-picker-minute-grid button.selected, .time-picker-hour-grid:has(button:nth-child(12)):not(:has(button:nth-child(13))) button.selected { border-color: #8c6626 !important; background: #b78a3d !important; color: #1e392d !important; box-shadow: inset 0 -2px 0 rgba(75, 51, 12, .25) !important; }
+.time-picker-period-grid { grid-template-columns: 1fr; gap: 6px; margin-top: 10px; }
+.time-picker-period-grid button { min-height: 35px; }
+.routine-inline-time-picker { padding: 19px; border-color: #cbb079; background: linear-gradient(145deg, #fffdf8, #f5ead6); box-shadow: inset 0 0 0 5px rgba(183, 138, 61, .06), 0 10px 22px rgba(70, 49, 15, .08); }
+
+@media (max-width: 620px) {
+  .time-picker-columns { grid-template-columns: 1fr 1fr; gap: 9px; }
+  .time-picker-fieldset { padding: 10px; }
+  .time-picker-hour-grid, .time-picker-minute-grid { height: 150px; padding-inline: 5px; }
+}
 .overview-ledger-head { align-items: center !important; flex-direction: row !important; gap: 12px; }
 .overview-ledger-head > div { min-width: 0; }
 .overview-ledger-head .overview-history-link { margin-left: auto; }
