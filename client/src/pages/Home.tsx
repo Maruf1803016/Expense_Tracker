@@ -15,6 +15,7 @@ import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type Pla
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, isGoogleDriveBackupConfigured, isNativeAndroidDriveBackup, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
 import { dashboardMonthLabel } from "@/lib/dashboardDate";
 import { accountEmailGuidance } from "@/lib/accountEmailGuidance";
+import { appendWorkspaceTrail, takePreviousWorkspace } from "@/lib/workspaceNavigation";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -783,14 +784,14 @@ export default function Home() {
   const isSettingsRoute = activeTab === "settings" || activeTab.startsWith("settings-");
   const goToWorkspace = useCallback((next: WorkspaceTab) => {
     if (next === activeTab) return;
-    setWorkspaceTrail((current) => [...current.slice(-8), activeTab]);
+    setWorkspaceTrail((current) => appendWorkspaceTrail(current, activeTab));
     setActiveTab(next);
   }, [activeTab]);
   const returnToPreviousWorkspace = useCallback((fallback: WorkspaceTab = "overview") => {
     setWorkspaceTrail((current) => {
-      const destination = current[current.length - 1] ?? fallback;
-      setActiveTab(destination);
-      return current.slice(0, -1);
+      const previous = takePreviousWorkspace(current, fallback);
+      setActiveTab(previous.workspace);
+      return previous.trail;
     });
   }, []);
 
