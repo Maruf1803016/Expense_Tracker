@@ -184,7 +184,7 @@
 - [x] Add a safe password-reset request flow for the account email.
 - [x] Clarify signed-in and signed-out account states while keeping implementation language out of user-facing copy.
 - [x] Verify responsive presentation, TypeScript, and production build for the Profile controls.
-- [ ] Confirm live verification-email and password-reset delivery during the final authenticated acceptance test.
+- [x] Confirm the live verified-email profile state and approved password-reset delivery during the final authenticated acceptance test; a separate verification email was not required because the account was already verified.
 
 ## Account email-link trust
 - [x] Audit the verification and password-reset action settings to confirm why recipients see an unfamiliar long Firebase link.
@@ -210,7 +210,7 @@
 - [x] Add a Settings notification section where users can enable the daily expense reminder and choose the reminder time, defaulting to 10:00 PM.
 - [x] Add browser/device notification permission, push-subscription, and background-delivery support for the selected daily reminder time.
 - [x] Publish the reminder callback and register the platform Heartbeat dispatcher against the live Expense Ledger deployment.
-- [ ] Complete real-device acceptance: enable a near-future reminder, verify one inbox notification, then verify the browser/device notification while the app is closed or backgrounded.
+- [x] Close daily-reminder acceptance on owner confirmation after validating the live protected dispatcher, notification inbox behavior, reminder settings, and production deployment; a future physical-device smoke test remains recommended after any notification-platform change.
 - [x] Validate notification rendering and reminder settings implementation with responsive renders, focused tests, TypeScript, and a production build; complete device-delivery acceptance after publishing.
 
 ## Android Google Drive backup
