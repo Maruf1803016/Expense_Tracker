@@ -407,3 +407,8 @@
 - [x] Review the supplied Android Compose time-picker implementation and identify interaction details that can improve the shared Ink & Ledger picker without copying Android visuals.
 - [x] Apply any compatible refinement to field focus, dial selection, or hour/minute mode changes while preserving direct entry, 12/24-hour preferences, routine shifts, and reminders.
 - [x] Add or update focused tests, validate TypeScript, Vitest, production build, and responsive presentation, then checkpoint and synchronize only to GitHub `manus_repo`.
+
+## Android APK release preparation
+- [x] Confirm the Android package identity `com.maruf.expenseledger`, Capacitor packaging approach, and direct-APK-first distribution path before later Play Store release.
+- [ ] Prepare Android-specific Google Drive OAuth and notification requirements without changing the live web backup flow.
+- [ ] Build and validate a signed release-ready Android package workflow, then checkpoint and synchronize only to GitHub `manus_repo`.
