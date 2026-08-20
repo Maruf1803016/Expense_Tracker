@@ -483,7 +483,12 @@
 ## Shared time-picker two-digit minute entry
 - [x] Reproduce the direct minute-field behavior that accepts only the first digit of a two-digit entry.
 - [x] Support uninterrupted sequential two-digit minute input, including leading-zero values, without requiring a second tap.
-- [ ] Add regression coverage across reminder and work-time pickers, validate, and publish the correction.
+- [x] Add regression coverage across reminder and work-time pickers, validate, and publish the correction.
+
+## Shared time-picker page-level scroll trap
+- [x] Make the modal overlay and dialog independently viewport-safe so a time picker never extends beyond the browser viewport or traps its lower controls.
+- [x] Cover the outer dialog sizing and scrolling behavior with regression checks across reminder and work-time flows.
+- [x] Validate desktop, tablet, and phone reachability, then publish the corrected modal.
 
 ## Comprehensive published-web quality review
 - [ ] Inspect the published Overview, Insights, Horizon, History, Settings, and account workspaces at desktop and mobile widths for blocked controls, visual overflow, navigation dead ends, and broken interactions.

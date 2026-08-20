@@ -17,6 +17,14 @@ describe("time-picker viewport safety", () => {
     expect(styles).toContain(".time-picker-sheet .ledger-time-wheel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto;");
   });
 
+  it("anchors the reminder dialog to the viewport and gives the overlay its own safe scroll path", () => {
+    expect(homeSource).toContain('className="ledger-calendar-backdrop workspace-picker-backdrop"');
+    expect(styles).toContain(".ledger-calendar-backdrop.workspace-picker-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 14px; overflow-y: auto;");
+    expect(styles).toContain(".ledger-calendar-backdrop.workspace-picker-backdrop .time-picker-sheet { width: min(100%, 590px); max-height: min(calc(100dvh - 28px), 720px); margin: auto; }");
+    expect(styles).toContain(".workspace-choice-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; overflow-y: auto;");
+    expect(styles).toContain("@media (max-width: 760px) { .ledger-calendar-backdrop.workspace-picker-backdrop { align-items: end; padding: 12px 0 0; }");
+  });
+
   it("keeps a direct minute entry as a draft until both digits are available", () => {
     expect(homeSource).toContain('const [minuteInputDraft, setMinuteInputDraft] = useState<string | null>(null);');
     expect(homeSource).toContain('const digits = input.replace(/\\D/g, "").slice(0, 2);');
