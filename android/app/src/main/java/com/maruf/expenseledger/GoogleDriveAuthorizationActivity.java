@@ -1,9 +1,12 @@
 package com.maruf.expenseledger;
 
-import android.app.Activity;
 import android.content.Intent;
-import android.content.IntentSender;
 import android.os.Bundle;
+
+import androidx.activity.ComponentActivity;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.IntentSenderRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.google.android.gms.auth.api.identity.AuthorizationRequest;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
@@ -13,16 +16,21 @@ import com.google.android.gms.common.api.Scope;
 
 import java.util.Collections;
 
-public class GoogleDriveAuthorizationActivity extends Activity {
+public class GoogleDriveAuthorizationActivity extends ComponentActivity {
     static final String EXTRA_ACCESS_TOKEN = "com.maruf.expenseledger.drive.ACCESS_TOKEN";
     static final String EXTRA_ERROR = "com.maruf.expenseledger.drive.ERROR";
 
-    private static final int REQUEST_CODE_GOOGLE_DRIVE_AUTHORIZATION = 2201;
     private static final String DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+    private ActivityResultLauncher<IntentSenderRequest> authorizationResolutionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        authorizationResolutionLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartIntentSenderForResult(),
+            result -> handleAuthorizationResolution(result.getResultCode(), result.getData())
+        );
         if (savedInstanceState == null) beginAuthorization();
     }
 
@@ -36,15 +44,11 @@ public class GoogleDriveAuthorizationActivity extends Activity {
             .addOnSuccessListener(result -> {
                 if (result.hasResolution()) {
                     try {
-                        startIntentSenderForResult(
-                            result.getPendingIntent().getIntentSender(),
-                            REQUEST_CODE_GOOGLE_DRIVE_AUTHORIZATION,
-                            null,
-                            0,
-                            0,
-                            0
-                        );
-                    } catch (IntentSender.SendIntentException exception) {
+                        IntentSenderRequest resolutionRequest = new IntentSenderRequest.Builder(
+                            result.getPendingIntent().getIntentSender()
+                        ).build();
+                        authorizationResolutionLauncher.launch(resolutionRequest);
+                    } catch (Exception exception) {
                         finishWithError("Google Drive permission could not be opened. Please try again.");
                     }
                     return;
@@ -54,10 +58,11 @@ public class GoogleDriveAuthorizationActivity extends Activity {
             .addOnFailureListener(error -> finishWithError(describeAuthorizationError(error)));
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_CODE_GOOGLE_DRIVE_AUTHORIZATION) return;
+    private void handleAuthorizationResolution(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK) {
+            finishWithError("Google Drive permission was cancelled.");
+            return;
+        }
         if (data == null) {
             finishWithError("Google Drive permission was cancelled.");
             return;
@@ -80,14 +85,14 @@ public class GoogleDriveAuthorizationActivity extends Activity {
 
         Intent resultIntent = new Intent();
         resultIntent.putExtra(EXTRA_ACCESS_TOKEN, accessToken);
-        setResult(Activity.RESULT_OK, resultIntent);
+        setResult(RESULT_OK, resultIntent);
         finish();
     }
 
     private void finishWithError(String message) {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(EXTRA_ERROR, message);
-        setResult(Activity.RESULT_CANCELED, resultIntent);
+        setResult(RESULT_CANCELED, resultIntent);
         finish();
     }
 

@@ -224,6 +224,11 @@
 - [x] Add a build-level regression assertion for the Capacitor registration order and rebuild the Firebase-configured version-3 update APK.
 - [ ] Complete the real-device Google account consent and confirm the JSON backup is visible in the selected user’s Drive.
 
+## Android post-consent authorization regression
+- [x] Correct the native Google authorization result return path after a user approves `drive.file`, so the access token reaches the WebView rather than the app reporting that no account picker opened.
+- [x] Add regression coverage for successful authorization results and rebuild the updatable version-4 Firebase-configured APK.
+- [ ] Confirm the returned token creates the ledger JSON backup in the consenting user’s Google Drive.
+
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
 - [x] Add a persistent currency setting in Settings and format ledger, analytics, and export monetary values using the saved preference.
