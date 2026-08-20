@@ -206,7 +206,8 @@
 - [x] Add a native Android sign-in handoff that obtains a user-granted Drive token without routing another user’s ledger through the owner’s account.
 - [x] Preserve the existing browser Drive backup path and provide a clear Android-only consent/error state.
 - [x] Validate the native build, focused tests, production bundle, and a Firebase-configured direct-test APK; document the one Google Cloud Console action that only the project owner can complete.
-- [ ] Owner Cloud Console action and real-device acceptance: create the Android OAuth client, then consent to a `drive.file` backup in the debug APK.
+- [x] Create the Android OAuth client in the owner’s `expense-tracker-79ef7` Google Cloud project with the verified package/SHA-1 pair.
+- [ ] Real-device acceptance: consent to a `drive.file` backup in the debug APK and confirm the created JSON file appears in the chosen user’s Google Drive.
 
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.

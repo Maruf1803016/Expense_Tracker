@@ -24,19 +24,21 @@ Google Drive backup needs an Android OAuth client registered with this same pack
 
 The APK now includes the native `@capacitor/push-notifications` bridge. In Android it requests Android notification permission and registers a native FCM token; in a regular web browser the existing Service Worker and web Firebase Messaging path remains active. Firebase Android registration and the downloaded `google-services.json` are still required before the APK can receive native FCM reminders. The Android package ID must match this project exactly. Android 13+ also prompts the user for notification permission during the first native registration.
 
-The debug APK is signed by Android's default debug key. Its observed SHA-1 fingerprint in this build environment is `6D:9F:6E:ED:CD:CC:FB:8D:BC:7F:64:81:A1:49:20:58:72:36:2B`; the final release key will have a different fingerprint and must be added separately to Firebase and the Android OAuth client before Play Store distribution.
+The debug APK is signed by Android's default debug key. Its observed SHA-1 fingerprint in this build environment is `6D:9F:6E:ED:CD:CC:FB:8D:BC:7F:64:81:01:A1:49:20:58:72:36:2B`; the final release key will have a different fingerprint and must be added separately to Firebase and the Android OAuth client before Play Store distribution.
 
 For direct friend testing, first verify ledger login and Firestore data on-device. Enable native reminders only after the Firebase Android app is registered and configuration file is present. Enable native Google Drive backup only after an Android OAuth client exists and a native Google sign-in bridge has replaced the browser-only flow in the APK.
 
 ## Android Google Drive authorization
 
-Before testing the **Save to Google Drive** button in the APK, the project owner must complete one Google Cloud Console setup step. In **Google Auth Platform → Clients**, create an **Android** OAuth client in the existing `expense-tracker-79ef7` project. Use the package name `com.maruf.expenseledger` and this debug signing certificate fingerprint:
+The required **Android** OAuth client has been created in the `expense-tracker-79ef7` project under **Google Auth Platform → Clients**. Its name is **Expense Ledger — Android Drive Backup** and its client ID is `657477735157-g1ccmaksk8bcgj4jmk4dcb6ope08stdf.apps.googleusercontent.com`. It is registered to package `com.maruf.expenseledger` with this debug signing certificate fingerprint:
 
 ```text
-6D:9F:6E:ED:CD:CC:FB:8D:BC:7F:64:81:A1:49:20:58:72:36:2B
+6D:9F:6E:ED:CD:CC:FB:8D:BC:7F:64:81:01:A1:49:20:58:72:36:2B
 ```
 
-Google requires this package-and-certificate pair for an Android OAuth client.[1] The Google Drive API must remain enabled in the same Cloud project. Once the Android OAuth client is saved, rebuild the APK and use the normal Data & Support workspace to consent to the narrow `drive.file` permission. No client secret is added to the application, and no long-lived refresh token is stored on the phone. Google’s Android authorization guidance explicitly recommends short-lived access tokens for device-side actions and reserves refresh tokens for a secured backend when offline access is genuinely needed.[1]
+Google requires this package-and-certificate pair for an Android OAuth client.[1] The Google Drive API must remain enabled in the same Cloud project. Use the normal **Data & Support** workspace in the APK to consent to the narrow `drive.file` permission. No client secret is added to the application, and no long-lived refresh token is stored on the phone. Google’s Android authorization guidance explicitly recommends short-lived access tokens for device-side actions and reserves refresh tokens for a secured backend when offline access is genuinely needed.[1]
+
+Google currently limits this sensitive-scope client to **100 test-user logins** until the project’s OAuth consent screen is verified. This is sufficient for the planned direct friend-testing phase; begin Google verification before a wider public rollout.
 
 When a Play Store release is prepared, add a second Android OAuth client or signing fingerprint using the **Play App Signing** SHA-1. The Play-distributed app is signed differently from this debug APK, so the debug fingerprint above is appropriate only for the direct-test build.[2]
 
