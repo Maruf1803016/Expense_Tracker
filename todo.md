@@ -250,7 +250,7 @@
 ## Git repository organization
 - [x] Audit tracked files, ignore rules, generated artifacts, and active branch references without touching the archived Flutter history.
 - [x] Apply only safe repository-metadata or ignore-rule changes that keep source, tests, documentation, and release instructions versioned while excluding generated or machine-local files.
-- [ ] Validate the clean worktree state and synchronize the organization pass only to `manus_repo`.
+- [x] Validate the clean worktree state and synchronize the organization pass only to `manus_repo`.
 
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
