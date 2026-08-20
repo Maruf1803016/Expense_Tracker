@@ -1,4 +1,6 @@
 export const GOOGLE_DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
 export const GOOGLE_IDENTITY_SERVICES_URL = "https://accounts.google.com/gsi/client";
 export const GOOGLE_DRIVE_MULTIPART_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink";
 
@@ -29,8 +31,18 @@ type GoogleIdentityWindow = Window & {
   };
 };
 
+type NativeGoogleDriveAuthorizationPlugin = {
+  authorize: () => Promise<{ accessToken?: string }>;
+};
+
+const NativeGoogleDriveAuthorization = registerPlugin<NativeGoogleDriveAuthorizationPlugin>("GoogleDriveAuth");
+
 function getGoogleOAuth2(): GoogleOAuth2 | undefined {
   return (window as GoogleIdentityWindow).google?.accounts?.oauth2;
+}
+
+export function isNativeAndroidDriveBackup() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 }
 
 export type LedgerBackupFile = {
@@ -47,6 +59,10 @@ export type GoogleDriveBackupResult = {
 export function getGoogleDriveClientId(clientId: string | undefined): string | null {
   const normalized = clientId?.trim();
   return normalized && /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/i.test(normalized) ? normalized : null;
+}
+
+export function isGoogleDriveBackupConfigured(clientId: string | undefined): boolean {
+  return isNativeAndroidDriveBackup() || Boolean(getGoogleDriveClientId(clientId));
 }
 
 export function createLedgerBackupFile({ ownerUid, data, exportedAt = new Date().toISOString() }: {
@@ -69,6 +85,7 @@ export function createLedgerBackupFile({ ownerUid, data, exportedAt = new Date()
 }
 
 export async function preloadGoogleIdentityServices(): Promise<void> {
+  if (isNativeAndroidDriveBackup()) return;
   if (typeof window === "undefined" || typeof document === "undefined") {
     throw new Error("Google Drive backup is available only in a browser.");
   }
@@ -126,7 +143,21 @@ function uploadLedgerBackupToDrive(accessToken: string, backup: LedgerBackupFile
   });
 }
 
-export async function authorizeAndUploadLedgerBackup({ clientId, backup }: { clientId: string | undefined; backup: LedgerBackupFile }): Promise<GoogleDriveBackupResult> {
+async function authorizeNativeAndroidDriveBackup(): Promise<string> {
+  try {
+    const response = await NativeGoogleDriveAuthorization.authorize();
+    const accessToken = response.accessToken?.trim();
+    if (!accessToken) {
+      throw new Error("Android Google Drive authorization did not return a usable access token.");
+    }
+    return accessToken;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("Android Google Drive authorization could not be completed. Please try again.");
+  }
+}
+
+async function authorizeBrowserDriveBackup(clientId: string | undefined): Promise<string> {
   const usableClientId = getGoogleDriveClientId(clientId);
   if (!usableClientId) {
     throw new Error("Google Drive backup is not configured yet. Please try again after the app is updated.");
@@ -137,7 +168,7 @@ export async function authorizeAndUploadLedgerBackup({ clientId, backup }: { cli
     throw new Error("Google’s authorization service is not ready. Please try again.");
   }
 
-  return new Promise<GoogleDriveBackupResult>((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     const tokenClient = oauth2.initTokenClient({
       client_id: usableClientId,
       scope: GOOGLE_DRIVE_FILE_SCOPE,
@@ -146,10 +177,17 @@ export async function authorizeAndUploadLedgerBackup({ clientId, backup }: { cli
           reject(new Error(response.error_description || response.error || "Google Drive permission was not granted."));
           return;
         }
-        void uploadLedgerBackupToDrive(response.access_token, backup).then(resolve).catch(reject);
+        resolve(response.access_token);
       },
       error_callback: (error) => reject(new Error(error.message || "Google Drive connection was cancelled or could not be opened.")),
     });
     tokenClient.requestAccessToken({ prompt: "select_account" });
   });
+}
+
+export async function authorizeAndUploadLedgerBackup({ clientId, backup }: { clientId: string | undefined; backup: LedgerBackupFile }): Promise<GoogleDriveBackupResult> {
+  const accessToken = isNativeAndroidDriveBackup()
+    ? await authorizeNativeAndroidDriveBackup()
+    : await authorizeBrowserDriveBackup(clientId);
+  return uploadLedgerBackupToDrive(accessToken, backup);
 }

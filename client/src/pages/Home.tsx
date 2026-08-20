@@ -12,7 +12,7 @@ import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type Remi
 import { dialAngleForIndex, dialIndexFromPointer } from "@/lib/timeDial";
 import { calculateRoutineShiftMinutes, formatRoutineShiftDuration, formatRoutineShiftTimeline, isRoutineShiftOvernight, isRoutineTimeRangeValid } from "@/lib/routineTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
-import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
+import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, isGoogleDriveBackupConfigured, isNativeAndroidDriveBackup, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
 import { dashboardMonthLabel } from "@/lib/dashboardDate";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
@@ -21,6 +21,7 @@ type TransactionType = "expense" | "income" | "transfer";
 type WorkspaceTab = "overview" | "history" | "accounts" | "insights" | "reports" | "inbox" | "horizon" | "settings" | "settings-expenses" | "settings-income" | "settings-currency" | "settings-reminders" | "settings-preferences" | "settings-data" | "settings-history";
 
 const googleDriveClientId = getGoogleDriveClientId(import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID);
+const driveBackupConfigured = isGoogleDriveBackupConfigured(import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID);
 
 function workspaceLabel(workspace: WorkspaceTab) {
   if (workspace === "horizon") return "Plans & Progress";
@@ -972,7 +973,7 @@ export default function Home() {
   const [driveBackupBusy, setDriveBackupBusy] = useState(false);
 
   useEffect(() => {
-    if (googleDriveClientId) void preloadGoogleIdentityServices().catch(() => undefined);
+    if (googleDriveClientId && !isNativeAndroidDriveBackup()) void preloadGoogleIdentityServices().catch(() => undefined);
   }, []);
 
   const saveLedgerBackupToDrive = useCallback(async () => {
@@ -980,7 +981,7 @@ export default function Home() {
       toast.error("Sign in first to save a private ledger backup to Google Drive.");
       return;
     }
-    if (!googleDriveClientId) {
+    if (!driveBackupConfigured) {
       toast.error("Google Drive backup is not configured yet. Please try again after the app is updated.");
       return;
     }
@@ -990,7 +991,7 @@ export default function Home() {
         ownerUid: user.uid,
         data: { transactions, accounts, categories, goals, trips, loans, schedules, notifications, routines, routineAttendance, reminderSettings, userPrefs },
       });
-      const saved = await authorizeAndUploadLedgerBackup({ clientId: googleDriveClientId, backup });
+      const saved = await authorizeAndUploadLedgerBackup({ clientId: googleDriveClientId ?? undefined, backup });
       toast.success(`${saved.name || "Ledger backup"} was saved to your Google Drive.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Google Drive backup could not be completed. Please try again.");
@@ -1958,7 +1959,7 @@ export default function Home() {
               onEnableDeviceReminder={() => { void enableDailyDeviceReminder(); }}
               onClearRecordedLedgerActivity={() => { void clearRecordedLedgerActivity(); }}
               driveBackupBusy={driveBackupBusy}
-              driveBackupConfigured={Boolean(googleDriveClientId)}
+              driveBackupConfigured={driveBackupConfigured}
               onSaveLedgerBackupToDrive={() => { void saveLedgerBackupToDrive(); }}
             />
           )}

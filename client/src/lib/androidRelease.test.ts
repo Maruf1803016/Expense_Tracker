@@ -29,4 +29,21 @@ describe("Android direct-test release configuration", () => {
     expect(firebase).toContain("enableNativeAndroidReminderPush");
     expect(firebase).toContain("navigator.serviceWorker.register");
   });
+
+  it("includes a native, short-lived Android Drive authorization bridge while retaining the browser flow", () => {
+    const gradle = readFileSync(path.join(projectRoot, "android/app/build.gradle"), "utf8");
+    const mainActivity = readFileSync(path.join(projectRoot, "android/app/src/main/java/com/maruf/expenseledger/MainActivity.java"), "utf8");
+    const nativePlugin = readFileSync(path.join(projectRoot, "android/app/src/main/java/com/maruf/expenseledger/GoogleDriveAuthorizationPlugin.java"), "utf8");
+    const nativeActivity = readFileSync(path.join(projectRoot, "android/app/src/main/java/com/maruf/expenseledger/GoogleDriveAuthorizationActivity.java"), "utf8");
+    const driveBackup = readFileSync(path.join(projectRoot, "client/src/lib/googleDriveBackup.ts"), "utf8");
+
+    expect(gradle).toContain('com.google.android.gms:play-services-auth:21.6.0');
+    expect(mainActivity).toContain("registerPlugin(GoogleDriveAuthorizationPlugin.class)");
+    expect(nativePlugin).toContain('@CapacitorPlugin(name = "GoogleDriveAuth")');
+    expect(nativeActivity).toContain("https://www.googleapis.com/auth/drive.file");
+    expect(nativeActivity).toContain("getAccessToken()");
+    expect(driveBackup).toContain("isNativeAndroidDriveBackup");
+    expect(driveBackup).toContain("authorizeNativeAndroidDriveBackup");
+    expect(driveBackup).toContain("authorizeBrowserDriveBackup");
+  });
 });
