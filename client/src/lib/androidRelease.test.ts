@@ -11,6 +11,10 @@ describe("Android direct-test release configuration", () => {
     expect(config).toContain("appId: 'com.maruf.expenseledger'");
     expect(config).toContain("appName: 'Expense Ledger'");
     expect(config).toContain("webDir: 'dist/public'");
+
+    const androidBuild = readFileSync(path.join(projectRoot, "android/app/build.gradle"), "utf8");
+    expect(androidBuild).toContain("versionCode 2");
+    expect(androidBuild).toContain('versionName "1.0.1"');
   });
 
   it("provides repeatable build and sync commands for a direct APK", () => {

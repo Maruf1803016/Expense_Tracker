@@ -214,6 +214,10 @@
 - [x] Add regression coverage for native authorization failure, cancellation, and completion so the backup button always leaves its loading state.
 - [ ] Rebuild the Firebase-configured APK and complete a real-device Drive backup acceptance retry.
 
+## Android test-installer update regression
+- [x] Increment the Android test build’s version code and verify its package metadata so Android accepts the repaired APK as an update rather than rejecting it.
+- [ ] Rebuild the Firebase-configured installer, validate the update metadata, and complete the real-device Drive backup retry.
+
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
 - [x] Add a persistent currency setting in Settings and format ledger, analytics, and export monetary values using the saved preference.
