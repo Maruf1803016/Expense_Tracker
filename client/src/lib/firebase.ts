@@ -3,6 +3,8 @@ import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { getMessaging, getToken, isSupported, onMessage, type MessagePayload } from "firebase/messaging";
+import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 const firebaseConfig = {
   apiKey: "AIzaSyABQIZZqOCCMHUIySQwjnlZwTHC9ORcCPk",
@@ -25,7 +27,77 @@ type PushRegistrationResult = {
   message: string;
 };
 
+const nativePushRegistrationTimeoutMs = 25_000;
+
+function isNativeAndroidShell() {
+  return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+}
+
+async function enableNativeAndroidReminderPush(userId: string): Promise<PushRegistrationResult> {
+  let permission = await PushNotifications.checkPermissions();
+  if (permission.receive !== "granted") {
+    permission = await PushNotifications.requestPermissions();
+  }
+
+  if (permission.receive !== "granted") {
+    return { status: "blocked", message: "Allow notifications in Android settings to receive daily reminders." };
+  }
+
+  return new Promise<PushRegistrationResult>((resolve) => {
+    let registrationHandle: PluginListenerHandle | undefined;
+    let errorHandle: PluginListenerHandle | undefined;
+    let complete = false;
+    const timeout = window.setTimeout(() => {
+      finish({
+        status: "unavailable",
+        message: "Android reminders are not ready yet. Confirm the Firebase Android setup, then try again.",
+      });
+    }, nativePushRegistrationTimeoutMs);
+
+    const cleanup = async () => {
+      window.clearTimeout(timeout);
+      await Promise.all([registrationHandle?.remove(), errorHandle?.remove()]);
+    };
+
+    const finish = (result: PushRegistrationResult) => {
+      if (complete) return;
+      complete = true;
+      void cleanup().finally(() => resolve(result));
+    };
+
+    void Promise.all([
+      PushNotifications.addListener("registration", async (token) => {
+        try {
+          await setDoc(doc(firestore, "users", userId, "deviceTokens", token.value), {
+            token: token.value,
+            enabledAt: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            platform: "android",
+          }, { merge: true });
+          finish({ status: "enabled", message: "Device reminders are enabled for this Android app." });
+        } catch {
+          finish({ status: "unavailable", message: "The Android reminder token could not be saved. Please try again." });
+        }
+      }),
+      PushNotifications.addListener("registrationError", () => {
+        finish({
+          status: "unavailable",
+          message: "Android reminders need Firebase Android configuration before they can be enabled.",
+        });
+      }),
+    ]).then(async ([registration, registrationError]) => {
+      registrationHandle = registration;
+      errorHandle = registrationError;
+      await PushNotifications.register();
+    }).catch(() => {
+      finish({ status: "unavailable", message: "Android reminders could not start. Please try again." });
+    });
+  });
+}
+
 export async function enableExpenseReminderPush(userId: string): Promise<PushRegistrationResult> {
+  if (isNativeAndroidShell()) return enableNativeAndroidReminderPush(userId);
+
   if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
     return { status: "unsupported", message: "This browser does not support device reminders." };
   }

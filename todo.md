@@ -410,5 +410,5 @@
 
 ## Android APK release preparation
 - [x] Confirm the Android package identity `com.maruf.expenseledger`, Capacitor packaging approach, and direct-APK-first distribution path before later Play Store release.
-- [ ] Prepare Android-specific Google Drive OAuth and notification requirements without changing the live web backup flow.
-- [ ] Build and validate a signed release-ready Android package workflow, then checkpoint and synchronize only to GitHub `manus_repo`.
+- [x] Prepare Android-specific Google Drive OAuth and notification requirements without changing the live web backup flow.
+- [x] Build and validate a signed direct-test Android package workflow, including private-key-safe release signing guidance for the later Play Store path, then synchronize only to GitHub `manus_repo`.

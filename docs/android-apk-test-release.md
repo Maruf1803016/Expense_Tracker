@@ -22,7 +22,7 @@ Google Drive backup needs an Android OAuth client registered with this same pack
 
 ### Native reminders and Google Drive
 
-The current reminder implementation uses the browser Service Worker and web Firebase Messaging APIs. A Capacitor APK needs the native `@capacitor/push-notifications` bridge, Firebase Android registration, and the downloaded `google-services.json` before it can receive native FCM reminders. The Android package ID must match this project exactly. Android 13+ also prompts the user for notification permission during the first native registration.
+The APK now includes the native `@capacitor/push-notifications` bridge. In Android it requests Android notification permission and registers a native FCM token; in a regular web browser the existing Service Worker and web Firebase Messaging path remains active. Firebase Android registration and the downloaded `google-services.json` are still required before the APK can receive native FCM reminders. The Android package ID must match this project exactly. Android 13+ also prompts the user for notification permission during the first native registration.
 
 The debug APK is signed by Android's default debug key. Its observed SHA-1 fingerprint in this build environment is `6D:9F:6E:ED:CD:CC:FB:8D:BC:7F:64:81:A1:49:20:58:72:36:2B`; the final release key will have a different fingerprint and must be added separately to Firebase and the Android OAuth client before Play Store distribution.
 

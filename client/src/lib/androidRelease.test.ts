@@ -19,4 +19,14 @@ describe("Android direct-test release configuration", () => {
     expect(packageJson).toContain('"android:sync"');
     expect(packageJson).toContain('"android:apk:debug"');
   });
+
+  it("includes the Capacitor native notification bridge without replacing browser push", () => {
+    const packageJson = readFileSync(path.join(projectRoot, "package.json"), "utf8");
+    const firebase = readFileSync(path.join(projectRoot, "client/src/lib/firebase.ts"), "utf8");
+
+    expect(packageJson).toContain('"@capacitor/push-notifications"');
+    expect(firebase).toContain("isNativeAndroidShell");
+    expect(firebase).toContain("enableNativeAndroidReminderPush");
+    expect(firebase).toContain("navigator.serviceWorker.register");
+  });
 });
