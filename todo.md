@@ -407,6 +407,10 @@
 - [ ] Add the assigned production origin `https://expensetrk-btvssrs3.manus.space` to the existing Google OAuth web client before testing browser Drive backup.
 - [ ] Complete a live browser Google Drive backup from the published site and confirm the resulting JSON reaches the consenting user’s own Drive.
 
+## Manus repository synchronization recovery
+- [x] Diagnose the GitHub write restriction affecting the approved `manus_repo` backup branch without modifying `main`.
+- [x] Restore safe, fast-forward-only synchronization of validated checkpoints to `manus_repo` and verify the remote tip.
+
 ## Controlled final in-app review
 - [x] Inspect the Overview, Insights, Plans & Progress, History, and Settings paths for concrete high-value usability or financial-clarity refinements without triggering external actions.
 - [x] Implement and test only the focused refinements supported by the review findings.
