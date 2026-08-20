@@ -18,9 +18,22 @@ class ExpenseModel extends Expense {
     super.subCategory,
     super.subCategoryIcon,
     super.planId,
+    super.paymentStatus,
+    super.paymentMethod,
+    super.payerPayee,
+    super.toAccountId,
   });
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map, String documentId) {
+    CategoryType resolvedType;
+    if (map['type'] == 'income') {
+      resolvedType = CategoryType.income;
+    } else if (map['type'] == 'transfer') {
+      resolvedType = CategoryType.transfer;
+    } else {
+      resolvedType = CategoryType.expense;
+    }
+
     return ExpenseModel(
       id: documentId,
       title: map['title'] ?? '',
@@ -29,12 +42,16 @@ class ExpenseModel extends Expense {
       date: (map['date'] as Timestamp).toDate(),
       note: map['note'] ?? '',
       accountId: map['accountId'] ?? '',
-      type: map['type'] == 'income' ? CategoryType.income : CategoryType.expense,
+      type: resolvedType,
       isDeleted: map['isDeleted'] ?? false,
       deletedAt: map['deletedAt'] != null ? (map['deletedAt'] as Timestamp).toDate() : null,
       subCategory: map['subCategory'],
       subCategoryIcon: map['subCategoryIcon'],
       planId: map['planId'],
+      paymentStatus: map['paymentStatus'] == 'pending' ? PaymentStatus.pending : PaymentStatus.settled,
+      paymentMethod: map['paymentMethod'] as String?,
+      payerPayee: map['payerPayee'] as String?,
+      toAccountId: map['toAccountId'] as String?,
     );
   }
 
@@ -52,6 +69,10 @@ class ExpenseModel extends Expense {
       'subCategoryIcon': subCategoryIcon,
       'planId': planId,
       'accountId': accountId,
+      'paymentStatus': paymentStatus.name,
+      if (paymentMethod != null) 'paymentMethod': paymentMethod,
+      if (payerPayee != null) 'payerPayee': payerPayee,
+      if (toAccountId != null) 'toAccountId': toAccountId,
     };
   }
 
@@ -70,6 +91,10 @@ class ExpenseModel extends Expense {
       subCategory: expense.subCategory,
       subCategoryIcon: expense.subCategoryIcon,
       planId: expense.planId,
+      paymentStatus: expense.paymentStatus,
+      paymentMethod: expense.paymentMethod,
+      payerPayee: expense.payerPayee,
+      toAccountId: expense.toAccountId,
     );
   }
 }

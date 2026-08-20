@@ -99,6 +99,12 @@ import 'package:expense_tracker/features/recurring_transactions/domain/repositor
 import 'package:expense_tracker/features/recurring_transactions/domain/usecases/recurring_transaction_usecases.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 
+// --- Debt & Loans ---
+import 'package:expense_tracker/features/loan/data/datasources/loan_remote_data_source.dart';
+import 'package:expense_tracker/features/loan/data/repositories/loan_repository_impl.dart';
+import 'package:expense_tracker/features/loan/domain/repositories/loan_repository.dart';
+import 'package:expense_tracker/features/loan/presentation/providers/loan_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -246,4 +252,9 @@ Future<void> initDependencies() async {
     deleteRecurringSource: sl(),
     markComplete: sl(),
   ));
+
+  // --- Debt & Loans ---
+  sl.registerLazySingleton<LoanRemoteDataSource>(() => LoanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<LoanRepository>(() => LoanRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => LoanProvider(repository: sl()));
 }

@@ -29,8 +29,18 @@ class Account extends Equatable {
   static double calculateBalance(Account account, List<Expense> expenses) {
     double balance = account.initialBalance;
     for (var expense in expenses) {
-      if (expense.accountId == account.id && !expense.isDeleted) {
-        balance += expense.type == CategoryType.income ? expense.amount : -expense.amount;
+      if (!expense.isDeleted) {
+        if (expense.type == CategoryType.income && expense.accountId == account.id) {
+          balance += expense.amount;
+        } else if (expense.type == CategoryType.expense && expense.accountId == account.id) {
+          balance -= expense.amount;
+        } else if (expense.type == CategoryType.transfer) {
+          if (expense.accountId == account.id) {
+            balance -= expense.amount;
+          } else if (expense.toAccountId == account.id) {
+            balance += expense.amount;
+          }
+        }
       }
     }
     return balance;

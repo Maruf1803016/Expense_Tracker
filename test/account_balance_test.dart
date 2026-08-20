@@ -66,6 +66,50 @@ void main() {
       // Expected: 1000 (initial) + 500 (income) - 150 (expense) = 1350
       expect(balance, 1350.0);
     });
+
+    test('should calculate transfers correctly for source and destination accounts', () {
+      final accountA = Account(
+        id: 'accA',
+        name: 'Checking',
+        icon: Icons.account_balance,
+        color: Colors.blue,
+        initialBalance: 1000.0,
+        isDefault: true,
+        createdAt: DateTime.now(),
+      );
+
+      final accountB = Account(
+        id: 'accB',
+        name: 'Savings',
+        icon: Icons.savings,
+        color: Colors.green,
+        initialBalance: 200.0,
+        isDefault: false,
+        createdAt: DateTime.now(),
+      );
+
+      final expenses = [
+        Expense(
+          id: 't1',
+          title: 'Transfer to Savings',
+          amount: 300.0,
+          categoryId: 'transfer',
+          date: DateTime.now(),
+          note: 'Emergency fund contribution',
+          accountId: 'accA',
+          toAccountId: 'accB',
+          type: CategoryType.transfer,
+        ),
+      ];
+
+      final balanceA = Account.calculateBalance(accountA, expenses);
+      final balanceB = Account.calculateBalance(accountB, expenses);
+
+      // Source accountA: 1000 - 300 = 700
+      expect(balanceA, 700.0);
+      // Destination accountB: 200 + 300 = 500
+      expect(balanceB, 500.0);
+    });
   });
 
   group('Account new fields and masking', () {

@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-enum CategoryType { income, expense }
+enum CategoryType { income, expense, transfer }
 
 class SubCategory extends Equatable {
   final String name;

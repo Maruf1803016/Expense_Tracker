@@ -17,6 +17,7 @@ import 'package:expense_tracker/shared/presentation/widgets/loading_indicator.da
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
 import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_provider.dart';
+import 'package:expense_tracker/features/loan/presentation/providers/loan_provider.dart';
 import 'package:expense_tracker/core/utils/messenger_utils.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -102,6 +103,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
           context.read<ExportProvider>().reset();
           context.read<AccountProvider>().clear();
           context.read<RecurringTransactionProvider>().clear();
+          context.read<LoanProvider>().clear();
         });
         _lastUserId = null;
       }
@@ -133,6 +135,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
         context.read<CategoryProvider>().init();
         context.read<GoalProvider>().init();
         context.read<TripPlanProvider>().init();
+        context.read<LoanProvider>().init();
         context.read<SettingsProvider>().loadSettings();
         context.read<AccountProvider>().init();
         context.read<RecurringTransactionProvider>().init();

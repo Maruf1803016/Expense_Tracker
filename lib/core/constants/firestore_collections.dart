@@ -11,4 +11,25 @@ class FirestoreCollections {
 
   /// Path to user's budgets.
   static String budgets(String uid) => 'users/$uid/budgets';
+
+  /// Path to user's goals/plans.
+  static String plans(String uid) => 'users/$uid/plans';
+
+  /// Path to user's trip plans.
+  static String tripPlans(String uid) => 'users/$uid/tripPlans';
+
+  /// Path to user's debt and loans.
+  static String loans(String uid) => 'users/$uid/loans';
+
+  /// Path to user's accounts.
+  static String accounts(String uid) => 'users/$uid/accounts';
+
+  /// Path to user's recurring transaction sources.
+  static String recurring(String uid) => 'users/$uid/recurringIncomeSources';
+
+  /// Path to user's work routines.
+  static String workRoutines(String uid) => 'users/$uid/workRoutines';
+
+  /// Path to user's notification inbox.
+  static String notifications(String uid) => 'users/$uid/notifications';
 }

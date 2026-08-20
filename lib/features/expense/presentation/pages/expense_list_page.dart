@@ -59,6 +59,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         case ExpenseFilter.income:
           matchesTab = e.type == CategoryType.income;
           break;
+        case ExpenseFilter.pending:
+          matchesTab = e.paymentStatus == PaymentStatus.pending;
+          break;
         case ExpenseFilter.plan:
           matchesTab = e.planId != null;
           break;
@@ -552,6 +555,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                     provider.setSelectedFilter(ExpenseFilter.income);
                   },
                   color: AppTheme.emerald,
+                ),
+                _buildCategoryPill(
+                  label: 'Pending',
+                  icon: Icons.hourglass_empty_rounded,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.pending,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.pending);
+                  },
+                  color: AppTheme.gold,
                 ),
                 _buildCategoryPill(
                   label: 'Goal',

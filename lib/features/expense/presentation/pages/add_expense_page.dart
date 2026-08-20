@@ -24,6 +24,7 @@ import 'package:expense_tracker/core/utils/icon_utils.dart';
 enum TransactionMode {
   expense,
   income,
+  transfer,
   plan,
 }
 
@@ -51,6 +52,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _amountController;
   late TextEditingController _noteController;
   late TextEditingController _financedAmountController;
+  late TextEditingController _payerPayeeController;
   String? _selectedSubCategoryName;
   String? _selectedSubCategoryIconName;
   
@@ -59,6 +61,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
   TransactionMode _mode = TransactionMode.expense;
   String? _selectedPlanId;
   String? _selectedAccountId;
+  String? _selectedToAccountId;
+  PaymentStatus _paymentStatus = PaymentStatus.settled;
+  String? _selectedPaymentMethod;
 
   // Plan Mode specific fields
   DateTime _planStartDate = DateTime.now();
@@ -119,6 +124,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
       text: widget.expenseToEdit?.note ?? '',
     );
     _financedAmountController = TextEditingController();
+    _payerPayeeController = TextEditingController(
+      text: widget.expenseToEdit?.payerPayee ?? '',
+    );
     _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
     _selectedSubCategoryIconName = widget.expenseToEdit?.subCategoryIcon;
     
@@ -126,13 +134,20 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedDate = widget.expenseToEdit?.date ?? DateTime.now();
     _selectedPlanId = widget.preselectedPlanId ?? widget.expenseToEdit?.planId;
     _selectedAccountId = widget.expenseToEdit?.accountId;
+    _selectedToAccountId = widget.expenseToEdit?.toAccountId;
+    _paymentStatus = widget.expenseToEdit?.paymentStatus ?? PaymentStatus.settled;
+    _selectedPaymentMethod = widget.expenseToEdit?.paymentMethod;
 
     if (widget.preselectedPlanMode) {
       _mode = TransactionMode.plan;
     } else if (widget.expenseToEdit != null) {
-      _mode = widget.expenseToEdit!.type == CategoryType.income
-          ? TransactionMode.income
-          : TransactionMode.expense;
+      if (widget.expenseToEdit!.type == CategoryType.income) {
+        _mode = TransactionMode.income;
+      } else if (widget.expenseToEdit!.type == CategoryType.transfer) {
+        _mode = TransactionMode.transfer;
+      } else {
+        _mode = TransactionMode.expense;
+      }
     } else {
       _mode = TransactionMode.expense;
     }
@@ -168,6 +183,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _amountController.dispose();
     _noteController.dispose();
     _financedAmountController.dispose();
+    _payerPayeeController.dispose();
     super.dispose();
   }
 
@@ -198,7 +214,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
     debugPrint('[AddExpensePage] Form validation succeeded');
 
-    if (_mode != TransactionMode.plan && _selectedCategoryId == null) {
+    if (_mode != TransactionMode.plan && _mode != TransactionMode.transfer && _selectedCategoryId == null) {
       debugPrint('[AddExpensePage] Category not selected in standard mode');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a category')),
@@ -240,6 +256,55 @@ class _AddExpensePageState extends State<AddExpensePage> {
             duration: Duration(seconds: 2),
           ),
         );
+      } else if (_mode == TransactionMode.transfer) {
+        if (_selectedAccountId == null || _selectedToAccountId == null) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Please select both From and To accounts')),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+        if (_selectedAccountId == _selectedToAccountId) {
+          messenger.showSnackBar(
+            const SnackBar(content: Text('From and To accounts must be different')),
+          );
+          setState(() => _isSaving = false);
+          return;
+        }
+
+        final expense = Expense(
+          id: widget.expenseToEdit?.id ?? const Uuid().v4(),
+          title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Account Transfer',
+          amount: double.parse(_amountController.text.trim()),
+          categoryId: _selectedCategoryId ?? 'transfer',
+          date: _selectedDate,
+          note: _noteController.text.trim(),
+          accountId: _selectedAccountId!,
+          toAccountId: _selectedToAccountId,
+          type: CategoryType.transfer,
+          paymentStatus: _paymentStatus,
+          paymentMethod: _selectedPaymentMethod,
+          payerPayee: _payerPayeeController.text.trim().isNotEmpty ? _payerPayeeController.text.trim() : null,
+        );
+
+        final provider = context.read<ExpenseProvider>();
+        if (widget.expenseToEdit != null) {
+          await provider.updateExpense(expense);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Transfer updated'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        } else {
+          await provider.addExpense(expense);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('Transfer completed'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
       } else {
         final expense = Expense(
           id: widget.expenseToEdit?.id ?? const Uuid().v4(),
@@ -253,6 +318,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           subCategoryIcon: _mode == TransactionMode.income ? null : _selectedSubCategoryIconName,
           type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
           planId: _selectedPlanId,
+          paymentStatus: _paymentStatus,
+          paymentMethod: _selectedPaymentMethod,
+          payerPayee: _payerPayeeController.text.trim().isNotEmpty ? _payerPayeeController.text.trim() : null,
         );
 
         final provider = context.read<ExpenseProvider>();
@@ -425,6 +493,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     children: [
                       _buildToggleButton('Expense', TransactionMode.expense),
                       _buildToggleButton('Income', TransactionMode.income),
+                      _buildToggleButton('Transfer', TransactionMode.transfer),
                     ],
                   ),
                 ),
@@ -510,6 +579,100 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     _planEndDate = date;
                   });
                 }),
+              ] else if (_mode == TransactionMode.transfer) ...[
+                // Transfer form
+                _buildSectionLabel('From Account'),
+                DropdownButtonFormField<String>(
+                  value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'Select source account',
+                  ),
+                  items: accounts.map((acc) {
+                    return DropdownMenuItem<String>(
+                      value: acc.id,
+                      child: Row(
+                        children: [
+                          IconUtils.buildIcon(
+                            IconUtils.getIconName(acc.icon),
+                            color: acc.color,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedAccountId = val;
+                    });
+                  },
+                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('To Account'),
+                DropdownButtonFormField<String>(
+                  value: accounts.any((a) => a.id == _selectedToAccountId) ? _selectedToAccountId : null,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'Select destination account',
+                  ),
+                  items: accounts.where((a) => a.id != _selectedAccountId).map((acc) {
+                    return DropdownMenuItem<String>(
+                      value: acc.id,
+                      child: Row(
+                        children: [
+                          IconUtils.buildIcon(
+                            IconUtils.getIconName(acc.icon),
+                            color: acc.color,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedToAccountId = val;
+                    });
+                  },
+                  validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('Description (Optional)'),
+                TextFormField(
+                  controller: _titleController,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Transfer to Savings',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('Date'),
+                _buildDateTile(_selectedDate, (date) {
+                  setState(() {
+                    _selectedDate = date;
+                  });
+                }),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('Notes (Optional)'),
+                TextFormField(
+                  controller: _noteController,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'Add a note...',
+                  ),
+                ),
               ] else ...[
                 // Transaction Form (Expense/Income)
                 ...[
@@ -701,6 +864,97 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   style: GoogleFonts.inter(color: AppTheme.textDark),
                   decoration: const InputDecoration(
                     hintText: 'Add a note...',
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('Payment Status'),
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.paper2,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _paymentStatus = PaymentStatus.settled),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _paymentStatus == PaymentStatus.settled ? AppTheme.ink : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Settled',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: _paymentStatus == PaymentStatus.settled ? AppTheme.goldSoft : AppTheme.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _paymentStatus = PaymentStatus.pending),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _paymentStatus == PaymentStatus.pending ? AppTheme.gold : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Pending',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: _paymentStatus == PaymentStatus.pending ? Colors.white : AppTheme.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel('Payment Method (Optional)'),
+                DropdownButtonFormField<String>(
+                  value: _selectedPaymentMethod,
+                  dropdownColor: AppTheme.paperCard,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: const InputDecoration(
+                    hintText: 'Select payment method',
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: null, child: Text('None (Default)')),
+                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
+                    DropdownMenuItem(value: 'Credit Card', child: Text('Credit Card')),
+                    DropdownMenuItem(value: 'Debit Card', child: Text('Debit Card')),
+                    DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
+                    DropdownMenuItem(value: 'bKash', child: Text('bKash')),
+                    DropdownMenuItem(value: 'Nagad', child: Text('Nagad')),
+                    DropdownMenuItem(value: 'Other', child: Text('Other')),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedPaymentMethod = val;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                _buildSectionLabel(_mode == TransactionMode.income ? 'Payer / Source (Optional)' : 'Payee / Recipient (Optional)'),
+                TextFormField(
+                  controller: _payerPayeeController,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  decoration: InputDecoration(
+                    hintText: _mode == TransactionMode.income ? 'e.g. Client or Employer' : 'e.g. Restaurant or Merchant',
                   ),
                 ),
                 const SizedBox(height: 16),

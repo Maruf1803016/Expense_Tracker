@@ -4,6 +4,8 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/plan/presentation/widgets/goals_tab_view.dart';
 import 'package:expense_tracker/features/plan/presentation/widgets/trip_plans_tab_view.dart';
 
+import 'package:expense_tracker/features/loan/presentation/widgets/loans_tab_view.dart';
+
 class HorizonPage extends StatefulWidget {
   const HorizonPage({super.key});
 
@@ -15,7 +17,7 @@ class _HorizonPageState extends State<HorizonPage> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: AppTheme.paper,
         appBar: PreferredSize(
@@ -24,8 +26,9 @@ class _HorizonPageState extends State<HorizonPage> {
             color: AppTheme.paper,
             child: TabBar(
               tabs: [
-                Tab(child: Text('Goals', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
-                Tab(child: Text('Plans', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Goals', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Plans', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Debt & Loans', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
               ],
               indicatorColor: AppTheme.ink,
               labelColor: AppTheme.ink,
@@ -38,6 +41,7 @@ class _HorizonPageState extends State<HorizonPage> {
           children: [
             GoalsTabView(),
             TripPlansTabView(),
+            LoansTabView(),
           ],
         ),
       ),
