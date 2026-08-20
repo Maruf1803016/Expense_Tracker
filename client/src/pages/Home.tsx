@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, ArrowRight, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, ArrowRight, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,7 @@ import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek, type RoutineWeekStartDay } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
-import { stepLedgerTimeWheel } from "@/lib/timeWheel";
+import { centredLedgerTimeWheelOption } from "@/lib/timeWheel";
 import { calculateRoutineShiftMinutes, formatRoutineShiftDuration, formatRoutineShiftTimeline, isRoutineShiftOvernight, isRoutineTimeRangeValid } from "@/lib/routineTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
@@ -2455,29 +2455,49 @@ function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpen
 }
 
 
-function LedgerTimeWheelColumn({ label, value, onIncrease, onDecrease }: { label: string; value: string; onIncrease: () => void; onDecrease: () => void }) {
-  return <div className="ledger-time-wheel-column">
+function LedgerTimeScrollColumn({ label, value, options, onValueChange }: { label: string; value: string; options: string[]; onValueChange: (value: string) => void }) {
+  const selectedRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { selectedRef.current?.scrollIntoView({ block: "center", inline: "nearest" }); }, [value]);
+  const selectRelativeValue = (delta: number) => {
+    const index = options.indexOf(value);
+    onValueChange(options[(Math.max(0, index) + delta + options.length) % options.length]);
+  };
+  return <div className="ledger-time-scroll-column">
     <span>{label}</span>
-	    <button type="button" className="ledger-time-wheel-step" onClick={onIncrease} aria-label={`Increase ${label}`}><ChevronUp size={18} /></button>
-	    <output aria-label={`Selected ${label}`}>{value}</output>
-	    <button type="button" className="ledger-time-wheel-step" onClick={onDecrease} aria-label={`Decrease ${label}`}><ChevronDown size={18} /></button>
+    <div className="ledger-time-scroll-list" role="listbox" aria-label={`Select ${label}`} onScroll={(event) => {
+      const container = event.currentTarget;
+      const items = Array.from(container.querySelectorAll<HTMLButtonElement>("[data-wheel-value]"));
+      const selected = centredLedgerTimeWheelOption(items.map((item) => item.dataset.wheelValue ?? ""), items.map((item) => item.offsetTop + item.offsetHeight / 2), container.scrollTop, container.clientHeight);
+      if (selected && selected !== value) onValueChange(selected);
+    }}>
+      <i aria-hidden="true" />
+      {options.map((option) => <button type="button" key={option} ref={option === value ? selectedRef : undefined} data-wheel-value={option} role="option" aria-selected={option === value} className={option === value ? "selected" : ""} onClick={() => onValueChange(option)} onKeyDown={(event) => {
+        if (event.key === "ArrowDown") { event.preventDefault(); selectRelativeValue(1); }
+        if (event.key === "ArrowUp") { event.preventDefault(); selectRelativeValue(-1); }
+        if (event.key === "Home") { event.preventDefault(); onValueChange(options[0]); }
+        if (event.key === "End") { event.preventDefault(); onValueChange(options[options.length - 1]); }
+      }}>{option}</button>)}
+      <i aria-hidden="true" />
+    </div>
   </div>;
 }
 
 function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onValueChange, onSet, onCancel, onClear }: { value: string; timeFormat: ReminderTimeFormat; heading: string; summaryLabel: string; onValueChange: (value: string) => void; onSet: () => void; onCancel: () => void; onClear?: () => void }) {
   const parts = reminderTimeParts(value);
   const displayedHour = timeFormat === "24h" ? Number(value.slice(0, 2)) : parts.hour;
-  const moveHour = (delta: number) => onValueChange(stepLedgerTimeWheel(value, timeFormat, "hour", delta));
-  const moveMinute = (delta: number) => onValueChange(stepLedgerTimeWheel(value, timeFormat, "minute", delta));
-  const toggleMeridiem = () => onValueChange(stepLedgerTimeWheel(value, timeFormat, "period", 1));
+  const hourOptions = Array.from({ length: timeFormat === "24h" ? 24 : 12 }, (_, index) => String(timeFormat === "24h" ? index : index + 1).padStart(timeFormat === "24h" ? 2 : 1, "0"));
+  const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+  const updateHour = (hour: string) => onValueChange(timeFormat === "24h" ? `${hour}:${parts.minute}` : reminderTimeFromParts(Number(hour), parts.minute, parts.meridiem));
+  const updateMinute = (minute: string) => onValueChange(timeFormat === "24h" ? `${value.slice(0, 2)}:${minute}` : reminderTimeFromParts(parts.hour, minute, parts.meridiem));
+  const updatePeriod = (period: string) => onValueChange(reminderTimeFromParts(parts.hour, parts.minute, period as "AM" | "PM"));
 
 	  return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
     <div className="ledger-time-wheel-head"><div><span className="draft-kicker">{heading}</span><h4>Set a precise time</h4></div><button type="button" className="close-button" onClick={onCancel} aria-label="Cancel time selection"><X size={15} /></button></div>
     <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Use the controls above and below each value, then confirm when it is right.</p></div>
-	    <div className={`ledger-time-wheel-columns ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
-      <LedgerTimeWheelColumn label="Hour" value={timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)} onIncrease={() => moveHour(1)} onDecrease={() => moveHour(-1)} />
-      <LedgerTimeWheelColumn label="Minute" value={String(parts.minute).padStart(2, "0")} onIncrease={() => moveMinute(1)} onDecrease={() => moveMinute(-1)} />
-      {timeFormat === "12h" && <LedgerTimeWheelColumn label="Period" value={parts.meridiem} onIncrease={toggleMeridiem} onDecrease={toggleMeridiem} />}
+    <div className={`ledger-time-wheel-columns ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
+      <LedgerTimeScrollColumn label="Hour" value={timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)} options={hourOptions} onValueChange={updateHour} />
+      <LedgerTimeScrollColumn label="Minute" value={String(parts.minute).padStart(2, "0")} options={minuteOptions} onValueChange={updateMinute} />
+      {timeFormat === "12h" && <LedgerTimeScrollColumn label="Period" value={parts.meridiem} options={["AM", "PM"]} onValueChange={updatePeriod} />}
     </div>
     <div className="ledger-time-wheel-actions">
       <button type="button" className="picker-cancel-button" onClick={onCancel}>Cancel</button>

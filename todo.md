@@ -387,3 +387,8 @@
 - [x] Replace the current custom time-choice grid with a vertically stacked hour, minute, and AM/PM wheel matching the supplied reference’s interaction model.
 - [x] Preserve the Ink & Ledger warm-paper, ink, and antique-gold styling, while adding explicit Set, Clear, and Cancel controls and retaining 12-hour/24-hour preference support.
 - [x] Validate picker behavior across workday check-in and check-out, run TypeScript, Vitest, production-build, responsive checks, then checkpoint and synchronize only to GitHub `manus_repo`.
+
+## Touch-scroll time wheel
+- [x] Replace click-stepped time columns with touch-scroll hour, minute, and AM/PM wheels that snap to a central selected-value window.
+- [x] Keep Set, Clear, and Cancel actions plus 12-hour/24-hour display behavior, and ensure the scrolling picker remains usable with keyboard and pointer input.
+- [x] Add focused regression coverage, validate phone/desktop behavior, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize only to GitHub `manus_repo`.

@@ -2,6 +2,22 @@ import { reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } fro
 
 export type LedgerTimeWheelField = "hour" | "minute" | "period";
 
+/** Returns the option nearest the visual centre of a scroll wheel. */
+export function centredLedgerTimeWheelOption<T extends string>(options: readonly T[], optionCenters: readonly number[], scrollTop: number, viewportHeight: number): T | undefined {
+  if (!options.length || options.length !== optionCenters.length) return undefined;
+  const viewportCenter = scrollTop + viewportHeight / 2;
+  let closestIndex = 0;
+  let closestDistance = Math.abs(optionCenters[0] - viewportCenter);
+  for (let index = 1; index < optionCenters.length; index += 1) {
+    const distance = Math.abs(optionCenters[index] - viewportCenter);
+    if (distance < closestDistance) {
+      closestIndex = index;
+      closestDistance = distance;
+    }
+  }
+  return options[closestIndex];
+}
+
 /** Advances one wheel column while leaving the other displayed columns untouched. */
 export function stepLedgerTimeWheel(value: string, timeFormat: ReminderTimeFormat, field: LedgerTimeWheelField, delta: number) {
   const parts = reminderTimeParts(value);
