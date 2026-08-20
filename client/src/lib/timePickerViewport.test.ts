@@ -25,6 +25,11 @@ describe("time-picker viewport safety", () => {
     expect(styles).toContain("@media (max-width: 760px) { .ledger-calendar-backdrop.workspace-picker-backdrop { align-items: end; padding: 12px 0 0; }");
   });
 
+  it("keeps long detail drawers within the dynamic viewport and scrolls their own content", () => {
+    expect(styles).toContain(".draft-backdrop { position: fixed; inset: 0; z-index: 40; overflow: hidden;");
+    expect(styles).toContain(".draft-panel { width: min(460px, 100%); height: 100dvh; max-height: 100dvh; min-height: 0; overflow-y: auto; overscroll-behavior: contain;");
+  });
+
   it("keeps a direct minute entry as a draft until both digits are available", () => {
     expect(homeSource).toContain('const [minuteInputDraft, setMinuteInputDraft] = useState<string | null>(null);');
     expect(homeSource).toContain('const digits = input.replace(/\\D/g, "").slice(0, 2);');

@@ -209,9 +209,8 @@
 - [x] Hide the count when all notifications are read while retaining a readable notification history.
 - [x] Add a Settings notification section where users can enable the daily expense reminder and choose the reminder time, defaulting to 10:00 PM.
 - [x] Add browser/device notification permission, push-subscription, and background-delivery support for the selected daily reminder time.
-- [ ] Publish the reminder callback, register the platform Heartbeat, and live-verify an in-app reminder plus a closed/background device notification.
-  - [x] Publish the protected callback and register the enabled `daily-expense-reminder-dispatch-v1` managed dispatcher (`W7K7Y3aTGRsPdXG2RcrF4P`) against the live Expense Ledger deployment.
-  - [ ] Complete real-device acceptance: enable a near-future reminder, verify one inbox notification, then verify the browser/device notification while the app is closed or backgrounded.
+- [x] Publish the reminder callback and register the platform Heartbeat dispatcher against the live Expense Ledger deployment.
+- [ ] Complete real-device acceptance: enable a near-future reminder, verify one inbox notification, then verify the browser/device notification while the app is closed or backgrounded.
 - [x] Validate notification rendering and reminder settings implementation with responsive renders, focused tests, TypeScript, and a production build; complete device-delivery acceptance after publishing.
 
 ## Android Google Drive backup
@@ -496,6 +495,6 @@
 
 ## Comprehensive published-web quality review
 - [ ] Inspect the published Overview, Insights, Horizon, History, Settings, and account workspaces at desktop and mobile widths for blocked controls, visual overflow, navigation dead ends, and broken interactions.
-- [ ] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.
+- [x] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.
 - [ ] Repair every concrete release-quality defect found, add focused regression coverage, validate the complete build, and publish the resulting checkpoint.
 - [x] Confirm the Overview’s desktop and phone render, shared picker behavior, logs, TypeScript, 52 regression tests, and production build after the responsive repair; authenticated feature flows remain queued for live acceptance.
