@@ -374,3 +374,11 @@
 - [x] Build a reusable warm-paper, ink, and gold wheel-style time picker for both workday time entries and the daily reminder timer.
 - [x] Preserve explicit Save/Cancel behavior, keyboard access, current 12-hour/24-hour formatting, and existing routine-time validation.
 - [x] Verify the shared picker in both flows at phone and desktop widths, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Flexible and overnight work shifts
+- [x] Allow any work duration, including short shifts, and support check-outs occurring on the following day without corrupting existing attendance records.
+- [x] Show an explicit next-day checkout state and correct duration in the workday editor and saved routine history.
+- [x] Add flexible-shift regression coverage, verify phone and desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
+
+## Workday shift timeline presentation
+- [x] Present saved work times as an editorial check-in-to-checkout timeline with clear date labels, a next-day marker, and a duration badge rather than ambiguous plain time text.

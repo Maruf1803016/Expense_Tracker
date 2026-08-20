@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ArrowLeft, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ArrowLeft, ArrowRight, Plus, Search, Wallet, ShieldCheck, LogOut, X, Edit3, Trash2, Tag, Compass, Calendar, Bell, Layers, CheckCircle2, ChevronLeft, ChevronRight, FolderPlus, HandCoins, FileText, Download, Utensils, ShoppingBasket, Coffee, Pizza, CookingPot, Car, Bus, Train, Plane, Fuel, House, ReceiptText, Lightbulb, Wifi, HeartPulse, Pill, Dumbbell, Stethoscope, ShoppingBag, Shirt, BookOpen, Film, Music, Gamepad2, Ticket, Landmark, CreditCard, BadgeDollarSign, BriefcaseBusiness, Laptop, GraduationCap, Gift, Sparkles, PawPrint, Baby, Wrench, Leaf, PiggyBank, Banknote, CircleDollarSign, Building2, Paperclip, Camera, Image, CircleCheck, Clock3, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,7 +9,7 @@ import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek, type RoutineWeekStartDay } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
-import { formatRoutineTimeRange, isRoutineTimeRangeValid } from "@/lib/routineTime";
+import { calculateRoutineShiftMinutes, formatRoutineShiftDuration, formatRoutineShiftTimeline, isRoutineShiftOvernight, isRoutineTimeRangeValid } from "@/lib/routineTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
 import { dashboardMonthLabel } from "@/lib/dashboardDate";
@@ -232,6 +232,7 @@ interface RoutineAttendance {
   attended: boolean;
   checkIn?: string;
   checkOut?: string;
+  nextDay?: boolean;
   updatedAt: string;
 }
 
@@ -414,13 +415,16 @@ function normaliseRoutine(record: StoredRecord): WorkRoutine {
 }
 
 function normaliseRoutineAttendance(record: StoredRecord): RoutineAttendance {
+  const checkIn = storedString(record.checkIn ?? record.checkInTime) || undefined;
+  const checkOut = storedString(record.checkOut ?? record.checkOutTime) || undefined;
   return {
     id: storedString(record.id),
     routineId: storedString(record.routineId),
     date: storedDate(record.date, dateInputValue(new Date())),
     attended: record.attended !== false,
-    checkIn: storedString(record.checkIn ?? record.checkInTime) || undefined,
-    checkOut: storedString(record.checkOut ?? record.checkOutTime) || undefined,
+    checkIn,
+    checkOut,
+    nextDay: record.nextDay === true || (record.nextDay !== false && isRoutineShiftOvernight(checkIn, checkOut)),
     updatedAt: storedDate(record.updatedAt, new Date().toISOString()),
   };
 }
@@ -1029,10 +1033,16 @@ export default function Home() {
     void persistRecord("routines", routine);
   };
 
-  const saveRoutineAttendance = (routineId: string, date: string, checkIn: string, checkOut: string) => {
+  const saveRoutineAttendance = (routineId: string, date: string, checkIn?: string, checkOut?: string, nextDay = false) => {
     if (isFutureRoutineDate(date)) return;
-    if (!isRoutineTimeRangeValid(checkIn, checkOut)) {
-      toast.error("Check-out time must be later than check-in time.");
+    const hasAnyTime = Boolean(checkIn || checkOut);
+    const hasBothTimes = Boolean(checkIn && checkOut);
+    if (hasAnyTime && !hasBothTimes) {
+      toast.error("Record both times, or leave both empty for attendance only.");
+      return;
+    }
+    if (hasBothTimes && !isRoutineTimeRangeValid(checkIn!, checkOut!, nextDay)) {
+      toast.error("Choose a different check-out time or mark the shift as ending the next day.");
       return;
     }
     const id = `routine-attendance-${routineId}-${date}`;
@@ -1042,12 +1052,15 @@ export default function Home() {
       routineId,
       date,
       attended: true,
-      checkIn,
-      checkOut,
+      checkIn: hasBothTimes ? checkIn : undefined,
+      checkOut: hasBothTimes ? checkOut : undefined,
+      nextDay: hasBothTimes ? nextDay : false,
       updatedAt: new Date().toISOString(),
     };
     setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
-    void persistRecord("routineAttendance", next);
+    // Firestore's merge writes retain omitted fields; explicit null clears a prior
+    // time pair when a user intentionally changes a workday to attendance-only.
+    void persistRecord("routineAttendance", { ...next, checkIn: next.checkIn ?? null, checkOut: next.checkOut ?? null });
   };
 
   const clearRoutineAttendance = (routineId: string, date: string) => {
@@ -1056,7 +1069,7 @@ export default function Home() {
     const existing = routineAttendance.find((item) => item.id === id);
     const next: RoutineAttendance = { id, routineId, date, attended: false, updatedAt: new Date().toISOString() };
     setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
-    void persistRecord("routineAttendance", next);
+    void persistRecord("routineAttendance", { ...next, checkIn: null, checkOut: null, nextDay: false });
   };
 
   const removeRoutine = (routine: WorkRoutine) => {
@@ -2440,7 +2453,7 @@ function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpen
   </>;
 }
 
-function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn: string, checkOut: string) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn?: string, checkOut?: string, nextDay?: boolean) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const activeRoutines = routines.filter((routine) => routine.status !== "archived");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
@@ -2448,8 +2461,10 @@ function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCre
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
   const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [checkIn, setCheckIn] = useState("09:00");
-  const [checkOut, setCheckOut] = useState("17:00");
+  const [checkIn, setCheckIn] = useState<string | undefined>();
+  const [checkOut, setCheckOut] = useState<string | undefined>();
+  const [endsNextDay, setEndsNextDay] = useState(false);
+  const [confirmLongShift, setConfirmLongShift] = useState(false);
   const [activeTimeField, setActiveTimeField] = useState<"checkIn" | "checkOut" | null>(null);
   const [draftWorkTime, setDraftWorkTime] = useState("09:00");
   const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? null;
@@ -2471,26 +2486,45 @@ function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCre
     if (isFutureRoutineDate(date)) return;
     const existing = attendedRecords.find((record) => record.date === date);
     setEditingDate(date);
-    setCheckIn(existing?.checkIn ?? "09:00");
-    setCheckOut(existing?.checkOut ?? "17:00");
+    setCheckIn(existing?.checkIn);
+    setCheckOut(existing?.checkOut);
+    setEndsNextDay(existing?.nextDay ?? isRoutineShiftOvernight(existing?.checkIn, existing?.checkOut));
+    setConfirmLongShift(false);
     setActiveTimeField(null);
   };
   const openWorkTimePicker = (field: "checkIn" | "checkOut") => {
-    setDraftWorkTime(field === "checkIn" ? checkIn : checkOut);
+    setDraftWorkTime(field === "checkIn" ? checkIn ?? "09:00" : checkOut ?? "17:00");
     setActiveTimeField(field);
   };
   const confirmWorkTime = () => {
-    if (activeTimeField === "checkIn") setCheckIn(draftWorkTime);
-    if (activeTimeField === "checkOut") setCheckOut(draftWorkTime);
+    if (activeTimeField === "checkIn") {
+      setCheckIn(draftWorkTime);
+      if (checkOut) setEndsNextDay(isRoutineShiftOvernight(draftWorkTime, checkOut));
+    }
+    if (activeTimeField === "checkOut") {
+      setCheckOut(draftWorkTime);
+      if (checkIn) setEndsNextDay(isRoutineShiftOvernight(checkIn, draftWorkTime));
+    }
+    setConfirmLongShift(false);
     setActiveTimeField(null);
   };
-  const saveTimeEntry = () => {
+  const shiftDuration = calculateRoutineShiftMinutes(checkIn, checkOut, endsNextDay);
+  const hasBothShiftTimes = Boolean(checkIn && checkOut);
+  const saveTimeEntry = (longShiftConfirmed = false) => {
     if (!selectedRoutine || !editingDate) return;
-    if (!isRoutineTimeRangeValid(checkIn, checkOut)) {
-      toast.error("Choose a check-out time later than check-in.");
+    if ((checkIn && !checkOut) || (!checkIn && checkOut)) {
+      toast.error("Record both times, or leave both empty for attendance only.");
       return;
     }
-    onSaveRoutineAttendance(selectedRoutine.id, editingDate, checkIn, checkOut);
+    if (hasBothShiftTimes && !isRoutineTimeRangeValid(checkIn!, checkOut!, endsNextDay)) {
+      toast.error("Choose a different time range or mark the shift as ending the next day.");
+      return;
+    }
+    if (shiftDuration && shiftDuration > 16 * 60 && !longShiftConfirmed) {
+      setConfirmLongShift(true);
+      return;
+    }
+    onSaveRoutineAttendance(selectedRoutine.id, editingDate, checkIn, checkOut, endsNextDay);
     setEditingDate(null);
   };
   const clearTimeEntry = () => {
@@ -2500,18 +2534,18 @@ function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCre
   };
 
   return <div className="routine-workspace">
-    <section className="routine-intro paper-card"><div><div className="page-kicker">Work attendance</div><h2>Show up. See the month.</h2><p>Record your workday with a check-in and check-out time, then review each month at a glance.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
+    <section className="routine-intro paper-card"><div><div className="page-kicker">Work attendance</div><h2>Show up. See the month.</h2><p>Mark attendance in seconds, then add flexible check-in and check-out times whenever they are useful.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
     <section className="field-note routine-income-guidance"><b>Keep work and money clear.</b><span>Each tuition role and permanent job is counted as its own routine. Attendance never changes expense budgets; when you are paid, record the money as income using Salary, Freelance income, or a dedicated Tuition category.</span></section>
     {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each {weekRangeLabel(weekStartDay)} workweek as expected. You can still add an extra workday when it happens.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
     {activeRoutines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{activeRoutines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`End ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
       {selectedRoutine && <div className="back-line"><button type="button" className="back-control" onClick={() => setSelectedRoutineId(null)}><ArrowLeft size={14} /> Back to routines</button></div>}
-      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Worked</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{weekdayLabels(weekStartDay, true).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => { const record = attendedRecords.find((item) => item.date === day.date); return <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${record ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && openTimeEntry(day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : record ? `${day.date}, worked ${formatRoutineTimeRange(record.checkIn, record.checkOut, timeFormat)}. Tap to edit times.` : `${day.date}, tap to record work times.`}><span>{day.dayOfMonth}</span>{record?.checkIn && <small>{formatReminderTime(record.checkIn, timeFormat)}</small>}{day.expected && <i aria-label="Expected workday" />}</button>; })}</div><p className="routine-calendar-note"><i /> Tap a day to record or edit your check-in and check-out time. Future dates stay locked until they arrive.</p></section>}
-      {selectedRoutine && monthRecords.length > 0 && <section className="routine-time-ledger" aria-label="Saved work times"><div><span className="draft-kicker">Saved work times</span><h3>This month’s hours</h3></div><div>{monthRecords.map((record) => <button type="button" key={record.id} onClick={() => openTimeEntry(record.date)}><span>{new Date(`${record.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span><strong>{formatRoutineTimeRange(record.checkIn, record.checkOut, timeFormat)}</strong><ChevronRight size={15} /></button>)}</div></section>}
-      {selectedRoutine && editingDate && <div className="workspace-choice-backdrop" role="dialog" aria-modal="true" aria-label="Record work times" onMouseDown={() => { setEditingDate(null); setActiveTimeField(null); }}><aside className="workspace-choice-sheet routine-time-sheet" onMouseDown={(event) => event.stopPropagation()}><div className="workspace-choice-head"><div><span className="draft-kicker">{editingRecord ? "Edit workday" : "Record workday"}</span><h3>{new Date(`${editingDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</h3></div><button className="close-button" onClick={() => { setEditingDate(null); setActiveTimeField(null); }} aria-label="Close"><X size={17} /></button></div><p className="routine-time-sheet-copy">Save the time you arrived and left. Your calendar and two-year history keep this personal work record.</p><div className="routine-time-inputs"><button type="button" className="routine-time-trigger" aria-expanded={activeTimeField === "checkIn"} onClick={() => openWorkTimePicker("checkIn")}><span><small>Check in</small><strong>{formatReminderTime(checkIn, timeFormat)}</strong><em>Tap to choose a time</em></span><Clock3 size={17} /></button><button type="button" className="routine-time-trigger" aria-expanded={activeTimeField === "checkOut"} onClick={() => openWorkTimePicker("checkOut")}><span><small>Check out</small><strong>{formatReminderTime(checkOut, timeFormat)}</strong><em>Tap to choose a time</em></span><Clock3 size={17} /></button></div>{activeTimeField && (() => { const draftParts = reminderTimeParts(draftWorkTime); const minuteChoices = Array.from(new Set(["00", "15", "30", "45", draftParts.minute])).sort((left, right) => Number(left) - Number(right)); const isCheckIn = activeTimeField === "checkIn"; return <section className="routine-inline-time-picker" aria-label={`Choose ${isCheckIn ? "check-in" : "check-out"} time`}><div className="routine-inline-time-head"><div><span className="draft-kicker">{isCheckIn ? "Check in" : "Check out"}</span><h4>Set a time</h4></div><button type="button" className="close-button" onClick={() => setActiveTimeField(null)} aria-label="Cancel time selection"><X size={15} /></button></div><div className="time-picker-summary" aria-live="polite"><span>Selected time</span><strong>{formatReminderTime(draftWorkTime, timeFormat)}</strong><p>Your workday stays unchanged until you confirm.</p></div><div className="time-picker-columns"><fieldset className="time-picker-fieldset"><legend>Hour</legend><div className="time-picker-hour-grid">{(timeFormat === "24h" ? Array.from({ length: 24 }, (_, index) => index) : Array.from({ length: 12 }, (_, index) => index + 1)).map((hour) => { const selectedHour = timeFormat === "24h" ? Number(draftWorkTime.slice(0, 2)) : draftParts.hour; return <button type="button" key={hour} className={hour === selectedHour ? "selected" : ""} aria-pressed={hour === selectedHour} onClick={() => setDraftWorkTime(timeFormat === "24h" ? `${String(hour).padStart(2, "0")}:${draftParts.minute}` : reminderTimeFromParts(hour, draftParts.minute, draftParts.meridiem))}>{timeFormat === "24h" ? String(hour).padStart(2, "0") : hour}</button>; })}</div></fieldset><fieldset className="time-picker-fieldset"><legend>Minutes</legend><div className="time-picker-minute-grid">{minuteChoices.map((minute) => <button type="button" key={minute} className={minute === draftParts.minute ? "selected" : ""} aria-pressed={minute === draftParts.minute} onClick={() => setDraftWorkTime(timeFormat === "24h" ? `${draftWorkTime.slice(0, 2)}:${minute}` : reminderTimeFromParts(draftParts.hour, minute, draftParts.meridiem))}>{minute}</button>)}</div>{timeFormat === "12h" && <div className="time-picker-period-grid">{(["AM", "PM"] as const).map((period) => <button type="button" key={period} className={period === draftParts.meridiem ? "selected" : ""} aria-pressed={period === draftParts.meridiem} onClick={() => setDraftWorkTime(reminderTimeFromParts(draftParts.hour, draftParts.minute, period))}>{period}</button>)}</div>}</fieldset></div><div className="workspace-choice-actions"><button type="button" className="picker-cancel-button" onClick={() => setActiveTimeField(null)}>Cancel</button><button type="button" className="picker-confirm-button" onClick={confirmWorkTime}>Use this time</button></div></section>; })()}<div className="time-picker-summary"><span>Recorded hours</span><strong>{formatRoutineTimeRange(checkIn, checkOut, timeFormat)}</strong><p>Choose a later check-out time before saving.</p></div><div className="draft-actions"><button className="primary-button" onClick={saveTimeEntry}>Save workday</button>{editingRecord && <button className="secondary-button" onClick={clearTimeEntry}>Remove workday</button>}</div></aside></div>}</>}
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Worked</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{weekdayLabels(weekStartDay, true).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => { const record = attendedRecords.find((item) => item.date === day.date); return <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${record ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && openTimeEntry(day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : record ? `${day.date}, worked ${formatRoutineShiftTimeline(record.date, record.checkIn, record.checkOut, timeFormat, record.nextDay)}. Tap to edit.` : `${day.date}, tap to record attendance or work times.`}><span>{day.dayOfMonth}</span>{record?.checkIn ? <small>{formatReminderTime(record.checkIn, timeFormat)}</small> : record && <small>Logged</small>}{day.expected && <i aria-label="Expected workday" />}</button>; })}</div><p className="routine-calendar-note"><i /> Tap a day to record attendance alone, add flexible hours, or edit a saved shift. Future dates stay locked until they arrive.</p></section>}
+      {selectedRoutine && monthRecords.length > 0 && <section className="routine-time-ledger" aria-label="Saved work times"><div><span className="draft-kicker">Saved work times</span><h3>This month’s hours</h3></div><div>{monthRecords.map((record) => { const duration = calculateRoutineShiftMinutes(record.checkIn, record.checkOut, record.nextDay); return <button type="button" key={record.id} onClick={() => openTimeEntry(record.date)}><span className="routine-shift-date"><b>{new Date(`${record.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" })}</b><small>{new Date(`${record.date}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</small></span>{record.checkIn && record.checkOut ? <span className="routine-shift-timeline"><span><small>In</small><strong>{formatReminderTime(record.checkIn, timeFormat)}</strong></span><i aria-hidden="true"><ArrowRight size={15} /></i><span><small>Out</small><strong>{formatReminderTime(record.checkOut, timeFormat)}</strong>{record.nextDay && <em>Next day</em>}</span></span> : <span className="routine-attendance-only"><strong>Attendance only</strong><small>Times not recorded</small></span>}{duration && <span className="routine-duration-badge">{formatRoutineShiftDuration(duration)}</span>}<ChevronRight size={15} /></button>; })}</div></section>}
+      {selectedRoutine && editingDate && <div className="workspace-choice-backdrop" role="dialog" aria-modal="true" aria-label="Record work times" onMouseDown={() => { setEditingDate(null); setActiveTimeField(null); }}><aside className="workspace-choice-sheet routine-time-sheet" onMouseDown={(event) => event.stopPropagation()}><div className="workspace-choice-head"><div><span className="draft-kicker">{editingRecord ? "Edit workday" : "Record workday"}</span><h3>{new Date(`${editingDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</h3></div><button className="close-button" onClick={() => { setEditingDate(null); setActiveTimeField(null); }} aria-label="Close"><X size={17} /></button></div><p className="routine-time-sheet-copy">Times are optional. Save attendance now, or record any shift—from one hour to an overnight—in the same personal work record.</p><div className="routine-time-inputs"><button type="button" className="routine-time-trigger" aria-expanded={activeTimeField === "checkIn"} onClick={() => openWorkTimePicker("checkIn")}><span><small>Check in</small><strong>{checkIn ? formatReminderTime(checkIn, timeFormat) : "Not set"}</strong><em>{checkIn ? "Tap to change" : "Optional · tap to choose"}</em></span><Clock3 size={17} /></button><button type="button" className="routine-time-trigger" aria-expanded={activeTimeField === "checkOut"} onClick={() => openWorkTimePicker("checkOut")}><span><small>Check out</small><strong>{checkOut ? formatReminderTime(checkOut, timeFormat) : "Not set"}</strong><em>{checkOut ? "Tap to change" : "Optional · tap to choose"}</em></span><Clock3 size={17} /></button></div>{(checkIn || checkOut) && <div className="routine-time-field-actions"><button type="button" onClick={() => { setCheckIn(undefined); setEndsNextDay(false); setConfirmLongShift(false); }}>Clear check-in</button><button type="button" onClick={() => { setCheckOut(undefined); setEndsNextDay(false); setConfirmLongShift(false); }}>Clear check-out</button></div>}{activeTimeField && (() => { const draftParts = reminderTimeParts(draftWorkTime); const minuteChoices = Array.from(new Set(["00", "15", "30", "45", draftParts.minute])).sort((left, right) => Number(left) - Number(right)); const isCheckIn = activeTimeField === "checkIn"; return <section className="routine-inline-time-picker" aria-label={`Choose ${isCheckIn ? "check-in" : "check-out"} time`}><div className="routine-inline-time-head"><div><span className="draft-kicker">{isCheckIn ? "Check in" : "Check out"}</span><h4>Set a time</h4></div><button type="button" className="close-button" onClick={() => setActiveTimeField(null)} aria-label="Cancel time selection"><X size={15} /></button></div><div className="time-picker-summary" aria-live="polite"><span>Selected time</span><strong>{formatReminderTime(draftWorkTime, timeFormat)}</strong><p>Your workday stays unchanged until you confirm.</p></div><div className="time-picker-columns"><fieldset className="time-picker-fieldset"><legend>Hour</legend><div className="time-picker-hour-grid">{(timeFormat === "24h" ? Array.from({ length: 24 }, (_, index) => index) : Array.from({ length: 12 }, (_, index) => index + 1)).map((hour) => { const selectedHour = timeFormat === "24h" ? Number(draftWorkTime.slice(0, 2)) : draftParts.hour; return <button type="button" key={hour} className={hour === selectedHour ? "selected" : ""} aria-pressed={hour === selectedHour} onClick={() => setDraftWorkTime(timeFormat === "24h" ? `${String(hour).padStart(2, "0")}:${draftParts.minute}` : reminderTimeFromParts(hour, draftParts.minute, draftParts.meridiem))}>{timeFormat === "24h" ? String(hour).padStart(2, "0") : hour}</button>; })}</div></fieldset><fieldset className="time-picker-fieldset"><legend>Minutes</legend><div className="time-picker-minute-grid">{minuteChoices.map((minute) => <button type="button" key={minute} className={minute === draftParts.minute ? "selected" : ""} aria-pressed={minute === draftParts.minute} onClick={() => setDraftWorkTime(timeFormat === "24h" ? `${draftWorkTime.slice(0, 2)}:${minute}` : reminderTimeFromParts(draftParts.hour, minute, draftParts.meridiem))}>{minute}</button>)}</div>{timeFormat === "12h" && <div className="time-picker-period-grid">{(["AM", "PM"] as const).map((period) => <button type="button" key={period} className={period === draftParts.meridiem ? "selected" : ""} aria-pressed={period === draftParts.meridiem} onClick={() => setDraftWorkTime(reminderTimeFromParts(draftParts.hour, draftParts.minute, period))}>{period}</button>)}</div>}</fieldset></div><div className="workspace-choice-actions"><button type="button" className="picker-cancel-button" onClick={() => setActiveTimeField(null)}>Cancel</button><button type="button" className="picker-confirm-button" onClick={confirmWorkTime}>Use this time</button></div></section>; })()}{hasBothShiftTimes && <button type="button" className={`routine-overnight-toggle ${endsNextDay ? "selected" : ""}`} aria-pressed={endsNextDay} onClick={() => { setEndsNextDay((current) => !current); setConfirmLongShift(false); }}><span><b>Check-out ends next day</b><small>{endsNextDay ? "The timeline continues into tomorrow." : "Turn on only when this shift crosses midnight."}</small></span><span aria-hidden="true">{endsNextDay ? "On" : "Off"}</span></button>}<div className="routine-shift-preview" aria-live="polite"><div><span>Shift timeline</span><strong>{formatRoutineShiftTimeline(editingDate, checkIn, checkOut, timeFormat, endsNextDay)}</strong><p>{hasBothShiftTimes ? endsNextDay ? "Your checkout is clearly marked as the following day." : "The same-day range stays easy to scan in your history." : "Attendance-only records are counted in your monthly total."}</p></div>{shiftDuration && <span className="routine-duration-badge">{formatRoutineShiftDuration(shiftDuration)}</span>}</div>{shiftDuration && shiftDuration > 16 * 60 && <div className="routine-long-shift-notice" role="status"><b>Long shift notice · {formatRoutineShiftDuration(shiftDuration)}</b><span>That is longer than sixteen hours. Please check the range; if it is correct, you can still save it.</span></div>}<div className="draft-actions"><button className="primary-button" onClick={() => saveTimeEntry(confirmLongShift)}>{confirmLongShift ? "Confirm & save shift" : hasBothShiftTimes ? "Save workday" : "Save attendance"}</button>{editingRecord && <button className="secondary-button" onClick={clearTimeEntry}>Remove workday</button>}</div></aside></div>}</>}
   </div>;
 }
 
-function HorizonView({ goals, trips, loans, schedules, routines, attendance, weekStartDay, timeFormat, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn: string, checkOut: string) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function HorizonView({ goals, trips, loans, schedules, routines, attendance, weekStartDay, timeFormat, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn?: string, checkOut?: string, nextDay?: boolean) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring" | "routines">("goals");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
   const activeGoals = goals.filter(planningIsActive);
