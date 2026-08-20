@@ -216,7 +216,13 @@
 
 ## Android test-installer update regression
 - [x] Increment the Android test build’s version code and verify its package metadata so Android accepts the repaired APK as an update rather than rejecting it.
-- [ ] Rebuild the Firebase-configured installer, validate the update metadata, and complete the real-device Drive backup retry.
+- [x] Rebuild the Firebase-configured installer and validate the version-3 update metadata.
+- [ ] Complete the real-device Drive backup retry with the updatable version-3 installer.
+
+## Android Capacitor plugin registration regression
+- [x] Correct the native `GoogleDriveAuth` Capacitor registration so the Android WebView can invoke the plugin rather than reporting it is not implemented.
+- [x] Add a build-level regression assertion for the Capacitor registration order and rebuild the Firebase-configured version-3 update APK.
+- [ ] Complete the real-device Google account consent and confirm the JSON backup is visible in the selected user’s Drive.
 
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.

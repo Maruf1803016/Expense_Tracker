@@ -13,8 +13,8 @@ describe("Android direct-test release configuration", () => {
     expect(config).toContain("webDir: 'dist/public'");
 
     const androidBuild = readFileSync(path.join(projectRoot, "android/app/build.gradle"), "utf8");
-    expect(androidBuild).toContain("versionCode 2");
-    expect(androidBuild).toContain('versionName "1.0.1"');
+    expect(androidBuild).toContain("versionCode 3");
+    expect(androidBuild).toContain('versionName "1.0.2"');
   });
 
   it("provides repeatable build and sync commands for a direct APK", () => {
@@ -43,7 +43,7 @@ describe("Android direct-test release configuration", () => {
 
     expect(gradle).toContain('com.google.android.gms:play-services-auth:21.6.0');
     expect(mainActivity).toContain("registerPlugin(GoogleDriveAuthorizationPlugin.class)");
-    expect(mainActivity.indexOf("super.onCreate(savedInstanceState)")).toBeLessThan(mainActivity.indexOf("registerPlugin(GoogleDriveAuthorizationPlugin.class)"));
+    expect(mainActivity.indexOf("registerPlugin(GoogleDriveAuthorizationPlugin.class)")).toBeLessThan(mainActivity.indexOf("super.onCreate(savedInstanceState)"));
     expect(nativePlugin).toContain('@CapacitorPlugin(name = "GoogleDriveAuth")');
     expect(nativeActivity).toContain("https://www.googleapis.com/auth/drive.file");
     expect(nativeActivity).toContain("getAccessToken()");
