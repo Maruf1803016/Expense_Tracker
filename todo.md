@@ -207,27 +207,34 @@
 - [x] Preserve the existing browser Drive backup path and provide a clear Android-only consent/error state.
 - [x] Validate the native build, focused tests, production bundle, and a Firebase-configured direct-test APK; document the one Google Cloud Console action that only the project owner can complete.
 - [x] Create the Android OAuth client in the owner’s `expense-tracker-79ef7` Google Cloud project with the verified package/SHA-1 pair.
-- [ ] Real-device acceptance: consent to a `drive.file` backup in the debug APK and confirm the created JSON file appears in the chosen user’s Google Drive.
+- [x] Real-device acceptance: consent to a `drive.file` backup in the debug APK and confirm the created JSON file appears in the chosen user’s Google Drive.
 
 ## Android Drive authorization regression
 - [x] Diagnose and repair the native Drive authorization handoff that remains on “Connecting to Google Drive…” after the user initiates backup in the Android APK.
 - [x] Add regression coverage for native authorization failure, cancellation, and completion so the backup button always leaves its loading state.
-- [ ] Rebuild the Firebase-configured APK and complete a real-device Drive backup acceptance retry.
+- [x] Rebuild the Firebase-configured APK and complete a real-device Drive backup acceptance retry.
 
 ## Android test-installer update regression
 - [x] Increment the Android test build’s version code and verify its package metadata so Android accepts the repaired APK as an update rather than rejecting it.
 - [x] Rebuild the Firebase-configured installer and validate the version-3 update metadata.
-- [ ] Complete the real-device Drive backup retry with the updatable version-3 installer.
+- [x] Complete the real-device Drive backup retry with the updatable version-4 installer.
 
 ## Android Capacitor plugin registration regression
 - [x] Correct the native `GoogleDriveAuth` Capacitor registration so the Android WebView can invoke the plugin rather than reporting it is not implemented.
 - [x] Add a build-level regression assertion for the Capacitor registration order and rebuild the Firebase-configured version-3 update APK.
-- [ ] Complete the real-device Google account consent and confirm the JSON backup is visible in the selected user’s Drive.
+- [x] Complete the real-device Google account consent and confirm the JSON backup is visible in the selected user’s Drive.
 
 ## Android post-consent authorization regression
 - [x] Correct the native Google authorization result return path after a user approves `drive.file`, so the access token reaches the WebView rather than the app reporting that no account picker opened.
 - [x] Add regression coverage for successful authorization results and rebuild the updatable version-4 Firebase-configured APK.
-- [ ] Confirm the returned token creates the ledger JSON backup in the consenting user’s Google Drive.
+- [x] Confirm the returned token creates the ledger JSON backup in the consenting user’s Google Drive.
+
+## Final release-readiness audit
+- [x] Run the current TypeScript, unit-test, production-build, and Android configuration validations from the verified Android Drive backup baseline.
+- [x] Review the primary Overview, Insights, Horizon, Settings, notification, history, and back-navigation experiences on desktop and narrow mobile layouts.
+- [x] Record verified findings, resolve only release-blocking defects, and preserve the approved Ink & Ledger system.
+- [x] Correct the Android build guidance so the documented debug-APK command supplies the required Android SDK environment path.
+- [ ] Save and synchronize the final audit checkpoint to the `manus_repo` branch after validation.
 
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.

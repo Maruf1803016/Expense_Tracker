@@ -1,10 +1,13 @@
 # Expense Ledger Android APK — Direct Test Release
 
-The Android wrapper uses Capacitor with the fixed application ID **`com.maruf.expenseledger`** and copies the web production bundle from `dist/public`. The supported direct-test command is:
+The Android wrapper uses Capacitor with the fixed application ID **`com.maruf.expenseledger`** and copies the web production bundle from `dist/public`. The supported direct-test command requires a configured Android SDK path:
 
 ```bash
-pnpm android:apk:debug
+# Use the Android SDK location on your computer.
+ANDROID_HOME=/path/to/Android/Sdk pnpm android:apk:debug
 ```
+
+In the current managed build environment, the equivalent path is `/home/ubuntu/android-sdk`. Android Studio normally supplies this configuration through its SDK settings or the project’s local `android/local.properties` file; that machine-specific file must not be committed.
 
 The resulting test APK is generated at:
 
