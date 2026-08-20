@@ -17,6 +17,9 @@ import 'package:expense_tracker/features/category/presentation/pages/category_ma
 import 'package:expense_tracker/features/work_routine/presentation/pages/work_routine_page.dart';
 import 'package:expense_tracker/features/history/presentation/pages/history_page.dart';
 import 'package:expense_tracker/features/notifications/presentation/pages/notification_inbox_page.dart';
+import 'package:expense_tracker/features/settings/presentation/pages/preferences_page.dart';
+import 'package:expense_tracker/features/settings/presentation/pages/data_and_support_page.dart';
+import 'package:expense_tracker/shared/presentation/widgets/currency_picker_sheet.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -66,18 +69,32 @@ class SettingsPage extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.monetization_on_outlined),
                 title: const Text('Currency'),
-                trailing: DropdownButton<String>(
-                  value: settingsProvider.selectedCurrency,
-                  underline: const SizedBox(),
-                  items: SettingsProvider.currencySymbols.keys.map((c) {
-                    return DropdownMenuItem(value: c, child: Text(c));
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      settingsProvider.updateCurrency(value);
-                    }
-                  },
-                ),
+                subtitle: Text('${settingsProvider.selectedCurrency} (${settingsProvider.currentSymbol})'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) => CurrencyPickerSheet(
+                      selectedCode: settingsProvider.selectedCurrency,
+                      onCurrencySelected: (code) => settingsProvider.updateCurrency(code),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.tune_rounded),
+                title: const Text('Preferences'),
+                subtitle: const Text('Time format, week start, and fiscal year'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PreferencesPage()),
+                  );
+                },
               ),
               const Divider(height: 1),
               ListTile(
@@ -196,6 +213,19 @@ class SettingsPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const HistoryPage()),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.shield_outlined),
+                title: const Text('Data & Support'),
+                subtitle: const Text('JSON backup, Google Drive, and developer contact'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DataAndSupportPage()),
                   );
                 },
               ),

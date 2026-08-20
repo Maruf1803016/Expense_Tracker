@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
+import 'package:expense_tracker/shared/presentation/widgets/currency_picker_sheet.dart';
 
 class SettingsProvider with ChangeNotifier {
   final SettingsRepository repository;
@@ -10,13 +11,36 @@ class SettingsProvider with ChangeNotifier {
   String _selectedCurrency = 'USD';
   String get selectedCurrency => _selectedCurrency;
 
+  bool _is24HourTime = false;
+  bool get is24HourTime => _is24HourTime;
+
+  int _startDayOfWeek = DateTime.monday; // 1 = Monday ... 7 = Sunday
+  int get startDayOfWeek => _startDayOfWeek;
+
+  int _financialYearStartMonth = 1; // 1 = January
+  int get financialYearStartMonth => _financialYearStartMonth;
+
   static const Map<String, String> currencySymbols = {
     'USD': '\$',
     'EUR': '€',
     'GBP': '£',
     'BDT': '৳',
     'INR': '₹',
+    'CAD': 'CA\$',
+    'AUD': 'AU\$',
     'JPY': '¥',
+    'SAR': '﷼',
+    'AED': 'د.إ',
+    'CHF': 'CHF',
+    'CNY': '¥',
+    'SGD': 'S\$',
+    'MYR': 'RM',
+    'PKR': '₨',
+    'NGN': '₦',
+    'BRL': 'R\$',
+    'ZAR': 'R',
+    'TRY': '₺',
+    'KRW': '₩',
   };
 
   String get currentSymbol => currencySymbols[_selectedCurrency] ?? '\$';
@@ -30,7 +54,6 @@ class SettingsProvider with ChangeNotifier {
     
     try {
       final currency = await repository.getCurrency();
-      
       _selectedCurrency = currency;
       CurrencyFormatter.setSymbol(currentSymbol);
       _isLoading = false;
@@ -58,5 +81,20 @@ class SettingsProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  void toggleTimeFormat(bool is24Hour) {
+    _is24HourTime = is24Hour;
+    notifyListeners();
+  }
+
+  void setStartDayOfWeek(int day) {
+    _startDayOfWeek = day;
+    notifyListeners();
+  }
+
+  void setFinancialYearStartMonth(int month) {
+    _financialYearStartMonth = month;
+    notifyListeners();
   }
 }

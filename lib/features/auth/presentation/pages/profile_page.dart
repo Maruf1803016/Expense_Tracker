@@ -120,6 +120,33 @@ class _ProfilePageState extends State<ProfilePage> {
                         filled: true,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.paper2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.line),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            user?.emailVerified == true ? Icons.verified_rounded : Icons.info_outline_rounded,
+                            size: 18,
+                            color: user?.emailVerified == true ? AppTheme.emeraldGreen : AppTheme.gold,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              user?.emailVerified == true
+                                  ? 'Email Verified (Firebase Auth)'
+                                  : 'Verification link sent upon registration via Firebase Authentication.',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 32),
                     ListTile(
                       leading: const Icon(Icons.lock_outline, color: AppTheme.emeraldGreen),
