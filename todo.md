@@ -247,6 +247,11 @@
 - [x] Correct the Android build guidance so the documented debug-APK command supplies the required Android SDK environment path.
 - [x] Save and synchronize the final audit checkpoint to the `manus_repo` branch after validation.
 
+## Git repository organization
+- [x] Audit tracked files, ignore rules, generated artifacts, and active branch references without touching the archived Flutter history.
+- [x] Apply only safe repository-metadata or ignore-rule changes that keep source, tests, documentation, and release instructions versioned while excluding generated or machine-local files.
+- [ ] Validate the clean worktree state and synchronize the organization pass only to `manus_repo`.
+
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
 - [x] Add a persistent currency setting in Settings and format ledger, analytics, and export monetary values using the saved preference.
