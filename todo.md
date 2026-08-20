@@ -404,7 +404,7 @@
 
 ## Published web Drive OAuth origin
 - [x] Add the assigned production origin `https://expensetrk-btvssrs3.manus.space` to the existing Google OAuth web client before testing browser Drive backup.
-- [ ] Complete a live browser Google Drive backup from the published site and confirm the resulting JSON reaches the consenting user’s own Drive.
+- [x] Complete a live browser Google Drive backup from the published site and confirm the resulting JSON reaches the consenting user’s own Drive.
 
 ## Manus repository synchronization recovery
 - [x] Diagnose the GitHub write restriction affecting the approved `manus_repo` backup branch without modifying `main`.
@@ -503,4 +503,4 @@
 ## Browser Google Drive authorization stall
 - [x] Prevent an already-loaded Google Identity script or an absent authorization callback from leaving the browser backup action stuck on “Connecting to Google Drive…”.
 - [x] Add focused lifecycle and timeout regression coverage for browser Drive authorization.
-- [ ] Validate the repaired browser backup flow, production bundle, and published result.
+- [x] Validate the repaired browser backup flow, production bundle, and published result.
