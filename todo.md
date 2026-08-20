@@ -360,3 +360,8 @@
 - [x] Extend Work & Routine attendance so users can record their check-in and check-out time for each attended day and view the saved daily timing.
 - [x] Increase practical small-screen reading comfort and prevent Overview inflow, outflow, and savings-rate values from overlapping their icons or card boundaries.
 - [x] Add focused coverage, verify mobile and desktop screenshots, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize the repair to GitHub `manus_repo`.
+
+## Polished workday time selector
+- [x] Replace the Android-native check-in and check-out picker with an in-app Ink & Ledger time-selection sheet.
+- [x] Preserve 12-hour and 24-hour preference behavior, keyboard accessibility, explicit confirmation, and the existing saved-time validation.
+- [ ] Verify the new workday time selector on phone and desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
