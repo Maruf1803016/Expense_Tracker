@@ -495,7 +495,7 @@
 
 ## Comprehensive published-web quality review
 - [x] Verify workspace-return behavior in source and regression coverage so nested History, Settings, Accounts, and notification paths retain the actual prior workspace.
-- [ ] Complete the interactive published-workspace walkthrough for Overview, Insights, Horizon, History, Settings, and Accounts at desktop and mobile widths, checking blocked controls, visual overflow, and broken interactions.
+- [x] Complete the interactive published-workspace walkthrough for Overview, Insights, Horizon, History, Settings, and Accounts at desktop and mobile widths, checking blocked controls, visual overflow, and broken interactions.
 - [x] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.
 - [x] Repair every concrete release-quality defect found, add focused regression coverage, validate the complete build, and publish the resulting checkpoint.
 - [x] Confirm the Overview’s desktop and phone render, shared picker behavior, logs, TypeScript, 52 regression tests, and production build after the responsive repair; authenticated feature flows remain queued for live acceptance.
