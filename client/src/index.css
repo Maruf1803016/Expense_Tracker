@@ -1962,3 +1962,10 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .ledger-time-wheel-clear:active { transform: scale(.97); }
 .ledger-time-wheel-actions:not(:has(.ledger-time-wheel-clear)) { grid-template-columns: 1fr 1fr; }
 @media (max-width: 430px) { .ledger-time-wheel { padding: 14px; } .ledger-time-input-values { gap: 6px; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) 51px; } .ledger-time-input-layout.is-24h .ledger-time-input-values { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); } .ledger-time-input-field { min-height: 80px; padding-inline: 7px; } .ledger-time-input-field input { font-size: 38px; } .ledger-time-input-values > em { padding-top: 11px; font-size: 37px; } .ledger-time-period-switch button { min-height: 39px; font-size: 12px; } .ledger-time-clock { width: min(100%, 224px); } .ledger-time-clock > button { width: 28px; height: 28px; font-size: 11px; } .ledger-time-wheel-columns { gap: 7px; padding: 8px; } }
+
+/* The picker keeps confirmation actions visible while its time controls scroll. */
+.time-picker-sheet { display: flex; flex-direction: column; max-height: min(calc(100dvh - 28px), 720px); overflow: hidden; }
+.time-picker-sheet .ledger-time-wheel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.time-picker-sheet .ledger-time-wheel-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; scrollbar-gutter: stable; }
+.time-picker-sheet .ledger-time-wheel-actions { margin-bottom: 0; padding-top: 16px; border-top: 1px solid rgba(203, 176, 121, .55); background: linear-gradient(180deg, rgba(255,253,248,.9), #fffdf8); }
+@media (max-height: 760px) { .time-picker-sheet { max-height: calc(100dvh - 12px); padding: 14px; } .time-picker-sheet .workspace-choice-head { padding-bottom: 10px; } .time-picker-sheet .ledger-time-wheel { margin-top: 10px; padding: 13px; } .time-picker-sheet .ledger-time-wheel-summary { margin: 10px 0 12px; padding: 10px 12px; } }

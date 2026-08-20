@@ -2495,16 +2495,18 @@ function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onVal
 
   return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
     <div className="ledger-time-wheel-head"><div><span className="draft-kicker">{heading}</span><h4>Set a precise time</h4></div><button type="button" className="close-button" onClick={onCancel} aria-label="Cancel time selection"><X size={15} /></button></div>
-    <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Enter a precise value above or use the dial below. Selecting an hour moves the dial to minutes.</p></div>
-    <div className={`ledger-time-input-layout ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
-      <div className="ledger-time-input-values" aria-label="Selected time">
-        <label className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`}><input aria-label="Hour" inputMode="numeric" maxLength={2} value={String(displayedHour).padStart(2, "0")} onFocus={() => setActiveField("hour")} onChange={(event) => acceptHourInput(event.target.value)} /><span>Hour</span></label>
-        <em aria-hidden="true">:</em>
-        <label className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`}><input aria-label="Minute" inputMode="numeric" maxLength={2} value={String(parts.minute).padStart(2, "0")} onFocus={() => setActiveField("minute")} onChange={(event) => acceptMinuteInput(event.target.value)} /><span>Minute</span></label>
-        {timeFormat === "12h" && <div className="ledger-time-period-switch" aria-label="Select AM or PM"><button type="button" className={parts.meridiem === "AM" ? "is-active" : ""} onClick={() => updatePeriod("AM")} aria-pressed={parts.meridiem === "AM"}>AM</button><button type="button" className={parts.meridiem === "PM" ? "is-active" : ""} onClick={() => updatePeriod("PM")} aria-pressed={parts.meridiem === "PM"}>PM</button></div>}
+    <div className="ledger-time-wheel-body">
+      <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Enter a precise value above or use the dial below. Selecting an hour moves the dial to minutes.</p></div>
+      <div className={`ledger-time-input-layout ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
+        <div className="ledger-time-input-values" aria-label="Selected time">
+          <label className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`}><input aria-label="Hour" inputMode="numeric" maxLength={2} value={String(displayedHour).padStart(2, "0")} onFocus={() => setActiveField("hour")} onChange={(event) => acceptHourInput(event.target.value)} /><span>Hour</span></label>
+          <em aria-hidden="true">:</em>
+          <label className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`}><input aria-label="Minute" inputMode="numeric" maxLength={2} value={String(parts.minute).padStart(2, "0")} onFocus={() => setActiveField("minute")} onChange={(event) => acceptMinuteInput(event.target.value)} /><span>Minute</span></label>
+          {timeFormat === "12h" && <div className="ledger-time-period-switch" aria-label="Select AM or PM"><button type="button" className={parts.meridiem === "AM" ? "is-active" : ""} onClick={() => updatePeriod("AM")} aria-pressed={parts.meridiem === "AM"}>AM</button><button type="button" className={parts.meridiem === "PM" ? "is-active" : ""} onClick={() => updatePeriod("PM")} aria-pressed={parts.meridiem === "PM"}>PM</button></div>}
+        </div>
+        <div className="ledger-time-input-hint"><span>Direct entry or dial</span><strong>{activeField === "hour" ? "Choose hour, then minutes" : "Adjusting minute"}</strong></div>
+        <LedgerTimeClockDial label={activeField === "hour" ? "Hour" : "Minute (5-minute steps)"} value={activeValue} options={activeOptions} onValueChange={updateActiveValue} onSelectionComplete={finishDialSelection} />
       </div>
-      <div className="ledger-time-input-hint"><span>Direct entry or dial</span><strong>{activeField === "hour" ? "Choose hour, then minutes" : "Adjusting minute"}</strong></div>
-      <LedgerTimeClockDial label={activeField === "hour" ? "Hour" : "Minute (5-minute steps)"} value={activeValue} options={activeOptions} onValueChange={updateActiveValue} onSelectionComplete={finishDialSelection} />
     </div>
     <div className="ledger-time-wheel-actions">
       <button type="button" className="picker-cancel-button" onClick={onCancel}>Cancel</button>

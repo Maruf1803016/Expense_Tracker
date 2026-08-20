@@ -403,6 +403,10 @@
 - [x] Add focused regression coverage for Drive backup payloads and configuration-unavailable feedback, then run TypeScript, Vitest, production-build, and responsive checks.
 - [x] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
 
+## Published web Drive OAuth origin
+- [ ] Add the assigned production origin `https://expensetrk-btvssrs3.manus.space` to the existing Google OAuth web client before testing browser Drive backup.
+- [ ] Complete a live browser Google Drive backup from the published site and confirm the resulting JSON reaches the consenting user’s own Drive.
+
 ## Controlled final in-app review
 - [x] Inspect the Overview, Insights, Plans & Progress, History, and Settings paths for concrete high-value usability or financial-clarity refinements without triggering external actions.
 - [x] Implement and test only the focused refinements supported by the review findings.
@@ -470,3 +474,14 @@
 - [x] Verify the supplied `google-services.json` belongs to `com.maruf.expenseledger` and the existing Firebase project.
 - [x] Install the verified configuration in the native Android wrapper and enable the matching Google Services build integration.
 - [x] Rebuild and validate the configuration-backed direct-test APK, then checkpoint and synchronize only to GitHub `manus_repo`.
+
+## Daily reminder time-picker viewport overflow
+- [x] Reproduce the web viewport overflow that places the time picker’s confirmation controls below the visible area.
+- [x] Rework the responsive picker shell so the clock body can scroll while Set, Clear, and Cancel remain reachable on desktop and small screens.
+- [x] Add a focused regression test, validate phone and desktop layouts, then publish the repair.
+
+## Comprehensive published-web quality review
+- [ ] Inspect the published Overview, Insights, Horizon, History, Settings, and account workspaces at desktop and mobile widths for blocked controls, visual overflow, navigation dead ends, and broken interactions.
+- [ ] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.
+- [ ] Repair every concrete release-quality defect found, add focused regression coverage, validate the complete build, and publish the resulting checkpoint.
+- [x] Confirm the Overview’s desktop and phone render, shared picker behavior, logs, TypeScript, 52 regression tests, and production build after the responsive repair; authenticated feature flows remain queued for live acceptance.
