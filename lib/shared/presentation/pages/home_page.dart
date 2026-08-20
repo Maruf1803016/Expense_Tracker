@@ -8,6 +8,8 @@ import 'package:expense_tracker/features/expense/presentation/pages/add_expense_
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/plan/presentation/pages/horizon_page.dart';
+import 'package:expense_tracker/features/notifications/presentation/providers/notification_provider.dart';
+import 'package:expense_tracker/features/notifications/presentation/pages/notification_inbox_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -123,13 +125,51 @@ class _HomePageState extends State<HomePage> {
               )
             : Text(titles[_currentIndex]),
         actions: [
-          if (isDashboard) ...[
-            IconButton(
-              tooltip: 'Notifications',
-              icon: const Icon(Icons.notifications_none_rounded),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Notifications are coming soon.')),
+            Consumer<NotificationProvider>(
+              builder: (context, notifProvider, _) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      tooltip: 'Notifications',
+                      icon: Icon(
+                        notifProvider.hasUnread ? Icons.notifications_rounded : Icons.notifications_none_rounded,
+                        color: notifProvider.hasUnread ? AppTheme.gold : AppTheme.textDark,
+                      ),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationInboxPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    if (notifProvider.hasUnread)
+                      Positioned(
+                        top: 10,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppTheme.gold,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            notifProvider.unreadBadge,
+                            style: GoogleFonts.spaceGrotesk(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 );
               },
             ),

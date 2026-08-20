@@ -105,6 +105,20 @@ import 'package:expense_tracker/features/loan/data/repositories/loan_repository_
 import 'package:expense_tracker/features/loan/domain/repositories/loan_repository.dart';
 import 'package:expense_tracker/features/loan/presentation/providers/loan_provider.dart';
 
+// --- Work Routine ---
+import 'package:expense_tracker/features/work_routine/data/datasources/work_routine_remote_data_source.dart';
+import 'package:expense_tracker/features/work_routine/data/repositories/work_routine_repository_impl.dart';
+import 'package:expense_tracker/features/work_routine/domain/repositories/work_routine_repository.dart';
+import 'package:expense_tracker/features/work_routine/domain/usecases/work_routine_usecases.dart';
+import 'package:expense_tracker/features/work_routine/presentation/providers/work_routine_provider.dart';
+
+// --- Notifications ---
+import 'package:expense_tracker/features/notifications/data/datasources/notification_remote_data_source.dart';
+import 'package:expense_tracker/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:expense_tracker/features/notifications/domain/repositories/notification_repository.dart';
+import 'package:expense_tracker/features/notifications/domain/usecases/notification_usecases.dart';
+import 'package:expense_tracker/features/notifications/presentation/providers/notification_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
@@ -257,4 +271,14 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<LoanRemoteDataSource>(() => LoanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
   sl.registerLazySingleton<LoanRepository>(() => LoanRepositoryImpl(remoteDataSource: sl()));
   sl.registerLazySingleton(() => LoanProvider(repository: sl()));
+
+  // --- Work Routine ---
+  sl.registerLazySingleton<WorkRoutineRemoteDataSource>(() => WorkRoutineRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<WorkRoutineRepository>(() => WorkRoutineRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => WorkRoutineProvider(repository: sl()));
+
+  // --- Notifications ---
+  sl.registerLazySingleton<NotificationRemoteDataSource>(() => NotificationRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<NotificationRepository>(() => NotificationRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => NotificationProvider(repository: sl()));
 }

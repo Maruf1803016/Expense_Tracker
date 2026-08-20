@@ -14,6 +14,9 @@ import 'package:expense_tracker/features/account/presentation/providers/account_
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
+import 'package:expense_tracker/features/work_routine/presentation/pages/work_routine_page.dart';
+import 'package:expense_tracker/features/history/presentation/pages/history_page.dart';
+import 'package:expense_tracker/features/notifications/presentation/pages/notification_inbox_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -181,6 +184,54 @@ class SettingsPage extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   _showExportSheet(context);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.history_rounded),
+                title: const Text('Historical Ledger'),
+                subtitle: const Text('Monthly archived ledger with 2-year retention'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HistoryPage()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Productivity Section
+        _buildSectionHeader('Productivity & Logs'),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Work & Routine Log'),
+                subtitle: const Text('Attendance, shifts, and monthly hours'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const WorkRoutinePage()),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.notifications_none_rounded),
+                title: const Text('Notification Inbox'),
+                subtitle: const Text('Reminders, budget alerts, and notices'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationInboxPage()),
+                  );
                 },
               ),
             ],
