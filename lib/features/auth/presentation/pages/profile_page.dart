@@ -128,20 +128,18 @@ class _ProfilePageState extends State<ProfilePage> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppTheme.line),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
                           Icon(
-                            user?.emailVerified == true ? Icons.verified_rounded : Icons.info_outline_rounded,
+                            Icons.verified_user_outlined,
                             size: 18,
-                            color: user?.emailVerified == true ? AppTheme.emeraldGreen : AppTheme.gold,
+                            color: AppTheme.emeraldGreen,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              user?.emailVerified == true
-                                  ? 'Email Verified (Firebase Auth)'
-                                  : 'Verification link sent upon registration via Firebase Authentication.',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textDark),
+                              'Authenticated via Firebase Email & Password.',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textDark),
                             ),
                           ),
                         ],
