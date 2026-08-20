@@ -11,7 +11,8 @@ import 'package:expense_tracker/features/export/presentation/providers/export_pr
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
 import 'package:expense_tracker/features/alerts/presentation/providers/smart_alerts_provider.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 
@@ -47,7 +48,10 @@ void main() async {
           create: (_) => sl<SettingsProvider>()..loadSettings(),
         ),
         ChangeNotifierProvider(
-          create: (_) => sl<PlanProvider>(),
+          create: (_) => sl<GoalProvider>(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => sl<TripPlanProvider>(),
         ),
         ChangeNotifierProvider(
           create: (_) => sl<AccountProvider>(),

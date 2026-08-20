@@ -7,7 +7,7 @@ import 'package:expense_tracker/features/analytics/presentation/pages/insights_p
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/settings/presentation/pages/settings_page.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
-import 'package:expense_tracker/features/plan/presentation/widgets/plans_tab_view.dart';
+import 'package:expense_tracker/features/plan/presentation/pages/horizon_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = const [
     ExpenseListPage(),
     InsightsPage(),
-    PlansTabView(),
+    HorizonPage(),
     SettingsPage(),
   ];
 
@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final titles = ['Expenses', 'Stats', 'Goals & Plans', 'Settings'];
+    final titles = ['Expenses', 'Stats', 'Horizon', 'Settings'];
     final user = context.watch<AuthProvider>().user;
     final displayName = user?.displayName?.trim();
     final hasDisplayName = displayName != null && displayName.isNotEmpty;
@@ -215,7 +215,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Goals & Plans'),
+            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Horizon'),
             _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings'),
           ],
         ),

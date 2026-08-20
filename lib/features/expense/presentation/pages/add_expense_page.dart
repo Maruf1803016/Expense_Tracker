@@ -10,8 +10,10 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_provider.dart';
+import 'package:expense_tracker/features/plan/domain/entities/trip_plan.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
@@ -48,6 +50,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
   late TextEditingController _titleController;
   late TextEditingController _amountController;
   late TextEditingController _noteController;
+  late TextEditingController _financedAmountController;
   String? _selectedSubCategoryName;
   String? _selectedSubCategoryIconName;
   
@@ -115,6 +118,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController = TextEditingController(
       text: widget.expenseToEdit?.note ?? '',
     );
+    _financedAmountController = TextEditingController();
     _selectedSubCategoryName = widget.expenseToEdit?.subCategory;
     _selectedSubCategoryIconName = widget.expenseToEdit?.subCategoryIcon;
     
@@ -163,6 +167,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _titleController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _financedAmountController.dispose();
     super.dispose();
   }
 
@@ -211,7 +216,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       debugPrint('[AddExpensePage] Saving with mode: $_mode');
       if (_mode == TransactionMode.plan) {
         final planId = const Uuid().v4();
-        final plan = Plan(
+        final plan = Goal(
           id: planId,
           title: _titleController.text.trim(),
           totalBudget: double.parse(_amountController.text.trim()),
@@ -220,9 +225,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
           categoryIds: const ['investment'],
           note: _noteController.text.trim(),
           createdAt: DateTime.now(),
+          financedAmount: double.tryParse(_financedAmountController.text.trim()),
         );
 
-        final planProvider = context.read<PlanProvider>();
+        final planProvider = context.read<GoalProvider>();
         debugPrint('[AddExpensePage] Calling planProvider.addPlanWithExpenses');
         await planProvider.addPlanWithExpenses(plan, []);
         debugPrint('[AddExpensePage] planProvider.addPlanWithExpenses completed successfully');
@@ -366,8 +372,10 @@ class _AddExpensePageState extends State<AddExpensePage> {
   Widget build(BuildContext context) {
     final categoryProvider = context.watch<CategoryProvider>();
     final categories = categoryProvider.categories;
-    final planProvider = context.watch<PlanProvider>();
-    final plans = planProvider.plans.where((p) => !p.isArchived).toList();
+    final goalProvider = context.watch<GoalProvider>();
+    final goals = goalProvider.plans.where((p) => !p.isArchived).toList();
+    final tripPlanProvider = context.watch<TripPlanProvider>();
+    final tripPlans = tripPlanProvider.tripPlans;
     final accountProvider = context.watch<AccountProvider>();
     final accounts = accountProvider.accounts;
 
@@ -485,6 +493,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     _planStartDate = date;
                   });
                 }),
+                const SizedBox(height: 16),
+                _buildSectionLabel('Financed Amount (Optional)'),
+                TextFormField(
+                  controller: _financedAmountController,
+                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. 5000.00',
+                  ),
+                ),
                 const SizedBox(height: 16),
                 _buildSectionLabel('End Date'),
                 _buildDateTile(_planEndDate, (date) {
@@ -687,21 +705,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
-                if (plans.isNotEmpty) ...[
-                  _buildSectionLabel('Link to Goal (Optional)'),
+                if (tripPlans.isNotEmpty) ...[
+                  _buildSectionLabel('Link to Trip Plan (Optional)'),
                   DropdownButtonFormField<String>(
-                    value: (plans.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
+                    value: (tripPlans.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
                     dropdownColor: AppTheme.paperCard,
                     style: GoogleFonts.inter(color: AppTheme.textDark),
                     decoration: const InputDecoration(
-                      hintText: 'No goal linked',
+                      hintText: 'No trip plan linked',
                     ),
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
-                        child: Text('No goal linked'),
+                        child: Text('No trip plan linked'),
                       ),
-                      ...plans.map((p) {
+                      ...tripPlans.map((p) {
                         return DropdownMenuItem<String>(
                           value: p.id,
                           child: Text(p.title),
@@ -714,6 +732,37 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       });
                     },
                   ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (goals.isNotEmpty) ...[
+                  _buildSectionLabel('Link to Goal (Optional)'),
+                  DropdownButtonFormField<String>(
+                    value: (goals.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
+                    dropdownColor: AppTheme.paperCard,
+                    style: GoogleFonts.inter(color: AppTheme.textDark),
+                    decoration: const InputDecoration(
+                      hintText: 'No goal linked',
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No goal linked'),
+                      ),
+                      ...goals.map((p) {
+                        return DropdownMenuItem<String>(
+                          value: p.id,
+                          child: Text(p.title),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        _selectedPlanId = val;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
                 ],
                 if ((_mode == TransactionMode.income || _mode == TransactionMode.expense) && widget.expenseToEdit == null) ...[
                   const SizedBox(height: 16),

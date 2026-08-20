@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-class Plan extends Equatable {
+class Goal extends Equatable {
   final String id;
   final String title;
   final double totalBudget;
@@ -10,8 +10,9 @@ class Plan extends Equatable {
   final String note;
   final DateTime createdAt;
   final bool isArchived;
+  final double? financedAmount;
 
-  const Plan({
+  const Goal({
     required this.id,
     required this.title,
     required this.totalBudget,
@@ -21,6 +22,7 @@ class Plan extends Equatable {
     required this.note,
     required this.createdAt,
     this.isArchived = false,
+    this.financedAmount,
   });
 
   @override
@@ -34,5 +36,6 @@ class Plan extends Equatable {
         note,
         createdAt,
         isArchived,
+        financedAmount,
       ];
 }

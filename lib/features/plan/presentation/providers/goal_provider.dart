@@ -1,21 +1,21 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
-import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
+import 'package:expense_tracker/features/plan/domain/repositories/goal_repository.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 
-class PlanProvider with ChangeNotifier {
-  final PlanRepository repository;
+class GoalProvider with ChangeNotifier {
+  final GoalRepository repository;
   
-  List<Plan> _plans = [];
-  List<Plan> get plans => _plans;
+  List<Goal> _plans = [];
+  List<Goal> get plans => _plans;
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  StreamSubscription<List<Plan>>? _plansSubscription;
+  StreamSubscription<List<Goal>>? _plansSubscription;
 
-  PlanProvider({required this.repository});
+  GoalProvider({required this.repository});
 
   void init() {
     _isLoading = true;
@@ -29,36 +29,36 @@ class PlanProvider with ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
-        debugPrint('[PlanProvider] Error loading plans: $e');
+        debugPrint('[GoalProvider] Error loading goals: $e');
         _isLoading = false;
         notifyListeners();
       },
     );
   }
 
-  Future<void> add(Plan plan) async {
+  Future<void> add(Goal plan) async {
     try {
       await repository.addPlan(plan);
     } catch (e) {
-      debugPrint('[PlanProvider] Error adding plan: $e');
+      debugPrint('[GoalProvider] Error adding goal: $e');
       rethrow;
     }
   }
 
-  Future<void> addPlanWithExpenses(Plan plan, List<Expense> expenses) async {
+  Future<void> addPlanWithExpenses(Goal plan, List<Expense> expenses) async {
     try {
       await repository.addPlanWithExpenses(plan, expenses);
     } catch (e) {
-      debugPrint('[PlanProvider] Error adding plan with expenses: $e');
+      debugPrint('[GoalProvider] Error adding goal with expenses: $e');
       rethrow;
     }
   }
 
-  Future<void> update(Plan plan) async {
+  Future<void> update(Goal plan) async {
     try {
       await repository.updatePlan(plan);
     } catch (e) {
-      debugPrint('[PlanProvider] Error updating plan: $e');
+      debugPrint('[GoalProvider] Error updating goal: $e');
       rethrow;
     }
   }
@@ -67,7 +67,7 @@ class PlanProvider with ChangeNotifier {
     try {
       await repository.deletePlan(id);
     } catch (e) {
-      debugPrint('[PlanProvider] Error deleting plan: $e');
+      debugPrint('[GoalProvider] Error deleting goal: $e');
       rethrow;
     }
   }

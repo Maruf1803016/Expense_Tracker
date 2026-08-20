@@ -7,22 +7,22 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/pages/plan_detail_page.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
+import 'package:expense_tracker/features/plan/presentation/pages/goal_detail_page.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 
-class PlansTabView extends StatefulWidget {
-  const PlansTabView({super.key});
+class GoalsTabView extends StatefulWidget {
+  const GoalsTabView({super.key});
 
   @override
-  State<PlansTabView> createState() => _PlansTabViewState();
+  State<GoalsTabView> createState() => _GoalsTabViewState();
 }
 
-class _PlansTabViewState extends State<PlansTabView> {
+class _GoalsTabViewState extends State<GoalsTabView> {
   late ConfettiController _confettiController;
 
   @override
@@ -46,7 +46,7 @@ class _PlansTabViewState extends State<PlansTabView> {
     return CurrencyFormatter.format(needed);
   }
 
-  Widget _buildSummaryHeader(List<Plan> plans, List<Expense> expenses) {
+  Widget _buildSummaryHeader(List<Goal> plans, List<Expense> expenses) {
     int activeGoalsCount = plans.length;
     double totalSaved = 0.0;
     double targetTotal = 0.0;
@@ -142,7 +142,7 @@ class _PlansTabViewState extends State<PlansTabView> {
 
   @override
   Widget build(BuildContext context) {
-    final planProvider = context.watch<PlanProvider>();
+    final planProvider = context.watch<GoalProvider>();
     final expenseProvider = context.watch<ExpenseProvider>();
     final plans = planProvider.plans.where((p) => !p.isArchived).toList();
     final expenses = expenseProvider.expenses;
@@ -198,7 +198,7 @@ class _PlansTabViewState extends State<PlansTabView> {
                                         onTap: () {
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
-                                              builder: (_) => PlanDetailPage(plan: plan),
+                                              builder: (_) => GoalDetailPage(plan: plan),
                                             ),
                                           );
                                         },
@@ -272,6 +272,18 @@ class _PlansTabViewState extends State<PlansTabView> {
                                                       ),
                                                     ],
                                                   ),
+                                                  if (plan.financedAmount != null && plan.financedAmount! > 0)
+                                                    Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      children: [
+                                                        Text('Financed', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10)),
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          CurrencyFormatter.format(plan.financedAmount!),
+                                                          style: GoogleFonts.spaceGrotesk(color: AppTheme.gold, fontSize: 14, fontWeight: FontWeight.bold),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   Column(
                                                     crossAxisAlignment: CrossAxisAlignment.end,
                                                     children: [
@@ -395,7 +407,7 @@ class _PlansTabViewState extends State<PlansTabView> {
     );
   }
 
-  void _showDeleteGoalDialog(BuildContext context, Plan plan) {
+  void _showDeleteGoalDialog(BuildContext context, Goal plan) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -409,7 +421,7 @@ class _PlansTabViewState extends State<PlansTabView> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final planProvider = context.read<PlanProvider>();
+              final planProvider = context.read<GoalProvider>();
               final expenseProvider = context.read<ExpenseProvider>();
               await expenseProvider.orphanPlanExpenses(plan.id);
               await planProvider.delete(plan.id);
@@ -422,7 +434,7 @@ class _PlansTabViewState extends State<PlansTabView> {
     );
   }
 
-  void _showDepositWithdrawSheet(BuildContext context, Plan plan, bool isDeposit, double currentSaved) {
+  void _showDepositWithdrawSheet(BuildContext context, Goal plan, bool isDeposit, double currentSaved) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -436,7 +448,7 @@ class _PlansTabViewState extends State<PlansTabView> {
     );
   }
 
-  void _showHistorySheet(BuildContext context, Plan plan, List<Expense> planExpenses) {
+  void _showHistorySheet(BuildContext context, Goal plan, List<Expense> planExpenses) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -515,7 +527,7 @@ class _PlansTabViewState extends State<PlansTabView> {
 }
 
 class _DepositWithdrawModal extends StatefulWidget {
-  final Plan plan;
+  final Goal plan;
   final bool isDeposit;
   final double currentSaved;
   final ConfettiController confettiController;

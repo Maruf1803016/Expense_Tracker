@@ -80,11 +80,17 @@ import 'package:expense_tracker/features/settings/data/repositories/settings_rep
 import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 
-// --- Plan ---
-import 'package:expense_tracker/features/plan/data/datasources/plan_remote_data_source.dart';
-import 'package:expense_tracker/features/plan/data/repositories/plan_repository_impl.dart';
-import 'package:expense_tracker/features/plan/domain/repositories/plan_repository.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
+// --- Goal ---
+import 'package:expense_tracker/features/plan/data/datasources/goal_remote_data_source.dart';
+import 'package:expense_tracker/features/plan/data/repositories/goal_repository_impl.dart';
+import 'package:expense_tracker/features/plan/domain/repositories/goal_repository.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
+
+// --- TripPlan ---
+import 'package:expense_tracker/features/plan/data/datasources/trip_plan_remote_data_source.dart';
+import 'package:expense_tracker/features/plan/data/repositories/trip_plan_repository_impl.dart';
+import 'package:expense_tracker/features/plan/domain/repositories/trip_plan_repository.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_provider.dart';
 
 // --- Recurring Transactions ---
 import 'package:expense_tracker/features/recurring_transactions/data/datasources/recurring_transaction_remote_data_source.dart';
@@ -199,10 +205,15 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => SmartAlertsProvider(getSmartAlerts: sl()));
   sl.registerLazySingleton(() => SettingsProvider(repository: sl()));
   
-  // --- Plan ---
-  sl.registerLazySingleton<PlanRemoteDataSource>(() => PlanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
-  sl.registerLazySingleton<PlanRepository>(() => PlanRepositoryImpl(remoteDataSource: sl()));
-  sl.registerLazySingleton(() => PlanProvider(repository: sl()));
+  // --- Goal ---
+  sl.registerLazySingleton<GoalRemoteDataSource>(() => GoalRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<GoalRepository>(() => GoalRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => GoalProvider(repository: sl()));
+
+  // --- TripPlan ---
+  sl.registerLazySingleton<TripPlanRemoteDataSource>(() => TripPlanRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));
+  sl.registerLazySingleton<TripPlanRepository>(() => TripPlanRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton(() => TripPlanProvider(repository: sl()));
 
   // --- Account ---
   sl.registerLazySingleton<AccountRemoteDataSource>(() => AccountRemoteDataSourceImpl(firestore: sl(), authDataSource: sl()));

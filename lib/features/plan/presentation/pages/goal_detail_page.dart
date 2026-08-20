@@ -5,15 +5,15 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/plan/presentation/providers/plan_provider.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/plan/presentation/providers/goal_provider.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 
-class PlanDetailPage extends StatelessWidget {
-  final Plan plan;
+class GoalDetailPage extends StatelessWidget {
+  final Goal plan;
 
-  const PlanDetailPage({super.key, required this.plan});
+  const GoalDetailPage({super.key, required this.plan});
 
   Future<void> _deletePlanFlow(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -39,7 +39,7 @@ class PlanDetailPage extends StatelessWidget {
       final navigator = Navigator.of(context);
       final messenger = ScaffoldMessenger.of(context);
       final expenseProvider = context.read<ExpenseProvider>();
-      final planProvider = context.read<PlanProvider>();
+      final planProvider = context.read<GoalProvider>();
       
       await expenseProvider.orphanPlanExpenses(plan.id);
       await planProvider.delete(plan.id);

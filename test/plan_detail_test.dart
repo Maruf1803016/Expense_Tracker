@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 
 void main() {
@@ -7,7 +7,7 @@ void main() {
     test('should include all distinct category IDs present in both plan setup and logged transactions', () {
       final now = DateTime.now();
       
-      final plan = Plan(
+      final plan = Goal(
         id: 'goal_wedding_123',
         title: 'Wedding Event',
         totalBudget: 150000.0,

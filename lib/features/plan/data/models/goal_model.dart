@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:expense_tracker/features/plan/domain/entities/plan.dart';
+import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
 
-class PlanModel extends Plan {
-  const PlanModel({
+class GoalModel extends Goal {
+  const GoalModel({
     required super.id,
     required super.title,
     required super.totalBudget,
@@ -12,9 +12,10 @@ class PlanModel extends Plan {
     required super.note,
     required super.createdAt,
     super.isArchived,
+    super.financedAmount,
   });
 
-  factory PlanModel.fromMap(Map<String, dynamic> map, String documentId) {
+  factory GoalModel.fromMap(Map<String, dynamic> map, String documentId) {
     List<String> resolvedCategoryIds = [];
     if (map['categoryIds'] != null) {
       resolvedCategoryIds = List<String>.from(map['categoryIds']);
@@ -22,7 +23,7 @@ class PlanModel extends Plan {
       resolvedCategoryIds = [map['categoryId'] as String];
     }
 
-    return PlanModel(
+    return GoalModel(
       id: documentId,
       title: map['title'] ?? '',
       totalBudget: (map['totalBudget'] as num?)?.toDouble() ?? 0.0,
@@ -34,6 +35,7 @@ class PlanModel extends Plan {
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
       isArchived: map['isArchived'] ?? false,
+      financedAmount: (map['financedAmount'] as num?)?.toDouble(),
     );
   }
 
@@ -47,20 +49,22 @@ class PlanModel extends Plan {
       'note': note,
       'createdAt': Timestamp.fromDate(createdAt),
       'isArchived': isArchived,
+      if (financedAmount != null) 'financedAmount': financedAmount,
     };
   }
 
-  factory PlanModel.fromEntity(Plan plan) {
-    return PlanModel(
-      id: plan.id,
-      title: plan.title,
-      totalBudget: plan.totalBudget,
-      startDate: plan.startDate,
-      endDate: plan.endDate,
-      categoryIds: plan.categoryIds,
-      note: plan.note,
-      createdAt: plan.createdAt,
-      isArchived: plan.isArchived,
+  factory GoalModel.fromEntity(Goal goal) {
+    return GoalModel(
+      id: goal.id,
+      title: goal.title,
+      totalBudget: goal.totalBudget,
+      startDate: goal.startDate,
+      endDate: goal.endDate,
+      categoryIds: goal.categoryIds,
+      note: goal.note,
+      createdAt: goal.createdAt,
+      isArchived: goal.isArchived,
+      financedAmount: goal.financedAmount,
     );
   }
 }
