@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/features/loan/domain/entities/loan.dart';
 import 'package:expense_tracker/features/loan/data/models/loan_model.dart';
 

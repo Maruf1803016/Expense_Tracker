@@ -25,6 +25,10 @@ class AccountProvider with ChangeNotifier {
   List<Account> _accounts = [];
   List<Account> get accounts => _accounts;
 
+  Account? getAccountById(String id) {
+    return _accounts.where((a) => a.id == id).firstOrNull;
+  }
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 

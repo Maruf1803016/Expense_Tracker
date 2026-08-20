@@ -109,14 +109,12 @@ import 'package:expense_tracker/features/loan/presentation/providers/loan_provid
 import 'package:expense_tracker/features/work_routine/data/datasources/work_routine_remote_data_source.dart';
 import 'package:expense_tracker/features/work_routine/data/repositories/work_routine_repository_impl.dart';
 import 'package:expense_tracker/features/work_routine/domain/repositories/work_routine_repository.dart';
-import 'package:expense_tracker/features/work_routine/domain/usecases/work_routine_usecases.dart';
 import 'package:expense_tracker/features/work_routine/presentation/providers/work_routine_provider.dart';
 
 // --- Notifications ---
 import 'package:expense_tracker/features/notifications/data/datasources/notification_remote_data_source.dart';
 import 'package:expense_tracker/features/notifications/data/repositories/notification_repository_impl.dart';
 import 'package:expense_tracker/features/notifications/domain/repositories/notification_repository.dart';
-import 'package:expense_tracker/features/notifications/domain/usecases/notification_usecases.dart';
 import 'package:expense_tracker/features/notifications/presentation/providers/notification_provider.dart';
 
 final sl = GetIt.instance;

@@ -125,6 +125,7 @@ class _HomePageState extends State<HomePage> {
               )
             : Text(titles[_currentIndex]),
         actions: [
+          if (isDashboard) ...[
             Consumer<NotificationProvider>(
               builder: (context, notifProvider, _) {
                 return Stack(

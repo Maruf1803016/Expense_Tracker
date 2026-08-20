@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
-import 'package:expense_tracker/shared/presentation/widgets/currency_picker_sheet.dart';
 
 class SettingsProvider with ChangeNotifier {
   final SettingsRepository repository;

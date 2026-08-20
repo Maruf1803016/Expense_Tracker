@@ -10,7 +10,8 @@ import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
-import 'package:expense_tracker/features/expense/presentation/pages/expense_detail_page.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/transaction_detail_page.dart';
+import 'package:expense_tracker/features/expense/presentation/widgets/expense_list_item.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
@@ -217,21 +218,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           } else {
             final expense = (item as _TransactionItem).expense;
             final category = provider.getCategoryById(expense.categoryId);
-            final isExpense = category.type == CategoryType.expense;
 
-            return _ExpenseItem(
-              expense: expense,
-              category: category,
-              isExpense: isExpense,
-              onLongPress: () => _showDeleteBottomSheet(context, provider, expense),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ExpenseDetailPage(expense: expense),
-                  ),
-                );
-              },
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: ExpenseListItem(
+                expense: expense,
+                category: category,
+              ),
             );
           }
         },
@@ -975,174 +968,7 @@ class _TransactionItem implements _DashboardListItem {
   _TransactionItem(this.expense);
 }
 
-class _ExpenseItem extends StatefulWidget {
-  final Expense expense;
-  final Category category;
-  final bool isExpense;
-  final VoidCallback onLongPress;
-  final VoidCallback onTap;
 
-  const _ExpenseItem({
-    required this.expense,
-    required this.category,
-    required this.isExpense,
-    required this.onLongPress,
-    required this.onTap,
-  });
-
-  @override
-  State<_ExpenseItem> createState() => _ExpenseItemState();
-}
-
-class _ExpenseItemState extends State<_ExpenseItem> {
-  Timer? _timer;
-
-  void _startTimer() {
-    _timer = Timer(const Duration(milliseconds: 600), () {
-      HapticFeedback.mediumImpact();
-      widget.onLongPress();
-    });
-  }
-
-  void _cancelTimer() {
-    _timer?.cancel();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final catColor = AppTheme.getCategoryColor(widget.category.id, widget.category.name);
-    final isPlanLinked = widget.expense.planId != null;
-
-    return GestureDetector(
-      onTapDown: (_) => _startTimer(),
-      onTapUp: (_) => _cancelTimer(),
-      onTapCancel: () => _cancelTimer(),
-      onTap: widget.onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppTheme.paperCard,
-          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          border: Border.all(
-            color: isPlanLinked ? AppTheme.gold : AppTheme.line,
-            width: isPlanLinked ? 1.5 : 1.0,
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Category icon with 15% opacity circular background
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: catColor.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        widget.category.icon,
-                        size: 20,
-                        color: catColor,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.expense.title,
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: AppTheme.textDark,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          // Category name & optional subcategory
-                          Row(
-                            children: [
-                              Text(
-                                widget.category.name,
-                                style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: AppTheme.muted,
-                                ),
-                              ),
-                              if (widget.expense.subCategory != null && widget.expense.subCategory!.isNotEmpty) ...[
-                                const SizedBox(width: 6),
-                                Text(
-                                  '•',
-                                  style: TextStyle(color: AppTheme.muted.withOpacity(0.5), fontSize: 12),
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    widget.expense.subCategory!,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      color: AppTheme.muted,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Amount (emerald for income, textDark for expense)
-                    Text(
-                      (widget.isExpense ? '-' : '+') + CurrencyFormatter.format(widget.expense.amount),
-                      style: GoogleFonts.spaceGrotesk(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: widget.isExpense ? AppTheme.textDark : AppTheme.emerald,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (isPlanLinked)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.gold,
-                      borderRadius: BorderRadius.only(
-                        bottomRight: Radius.circular(8),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.track_changes_rounded,
-                      size: 10,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _HairlinePatternPainter extends CustomPainter {
   final Color color;
