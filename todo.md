@@ -403,7 +403,7 @@
 - [x] Checkpoint and synchronize the verified direct Drive backup integration to GitHub `manus_repo`.
 
 ## Published web Drive OAuth origin
-- [ ] Add the assigned production origin `https://expensetrk-btvssrs3.manus.space` to the existing Google OAuth web client before testing browser Drive backup.
+- [x] Add the assigned production origin `https://expensetrk-btvssrs3.manus.space` to the existing Google OAuth web client before testing browser Drive backup.
 - [ ] Complete a live browser Google Drive backup from the published site and confirm the resulting JSON reaches the consenting user’s own Drive.
 
 ## Manus repository synchronization recovery
@@ -499,3 +499,8 @@
 - [x] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.
 - [x] Repair every concrete release-quality defect found, add focused regression coverage, validate the complete build, and publish the resulting checkpoint.
 - [x] Confirm the Overview’s desktop and phone render, shared picker behavior, logs, TypeScript, 52 regression tests, and production build after the responsive repair; authenticated feature flows remain queued for live acceptance.
+
+## Browser Google Drive authorization stall
+- [x] Prevent an already-loaded Google Identity script or an absent authorization callback from leaving the browser backup action stuck on “Connecting to Google Drive…”.
+- [x] Add focused lifecycle and timeout regression coverage for browser Drive authorization.
+- [ ] Validate the repaired browser backup flow, production bundle, and published result.

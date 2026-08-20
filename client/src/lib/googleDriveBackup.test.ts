@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_MULTIPART_UPLOAD_URL, createLedgerBackupFile, getGoogleDriveClientId, resolveNativeGoogleDriveAccessToken } from "./googleDriveBackup";
+import { GOOGLE_DRIVE_FILE_SCOPE, GOOGLE_DRIVE_MULTIPART_UPLOAD_URL, createLedgerBackupFile, getGoogleDriveClientId, resolveBrowserDriveAccessToken, resolveNativeGoogleDriveAccessToken } from "./googleDriveBackup";
 
 describe("Google Drive ledger backup", () => {
   it("accepts only the public Google Web client ID shape", () => {
@@ -34,5 +34,15 @@ describe("Google Drive ledger backup", () => {
 
   it("does not leave the Android backup control waiting when native authorization never returns", async () => {
     await expect(resolveNativeGoogleDriveAccessToken(() => new Promise(() => undefined), 1)).rejects.toThrow("did not open its account picker");
+  });
+
+  it("settles browser Drive authorization from the GIS callback or a meaningful GIS error", async () => {
+    await expect(resolveBrowserDriveAccessToken((onResponse) => onResponse({ access_token: " browser-token " }), 100)).resolves.toBe("browser-token");
+    await expect(resolveBrowserDriveAccessToken((onResponse) => onResponse({ error: "access_denied" }), 100)).rejects.toThrow("access_denied");
+    await expect(resolveBrowserDriveAccessToken((_onResponse, onError) => onError({ message: "popup_closed" }), 100)).rejects.toThrow("popup_closed");
+  });
+
+  it("does not leave the browser backup control waiting when Google does not return from the account picker", async () => {
+    await expect(resolveBrowserDriveAccessToken(() => undefined, 1)).rejects.toThrow("did not return from the account picker");
   });
 });

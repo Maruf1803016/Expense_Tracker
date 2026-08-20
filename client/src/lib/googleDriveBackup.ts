@@ -37,6 +37,8 @@ type NativeGoogleDriveAuthorizationPlugin = {
 
 const NativeGoogleDriveAuthorization = registerPlugin<NativeGoogleDriveAuthorizationPlugin>("GoogleDriveAuth");
 export const NATIVE_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS = 15_000;
+export const BROWSER_GOOGLE_IDENTITY_LOAD_TIMEOUT_MS = 12_000;
+export const BROWSER_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS = 20_000;
 
 function getGoogleOAuth2(): GoogleOAuth2 | undefined {
   return (window as GoogleIdentityWindow).google?.accounts?.oauth2;
@@ -104,11 +106,22 @@ export async function preloadGoogleIdentityServices(): Promise<void> {
   }
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (error) reject(error);
+      else resolve();
+    };
     const settle = () => getGoogleOAuth2()
-      ? resolve()
-      : reject(new Error("Google’s authorization service did not finish loading. Please try again."));
+      ? finish()
+      : finish(new Error("Google’s authorization service did not finish loading. Please try again."));
     script.addEventListener("load", settle, { once: true });
-    script.addEventListener("error", () => reject(new Error("Google’s authorization service could not be loaded. Please check your connection and try again.")), { once: true });
+    script.addEventListener("error", () => finish(new Error("Google’s authorization service could not be loaded. Please check your connection and try again.")), { once: true });
+    timeoutId = setTimeout(() => finish(new Error("Google’s authorization service did not become ready. Please check the browser’s pop-up/privacy settings and try again.")), BROWSER_GOOGLE_IDENTITY_LOAD_TIMEOUT_MS);
+    if (getGoogleOAuth2()) finish();
   });
 }
 
@@ -175,6 +188,54 @@ async function authorizeNativeAndroidDriveBackup(): Promise<string> {
   return resolveNativeGoogleDriveAccessToken(() => NativeGoogleDriveAuthorization.authorize());
 }
 
+function browserAuthorizationError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return new Error(error.message);
+  }
+  return new Error("Google Drive connection was cancelled or could not be opened.");
+}
+
+export function resolveBrowserDriveAccessToken(
+  requestAuthorization: (
+    onResponse: (response: GoogleTokenResponse) => void,
+    onError: (error: unknown) => void,
+  ) => void,
+  timeoutMs = BROWSER_GOOGLE_DRIVE_AUTHORIZATION_TIMEOUT_MS,
+): Promise<string> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const finish = (result: { token?: string; error?: Error }) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (result.error) reject(result.error);
+      else resolve(result.token!);
+    };
+    const onResponse = (response: GoogleTokenResponse) => {
+      const accessToken = response.access_token?.trim();
+      if (!accessToken) {
+        finish({ error: new Error(response.error_description || response.error || "Google Drive permission was not granted.") });
+        return;
+      }
+      finish({ token: accessToken });
+    };
+    const onError = (error: unknown) => finish({ error: browserAuthorizationError(error) });
+
+    timeoutId = setTimeout(() => {
+      finish({ error: new Error("Google Drive did not return from the account picker. Please close any blocked pop-up, then try again.") });
+    }, timeoutMs);
+
+    try {
+      requestAuthorization(onResponse, onError);
+    } catch (error) {
+      onError(error);
+    }
+  });
+}
+
 async function authorizeBrowserDriveBackup(clientId: string | undefined): Promise<string> {
   const usableClientId = getGoogleDriveClientId(clientId);
   if (!usableClientId) {
@@ -186,18 +247,12 @@ async function authorizeBrowserDriveBackup(clientId: string | undefined): Promis
     throw new Error("Google’s authorization service is not ready. Please try again.");
   }
 
-  return new Promise<string>((resolve, reject) => {
+  return resolveBrowserDriveAccessToken((onResponse, onError) => {
     const tokenClient = oauth2.initTokenClient({
       client_id: usableClientId,
       scope: GOOGLE_DRIVE_FILE_SCOPE,
-      callback: (response) => {
-        if (!response.access_token) {
-          reject(new Error(response.error_description || response.error || "Google Drive permission was not granted."));
-          return;
-        }
-        resolve(response.access_token);
-      },
-      error_callback: (error) => reject(new Error(error.message || "Google Drive connection was cancelled or could not be opened.")),
+      callback: onResponse,
+      error_callback: onError,
     });
     tokenClient.requestAccessToken({ prompt: "select_account" });
   });
