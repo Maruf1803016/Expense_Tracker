@@ -9,7 +9,7 @@ import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek, type RoutineWeekStartDay } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
-import { centredLedgerTimeWheelOption } from "@/lib/timeWheel";
+import { dialAngleForIndex, dialIndexFromPointer } from "@/lib/timeDial";
 import { calculateRoutineShiftMinutes, formatRoutineShiftDuration, formatRoutineShiftTimeline, isRoutineShiftOvernight, isRoutineTimeRangeValid } from "@/lib/routineTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
@@ -2455,60 +2455,50 @@ function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpen
 }
 
 
-function LedgerTimeScrollColumn({ label, value, options, onValueChange }: { label: string; value: string; options: string[]; onValueChange: (value: string) => void }) {
-  const selectedRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { selectedRef.current?.scrollIntoView({ block: "center", inline: "nearest" }); }, [value]);
-  const selectRelativeValue = (delta: number) => {
-    const index = options.indexOf(value);
-    onValueChange(options[(Math.max(0, index) + delta + options.length) % options.length]);
+function LedgerTimeClockDial({ label, value, options, onValueChange }: { label: string; value: string; options: string[]; onValueChange: (value: string) => void }) {
+  const selectedIndex = Math.max(0, options.indexOf(value));
+  const handAngle = dialAngleForIndex(selectedIndex, options.length);
+  const handRadians = handAngle * Math.PI / 180;
+  const handX = 120 + Math.sin(handRadians) * 61;
+  const handY = 120 - Math.cos(handRadians) * 61;
+  const selectFromPointer = (event: React.PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const index = dialIndexFromPointer(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2), options.length);
+    onValueChange(options[index]);
   };
-  return <div className="ledger-time-scroll-column">
-    <span>{label}</span>
-    <div className="ledger-time-scroll-list" role="listbox" aria-label={`Select ${label}`} onScroll={(event) => {
-      const container = event.currentTarget;
-      const items = Array.from(container.querySelectorAll<HTMLButtonElement>("[data-wheel-value]"));
-      const selected = centredLedgerTimeWheelOption(items.map((item) => item.dataset.wheelValue ?? ""), items.map((item) => item.offsetTop + item.offsetHeight / 2), container.scrollTop, container.clientHeight);
-      if (selected && selected !== value) onValueChange(selected);
-    }}>
-      <i aria-hidden="true" />
-      {options.map((option) => <button type="button" key={option} ref={option === value ? selectedRef : undefined} data-wheel-value={option} role="option" aria-selected={option === value} className={option === value ? "selected" : ""} onClick={() => onValueChange(option)} onKeyDown={(event) => {
-        if (event.key === "ArrowDown") { event.preventDefault(); selectRelativeValue(1); }
-        if (event.key === "ArrowUp") { event.preventDefault(); selectRelativeValue(-1); }
-        if (event.key === "Home") { event.preventDefault(); onValueChange(options[0]); }
-        if (event.key === "End") { event.preventDefault(); onValueChange(options[options.length - 1]); }
-      }}>{option}</button>)}
-      <i aria-hidden="true" />
-    </div>
-  </div>;
+  return <div className="ledger-time-clock-wrap"><div className="ledger-time-clock-copy"><span>Clock dial</span><strong>{label}</strong></div><div className="ledger-time-clock" role="group" aria-label={`Clock dial to select ${label}`} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); selectFromPointer(event); }} onPointerMove={(event) => { if (event.buttons === 1) selectFromPointer(event); }}>
+    <svg className="ledger-time-clock-hand" viewBox="0 0 240 240" aria-hidden="true"><circle cx="120" cy="120" r="66" /><line x1="120" y1="120" x2={handX} y2={handY} /><circle cx={handX} cy={handY} r="8" /><circle cx="120" cy="120" r="5" /></svg>
+    {options.map((option, index) => { const angle = dialAngleForIndex(index, options.length); return <button key={option} type="button" className={option === value ? "is-selected" : ""} style={{ transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-94px) rotate(-${angle}deg)` }} onPointerDown={(event) => event.stopPropagation()} onClick={() => onValueChange(option)} aria-pressed={option === value}>{option}</button>; })}
+  </div></div>;
 }
 
 function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onValueChange, onSet, onCancel, onClear }: { value: string; timeFormat: ReminderTimeFormat; heading: string; summaryLabel: string; onValueChange: (value: string) => void; onSet: () => void; onCancel: () => void; onClear?: () => void }) {
   const parts = reminderTimeParts(value);
   const [activeField, setActiveField] = useState<"hour" | "minute">("hour");
   const displayedHour = timeFormat === "24h" ? Number(value.slice(0, 2)) : parts.hour;
-  const hourOptions = Array.from({ length: timeFormat === "24h" ? 24 : 12 }, (_, index) => String(timeFormat === "24h" ? index : index + 1).padStart(timeFormat === "24h" ? 2 : 1, "0"));
-  const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+  const hourOptions = timeFormat === "24h" ? Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0")) : ["12", ...Array.from({ length: 11 }, (_, index) => String(index + 1))];
+  const minuteDialOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"));
   const updateHour = (hour: string) => onValueChange(timeFormat === "24h" ? `${hour}:${parts.minute}` : reminderTimeFromParts(Number(hour), parts.minute, parts.meridiem));
   const updateMinute = (minute: string) => onValueChange(timeFormat === "24h" ? `${value.slice(0, 2)}:${minute}` : reminderTimeFromParts(parts.hour, minute, parts.meridiem));
   const updatePeriod = (period: string) => onValueChange(reminderTimeFromParts(parts.hour, parts.minute, period as "AM" | "PM"));
-  const activeValue = activeField === "hour" ? (timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)) : String(parts.minute).padStart(2, "0");
-  const activeOptions = activeField === "hour" ? hourOptions : minuteOptions;
+  const activeValue = activeField === "hour" ? (timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)) : String(Math.round(Number(parts.minute) / 5) % 12 * 5).padStart(2, "0");
+  const activeOptions = activeField === "hour" ? hourOptions : minuteDialOptions;
   const updateActiveValue = activeField === "hour" ? updateHour : updateMinute;
+  const acceptHourInput = (input: string) => { const hour = Number(input); if (Number.isInteger(hour) && (timeFormat === "24h" ? hour >= 0 && hour <= 23 : hour >= 1 && hour <= 12)) updateHour(String(hour).padStart(timeFormat === "24h" ? 2 : 1, "0")); };
+  const acceptMinuteInput = (input: string) => { const minute = Number(input); if (Number.isInteger(minute) && minute >= 0 && minute <= 59) updateMinute(String(minute).padStart(2, "0")); };
 
   return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
     <div className="ledger-time-wheel-head"><div><span className="draft-kicker">{heading}</span><h4>Set a precise time</h4></div><button type="button" className="close-button" onClick={onCancel} aria-label="Cancel time selection"><X size={15} /></button></div>
-    <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Choose a field, swipe to refine it, then confirm when it is right.</p></div>
+    <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Type a precise value above or turn the dial below—both update the same time.</p></div>
     <div className={`ledger-time-input-layout ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
       <div className="ledger-time-input-values" aria-label="Selected time">
-        <button type="button" className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`} onClick={() => setActiveField("hour")} aria-pressed={activeField === "hour"}><b>{timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour).padStart(2, "0")}</b><span>Hour</span></button>
+        <label className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`}><input aria-label="Hour" inputMode="numeric" maxLength={2} value={String(displayedHour).padStart(2, "0")} onFocus={() => setActiveField("hour")} onChange={(event) => acceptHourInput(event.target.value)} /><span>Hour</span></label>
         <em aria-hidden="true">:</em>
-        <button type="button" className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`} onClick={() => setActiveField("minute")} aria-pressed={activeField === "minute"}><b>{String(parts.minute).padStart(2, "0")}</b><span>Minute</span></button>
+        <label className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`}><input aria-label="Minute" inputMode="numeric" maxLength={2} value={String(parts.minute).padStart(2, "0")} onFocus={() => setActiveField("minute")} onChange={(event) => acceptMinuteInput(event.target.value)} /><span>Minute</span></label>
         {timeFormat === "12h" && <div className="ledger-time-period-switch" aria-label="Select AM or PM"><button type="button" className={parts.meridiem === "AM" ? "is-active" : ""} onClick={() => updatePeriod("AM")} aria-pressed={parts.meridiem === "AM"}>AM</button><button type="button" className={parts.meridiem === "PM" ? "is-active" : ""} onClick={() => updatePeriod("PM")} aria-pressed={parts.meridiem === "PM"}>PM</button></div>}
       </div>
-      <div className="ledger-time-input-hint"><span>Swipe to select</span><strong>{activeField === "hour" ? "Hour" : "Minute"}</strong></div>
-      <div className="ledger-time-active-scroll" key={activeField}>
-        <LedgerTimeScrollColumn label={activeField === "hour" ? "Hour" : "Minute"} value={activeValue} options={activeOptions} onValueChange={updateActiveValue} />
-      </div>
+      <div className="ledger-time-input-hint"><span>Direct entry or dial</span><strong>{activeField === "hour" ? "Adjusting hour" : "Adjusting minute"}</strong></div>
+      <LedgerTimeClockDial label={activeField === "hour" ? "Hour" : "Minute (5-minute steps)"} value={activeValue} options={activeOptions} onValueChange={updateActiveValue} />
     </div>
     <div className="ledger-time-wheel-actions">
       <button type="button" className="picker-cancel-button" onClick={onCancel}>Cancel</button>

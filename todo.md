@@ -397,3 +397,8 @@
 - [x] Present the shared picker as a compact Hour, Minute, and AM/PM input-style layout inspired by the supplied reference while preserving Ink & Ledger visual tokens.
 - [x] Let users tap an active field to use the existing snap-scroll selection behavior, while preserving Set, Clear, Cancel, optional work times, 12/24-hour settings, and reminder compatibility.
 - [x] Validate both shared picker uses with focused coverage, TypeScript, Vitest, production build, responsive checks, checkpoint, and synchronization only to GitHub `manus_repo`.
+
+## Combined input and clock-dial picker
+- [x] Add an Ink & Ledger clock dial beneath the direct Hour, Minute, and AM/PM controls, with input fields and dial always synchronized to one selected time.
+- [x] Let the active top field determine whether the dial adjusts hours or minutes, and preserve accessible direct selection plus 12/24-hour preference behavior.
+- [x] Add dial conversion regression coverage, validate both shared picker flows, run TypeScript, Vitest, production build, responsive checks, then checkpoint and synchronize only to GitHub `manus_repo`.

@@ -1912,12 +1912,13 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .ledger-time-input-layout { display: grid; gap: 12px; }
 .ledger-time-input-values { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 58px; align-items: start; gap: 8px; }
 .ledger-time-input-layout.is-24h .ledger-time-input-values { grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr); max-width: 290px; }
-.ledger-time-input-field { display: grid; gap: 6px; min-height: 88px; padding: 11px 9px 9px; border: 1px solid transparent; border-radius: 8px; background: #f3eee6; color: #1b3a2b; cursor: pointer; transition: border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.ledger-time-input-field { display: grid; gap: 6px; min-height: 88px; padding: 11px 9px 9px; border: 1px solid transparent; border-radius: 8px; background: #f3eee6; color: #1b3a2b; cursor: text; transition: border-color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
 .ledger-time-input-field:hover { background: #efe4cf; }
 .ledger-time-input-field:active { transform: scale(.98); }
 .ledger-time-input-field.is-active { border-color: #b78a3d; background: linear-gradient(145deg, #f6e8bf, #e9d29a); box-shadow: inset 0 0 0 1px rgba(255,255,255,.72), 0 4px 10px rgba(99,74,24,.12); }
-.ledger-time-input-field:focus-visible, .ledger-time-period-switch button:focus-visible { outline: 2px solid #b78a3d; outline-offset: 2px; }
-.ledger-time-input-field b { font: 800 clamp(34px, 10vw, 48px)/.94 "Space Grotesk", sans-serif; letter-spacing: -.1em; }
+.ledger-time-input-field:focus-within, .ledger-time-period-switch button:focus-visible { outline: 2px solid #b78a3d; outline-offset: 2px; }
+.ledger-time-input-field input { width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: #1b3a2b; font: 800 clamp(34px, 10vw, 48px)/.94 "Space Grotesk", sans-serif; letter-spacing: -.1em; text-align: center; }
+.ledger-time-input-field input::-webkit-outer-spin-button, .ledger-time-input-field input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
 .ledger-time-input-field span { color: #786b58; font: 700 9px/1 "Space Grotesk", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .ledger-time-input-values > em { align-self: start; padding-top: 10px; color: #1b3a2b; font: 700 43px/.85 "Fraunces", Georgia, serif; font-style: normal; }
 .ledger-time-period-switch { display: grid; overflow: hidden; border: 1px solid #b8a37d; border-radius: 7px; background: #fffdf8; box-shadow: 0 3px 9px rgba(55,43,22,.1); }
@@ -1926,10 +1927,19 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .ledger-time-period-switch button.is-active { background: #e7ce91; color: #1b3a2b; }
 .ledger-time-input-hint { display: flex; align-items: center; justify-content: space-between; padding: 0 3px; color: #806b49; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .ledger-time-input-hint strong { color: #1b3a2b; font-size: 10px; }
-.ledger-time-active-scroll { overflow: hidden; border: 1px solid #d7c8ad; background: #ede3d2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.65); }
-.ledger-time-active-scroll .ledger-time-scroll-column { border: 0; box-shadow: none; }
-.ledger-time-active-scroll .ledger-time-scroll-column > span { display: none; }
-.ledger-time-active-scroll .ledger-time-scroll-list { height: 142px; }
+.ledger-time-clock-wrap { display: grid; gap: 7px; padding: 10px; border: 1px solid #d7c8ad; background: linear-gradient(145deg, #f1e8d9, #fffdf8); box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
+.ledger-time-clock-copy { display: flex; align-items: center; justify-content: space-between; padding: 0 3px; color: #806b49; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.ledger-time-clock-copy strong { color: #1b3a2b; font-size: 10px; }
+.ledger-time-clock { position: relative; width: min(100%, 244px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #fbf5e9 0 34%, #f3e8d7 35% 100%); box-shadow: inset 0 0 0 1px #d7c8ad, 0 5px 12px rgba(68,49,14,.08); touch-action: none; user-select: none; }
+.ledger-time-clock-hand { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ledger-time-clock-hand circle:first-child { fill: none; stroke: rgba(183,138,61,.28); stroke-width: 1; }
+.ledger-time-clock-hand line { stroke: #8d6f32; stroke-width: 2; stroke-linecap: round; }
+.ledger-time-clock-hand circle:nth-of-type(2) { fill: #b78a3d; stroke: #fffdf8; stroke-width: 2; }
+.ledger-time-clock-hand circle:last-child { fill: #1b3a2b; }
+.ledger-time-clock > button { position: absolute; top: 50%; left: 50%; z-index: 2; width: 30px; height: 30px; margin: 0; padding: 0; border: 0; border-radius: 999px; background: transparent; color: #5f584c; font: 800 12px/1 "Space Grotesk", sans-serif; cursor: pointer; transition: color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.ledger-time-clock > button:hover, .ledger-time-clock > button:focus-visible { color: #1b3a2b; background: #f7ead1; outline: 0; }
+.ledger-time-clock > button.is-selected { background: #b78a3d; color: #fffdf8; box-shadow: 0 3px 7px rgba(74,54,13,.18); }
+.ledger-time-clock > button:focus-visible { box-shadow: 0 0 0 2px #1b3a2b, 0 0 0 4px #f7ead1; }
 .ledger-time-wheel-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 11px; border: 1px solid #d7c8ad; background: #ede3d2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.65); }
 .ledger-time-wheel-columns.is-24h { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 330px; }
 .ledger-time-scroll-column { display: grid; grid-template-rows: auto 1fr; min-width: 0; overflow: hidden; border: 1px solid #b8a37d; background: #fffdf8; box-shadow: 0 3px 9px rgba(55, 43, 22, .12); }
@@ -1951,4 +1961,4 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 .ledger-time-wheel-clear:hover { background: #f2dfb7; }
 .ledger-time-wheel-clear:active { transform: scale(.97); }
 .ledger-time-wheel-actions:not(:has(.ledger-time-wheel-clear)) { grid-template-columns: 1fr 1fr; }
-@media (max-width: 430px) { .ledger-time-wheel { padding: 14px; } .ledger-time-input-values { gap: 6px; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) 51px; } .ledger-time-input-layout.is-24h .ledger-time-input-values { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); } .ledger-time-input-field { min-height: 80px; padding-inline: 7px; } .ledger-time-input-field b { font-size: 38px; } .ledger-time-input-values > em { padding-top: 11px; font-size: 37px; } .ledger-time-period-switch button { min-height: 39px; font-size: 12px; } .ledger-time-wheel-columns { gap: 7px; padding: 8px; } .ledger-time-scroll-list { height: 142px; } .ledger-time-scroll-list::before { top: 50px; margin-top: -50px; } .ledger-time-scroll-list > i { height: 50px; flex-basis: 50px; } .ledger-time-scroll-list button { height: 42px; } }
+@media (max-width: 430px) { .ledger-time-wheel { padding: 14px; } .ledger-time-input-values { gap: 6px; grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr) 51px; } .ledger-time-input-layout.is-24h .ledger-time-input-values { grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr); } .ledger-time-input-field { min-height: 80px; padding-inline: 7px; } .ledger-time-input-field input { font-size: 38px; } .ledger-time-input-values > em { padding-top: 11px; font-size: 37px; } .ledger-time-period-switch button { min-height: 39px; font-size: 12px; } .ledger-time-clock { width: min(100%, 224px); } .ledger-time-clock > button { width: 28px; height: 28px; font-size: 11px; } .ledger-time-wheel-columns { gap: 7px; padding: 8px; } }
