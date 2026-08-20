@@ -2484,20 +2484,31 @@ function LedgerTimeScrollColumn({ label, value, options, onValueChange }: { labe
 
 function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onValueChange, onSet, onCancel, onClear }: { value: string; timeFormat: ReminderTimeFormat; heading: string; summaryLabel: string; onValueChange: (value: string) => void; onSet: () => void; onCancel: () => void; onClear?: () => void }) {
   const parts = reminderTimeParts(value);
+  const [activeField, setActiveField] = useState<"hour" | "minute">("hour");
   const displayedHour = timeFormat === "24h" ? Number(value.slice(0, 2)) : parts.hour;
   const hourOptions = Array.from({ length: timeFormat === "24h" ? 24 : 12 }, (_, index) => String(timeFormat === "24h" ? index : index + 1).padStart(timeFormat === "24h" ? 2 : 1, "0"));
   const minuteOptions = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
   const updateHour = (hour: string) => onValueChange(timeFormat === "24h" ? `${hour}:${parts.minute}` : reminderTimeFromParts(Number(hour), parts.minute, parts.meridiem));
   const updateMinute = (minute: string) => onValueChange(timeFormat === "24h" ? `${value.slice(0, 2)}:${minute}` : reminderTimeFromParts(parts.hour, minute, parts.meridiem));
   const updatePeriod = (period: string) => onValueChange(reminderTimeFromParts(parts.hour, parts.minute, period as "AM" | "PM"));
+  const activeValue = activeField === "hour" ? (timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)) : String(parts.minute).padStart(2, "0");
+  const activeOptions = activeField === "hour" ? hourOptions : minuteOptions;
+  const updateActiveValue = activeField === "hour" ? updateHour : updateMinute;
 
-	  return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
+  return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
     <div className="ledger-time-wheel-head"><div><span className="draft-kicker">{heading}</span><h4>Set a precise time</h4></div><button type="button" className="close-button" onClick={onCancel} aria-label="Cancel time selection"><X size={15} /></button></div>
-    <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Use the controls above and below each value, then confirm when it is right.</p></div>
-    <div className={`ledger-time-wheel-columns ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
-      <LedgerTimeScrollColumn label="Hour" value={timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour)} options={hourOptions} onValueChange={updateHour} />
-      <LedgerTimeScrollColumn label="Minute" value={String(parts.minute).padStart(2, "0")} options={minuteOptions} onValueChange={updateMinute} />
-      {timeFormat === "12h" && <LedgerTimeScrollColumn label="Period" value={parts.meridiem} options={["AM", "PM"]} onValueChange={updatePeriod} />}
+    <div className="ledger-time-wheel-summary" aria-live="polite"><span>{summaryLabel}</span><strong>{formatReminderTime(value, timeFormat)}</strong><p>Choose a field, swipe to refine it, then confirm when it is right.</p></div>
+    <div className={`ledger-time-input-layout ${timeFormat === "24h" ? "is-24h" : "is-12h"}`}>
+      <div className="ledger-time-input-values" aria-label="Selected time">
+        <button type="button" className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`} onClick={() => setActiveField("hour")} aria-pressed={activeField === "hour"}><b>{timeFormat === "24h" ? String(displayedHour).padStart(2, "0") : String(displayedHour).padStart(2, "0")}</b><span>Hour</span></button>
+        <em aria-hidden="true">:</em>
+        <button type="button" className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`} onClick={() => setActiveField("minute")} aria-pressed={activeField === "minute"}><b>{String(parts.minute).padStart(2, "0")}</b><span>Minute</span></button>
+        {timeFormat === "12h" && <div className="ledger-time-period-switch" aria-label="Select AM or PM"><button type="button" className={parts.meridiem === "AM" ? "is-active" : ""} onClick={() => updatePeriod("AM")} aria-pressed={parts.meridiem === "AM"}>AM</button><button type="button" className={parts.meridiem === "PM" ? "is-active" : ""} onClick={() => updatePeriod("PM")} aria-pressed={parts.meridiem === "PM"}>PM</button></div>}
+      </div>
+      <div className="ledger-time-input-hint"><span>Swipe to select</span><strong>{activeField === "hour" ? "Hour" : "Minute"}</strong></div>
+      <div className="ledger-time-active-scroll" key={activeField}>
+        <LedgerTimeScrollColumn label={activeField === "hour" ? "Hour" : "Minute"} value={activeValue} options={activeOptions} onValueChange={updateActiveValue} />
+      </div>
     </div>
     <div className="ledger-time-wheel-actions">
       <button type="button" className="picker-cancel-button" onClick={onCancel}>Cancel</button>

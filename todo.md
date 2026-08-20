@@ -392,3 +392,8 @@
 - [x] Replace click-stepped time columns with touch-scroll hour, minute, and AM/PM wheels that snap to a central selected-value window.
 - [x] Keep Set, Clear, and Cancel actions plus 12-hour/24-hour display behavior, and ensure the scrolling picker remains usable with keyboard and pointer input.
 - [x] Add focused regression coverage, validate phone/desktop behavior, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize only to GitHub `manus_repo`.
+
+## Input-style hybrid time picker
+- [x] Present the shared picker as a compact Hour, Minute, and AM/PM input-style layout inspired by the supplied reference while preserving Ink & Ledger visual tokens.
+- [x] Let users tap an active field to use the existing snap-scroll selection behavior, while preserving Set, Clear, Cancel, optional work times, 12/24-hour settings, and reminder compatibility.
+- [x] Validate both shared picker uses with focused coverage, TypeScript, Vitest, production build, responsive checks, checkpoint, and synchronization only to GitHub `manus_repo`.
