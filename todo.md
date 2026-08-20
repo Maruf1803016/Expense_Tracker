@@ -373,4 +373,4 @@
 ## Shared themed time wheel
 - [x] Build a reusable warm-paper, ink, and gold wheel-style time picker for both workday time entries and the daily reminder timer.
 - [x] Preserve explicit Save/Cancel behavior, keyboard access, current 12-hour/24-hour formatting, and existing routine-time validation.
-- [ ] Verify the shared picker in both flows at phone and desktop widths, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
+- [x] Verify the shared picker in both flows at phone and desktop widths, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
