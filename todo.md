@@ -402,3 +402,8 @@
 - [x] Add an Ink & Ledger clock dial beneath the direct Hour, Minute, and AM/PM controls, with input fields and dial always synchronized to one selected time.
 - [x] Let the active top field determine whether the dial adjusts hours or minutes, and preserve accessible direct selection plus 12/24-hour preference behavior.
 - [x] Add dial conversion regression coverage, validate both shared picker flows, run TypeScript, Vitest, production build, responsive checks, then checkpoint and synchronize only to GitHub `manus_repo`.
+
+## Compose-inspired time-picker refinement
+- [x] Review the supplied Android Compose time-picker implementation and identify interaction details that can improve the shared Ink & Ledger picker without copying Android visuals.
+- [x] Apply any compatible refinement to field focus, dial selection, or hour/minute mode changes while preserving direct entry, 12/24-hour preferences, routine shifts, and reminders.
+- [x] Add or update focused tests, validate TypeScript, Vitest, production build, and responsive presentation, then checkpoint and synchronize only to GitHub `manus_repo`.
