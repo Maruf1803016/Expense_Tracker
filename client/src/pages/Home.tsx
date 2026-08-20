@@ -9,6 +9,7 @@ import { calendarYearChoices, normaliseCalendarDate } from "@/lib/calendarDate";
 import { ledgerErrorMessage } from "@/lib/ledgerError";
 import { expectedRoutineDaysInMonth, isFutureRoutineDate, routineCalendarDays, type RoutineDaysPerWeek, type RoutineWeekStartDay } from "@/lib/routineCalendar";
 import { formatReminderTime, reminderTimeFromParts, reminderTimeParts, type ReminderTimeFormat } from "@/lib/reminderTime";
+import { formatRoutineTimeRange, isRoutineTimeRangeValid } from "@/lib/routineTime";
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
 import { dashboardMonthLabel } from "@/lib/dashboardDate";
@@ -229,6 +230,8 @@ interface RoutineAttendance {
   routineId: string;
   date: string;
   attended: boolean;
+  checkIn?: string;
+  checkOut?: string;
   updatedAt: string;
 }
 
@@ -416,6 +419,8 @@ function normaliseRoutineAttendance(record: StoredRecord): RoutineAttendance {
     routineId: storedString(record.routineId),
     date: storedDate(record.date, dateInputValue(new Date())),
     attended: record.attended !== false,
+    checkIn: storedString(record.checkIn ?? record.checkInTime) || undefined,
+    checkOut: storedString(record.checkOut ?? record.checkOutTime) || undefined,
     updatedAt: storedDate(record.updatedAt, new Date().toISOString()),
   };
 }
@@ -1024,17 +1029,32 @@ export default function Home() {
     void persistRecord("routines", routine);
   };
 
-  const toggleRoutineAttendance = (routineId: string, date: string) => {
+  const saveRoutineAttendance = (routineId: string, date: string, checkIn: string, checkOut: string) => {
     if (isFutureRoutineDate(date)) return;
+    if (!isRoutineTimeRangeValid(checkIn, checkOut)) {
+      toast.error("Check-out time must be later than check-in time.");
+      return;
+    }
     const id = `routine-attendance-${routineId}-${date}`;
     const existing = routineAttendance.find((item) => item.id === id);
     const next: RoutineAttendance = {
       id,
       routineId,
       date,
-      attended: !(existing?.attended ?? false),
+      attended: true,
+      checkIn,
+      checkOut,
       updatedAt: new Date().toISOString(),
     };
+    setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
+    void persistRecord("routineAttendance", next);
+  };
+
+  const clearRoutineAttendance = (routineId: string, date: string) => {
+    if (isFutureRoutineDate(date)) return;
+    const id = `routine-attendance-${routineId}-${date}`;
+    const existing = routineAttendance.find((item) => item.id === id);
+    const next: RoutineAttendance = { id, routineId, date, attended: false, updatedAt: new Date().toISOString() };
     setRoutineAttendance((current) => existing ? current.map((item) => item.id === id ? next : item) : [...current, next]);
     void persistRecord("routineAttendance", next);
   };
@@ -1864,6 +1884,7 @@ export default function Home() {
               routines={routines}
               attendance={routineAttendance}
               weekStartDay={userPrefs.weekStartDay}
+              timeFormat={userPrefs.timeFormat}
               onOpenAddGoal={startCreatingGoal}
               onOpenAddTrip={startCreatingTrip}
               onOpenAddLoan={startCreatingLoan}
@@ -1873,7 +1894,8 @@ export default function Home() {
               onOpenLoan={(loan) => setLoanDetail(loan)}
               onOpenSchedule={(schedule) => setScheduleDetail(schedule)}
               onCreateRoutine={createRoutine}
-              onToggleRoutineAttendance={toggleRoutineAttendance}
+              onSaveRoutineAttendance={saveRoutineAttendance}
+              onClearRoutineAttendance={clearRoutineAttendance}
               onRemoveRoutine={removeRoutine}
             />
           )}
@@ -2418,37 +2440,66 @@ function NotificationInboxView({ items, unreadCount, returnLabel, onBack, onOpen
   </>;
 }
 
-function WorkRoutineView({ routines, attendance, weekStartDay, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function WorkRoutineView({ routines, attendance, weekStartDay, timeFormat, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn: string, checkOut: string) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const activeRoutines = routines.filter((routine) => routine.status !== "archived");
   const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [name, setName] = useState("");
   const [daysPerWeek, setDaysPerWeek] = useState<RoutineDaysPerWeek>(5);
   const [cursor, setCursor] = useState(() => clampRoutineMonth(new Date()));
+  const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [checkIn, setCheckIn] = useState("09:00");
+  const [checkOut, setCheckOut] = useState("17:00");
   const selectedRoutine = activeRoutines.find((routine) => routine.id === selectedRoutineId) ?? null;
   const calendar = selectedRoutine ? routineCalendarDays(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek, weekStartDay).map((day) => isFutureRoutineDate(day.date) ? { ...day, inCurrentMonth: false } : day) : [];
   const expectedDays = selectedRoutine ? expectedRoutineDaysInMonth(cursor.getFullYear(), cursor.getMonth(), selectedRoutine.daysPerWeek, weekStartDay) : [];
-  const attendedDates = new Set(attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended).map((item) => item.date));
+  const attendedRecords = attendance.filter((item) => item.routineId === selectedRoutine?.id && item.attended);
+  const attendedDates = new Set(attendedRecords.map((item) => item.date));
   const attendedThisMonth = expectedDays.filter((date) => attendedDates.has(date)).length;
   const totalAttendedThisMonth = calendar.filter((day) => day.inCurrentMonth && attendedDates.has(day.date)).length;
+  const monthRecords = attendedRecords.filter((record) => calendar.some((day) => day.inCurrentMonth && day.date === record.date)).sort((left, right) => left.date.localeCompare(right.date));
+  const editingRecord = attendedRecords.find((record) => record.date === editingDate);
   const create = () => {
     if (!name.trim()) return;
     onCreateRoutine(name, daysPerWeek);
     setName("");
     setComposerOpen(false);
   };
+  const openTimeEntry = (date: string) => {
+    if (isFutureRoutineDate(date)) return;
+    const existing = attendedRecords.find((record) => record.date === date);
+    setEditingDate(date);
+    setCheckIn(existing?.checkIn ?? "09:00");
+    setCheckOut(existing?.checkOut ?? "17:00");
+  };
+  const saveTimeEntry = () => {
+    if (!selectedRoutine || !editingDate) return;
+    if (!isRoutineTimeRangeValid(checkIn, checkOut)) {
+      toast.error("Choose a check-out time later than check-in.");
+      return;
+    }
+    onSaveRoutineAttendance(selectedRoutine.id, editingDate, checkIn, checkOut);
+    setEditingDate(null);
+  };
+  const clearTimeEntry = () => {
+    if (!selectedRoutine || !editingDate) return;
+    onClearRoutineAttendance(selectedRoutine.id, editingDate);
+    setEditingDate(null);
+  };
 
   return <div className="routine-workspace">
-    <section className="routine-intro paper-card"><div><div className="page-kicker">Monthly attendance</div><h2>Show up. See the month.</h2><p>For work, clinic, school, shifts, or any routine that deserves a simple record.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
+    <section className="routine-intro paper-card"><div><div className="page-kicker">Work attendance</div><h2>Show up. See the month.</h2><p>Record your workday with a check-in and check-out time, then review each month at a glance.</p></div><button className="primary-button" onClick={() => setComposerOpen(true)}><Plus size={15} /> Add routine</button></section>
     <section className="field-note routine-income-guidance"><b>Keep work and money clear.</b><span>Each tuition role and permanent job is counted as its own routine. Attendance never changes expense budgets; when you are paid, record the money as income using Salary, Freelance income, or a dedicated Tuition category.</span></section>
-    {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each {weekRangeLabel(weekStartDay)} workweek as expected. You can still record an extra day when you work one.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
+    {(composerOpen || activeRoutines.length === 0) && <section className="paper-card routine-composer"><div><span className="draft-kicker">New routine</span><h3>What do you want to track?</h3></div><label className="form-field"><span>Routine name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Clinic days, office, teaching" autoFocus /></label><div className="routine-days-field"><span>Expected days each week</span><div>{([3, 4, 5, 6, 7] as RoutineDaysPerWeek[]).map((days) => <button type="button" key={days} className={days === daysPerWeek ? "selected" : ""} onClick={() => setDaysPerWeek(days)}>{days}<small>days</small></button>)}</div><p>This marks the first {daysPerWeek} days in each {weekRangeLabel(weekStartDay)} workweek as expected. You can still add an extra workday when it happens.</p></div><div className="draft-actions"><button className="primary-button" onClick={create} disabled={!name.trim()}>Create routine</button>{activeRoutines.length > 0 && <button className="secondary-button" onClick={() => setComposerOpen(false)}>Cancel</button>}</div></section>}
     {activeRoutines.length > 0 && <><div className="routine-selector" aria-label="Choose routine">{activeRoutines.map((routine) => <div key={routine.id} className="routine-selector-item"><button className={selectedRoutine?.id === routine.id ? "active" : ""} onClick={() => setSelectedRoutineId(routine.id)}><span style={{ color: routine.color }}><ClipboardCheck size={17} /></span><strong>{routine.name}</strong><small>{routine.daysPerWeek} days / week</small></button><button type="button" className="delete-button" onClick={() => onRemoveRoutine(routine)} aria-label={`End ${routine.name}`}><Trash2 size={13} /></button></div>)}</div>
       {selectedRoutine && <div className="back-line"><button type="button" className="back-control" onClick={() => setSelectedRoutineId(null)}><ArrowLeft size={14} /> Back to routines</button></div>}
-      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Attended</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{weekdayLabels(weekStartDay, true).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${attendedDates.has(day.date) ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && onToggleRoutineAttendance(selectedRoutine.id, day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : `${day.date}${attendedDates.has(day.date) ? ", attended. Tap to remove." : ", tap to mark attended."}`}><span>{day.dayOfMonth}</span>{day.expected && <i aria-label="Expected workday" />}</button>)}</div><p className="routine-calendar-note"><i /> Future dates are unavailable until they arrive. Your rolling work view holds this month plus the prior eleven; attendance remains available for two years in Data History.</p></section>}</>}
+      {selectedRoutine && <section className="paper-card routine-calendar-sheet"><div className="routine-calendar-head"><div><span className="draft-kicker">{selectedRoutine.name}</span><h3>{cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3></div><div className="routine-month-actions"><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(current.getFullYear(), current.getMonth() - 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1)).getTime()} aria-label="Previous month"><ChevronLeft size={16} /></button><button className="text-link" onClick={() => setCursor(clampRoutineMonth(new Date()))}>This month</button><button className="calendar-nav-button" onClick={() => setCursor((current) => clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)))} disabled={cursor.getTime() === clampRoutineMonth(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)).getTime()} aria-label="Next month"><ChevronRight size={16} /></button></div></div><div className="routine-summary"><div><span>Worked</span><strong>{totalAttendedThisMonth}</strong></div><div><span>Expected</span><strong>{expectedDays.length}</strong></div><div><span>On schedule</span><strong>{attendedThisMonth}/{expectedDays.length}</strong></div></div><div className="routine-weekdays">{weekdayLabels(weekStartDay, true).map((day) => <span key={day}>{day}</span>)}</div><div className="routine-calendar-grid">{calendar.map((day) => { const record = attendedRecords.find((item) => item.date === day.date); return <button key={day.date} disabled={!day.inCurrentMonth} className={`routine-calendar-day ${day.expected ? "expected" : ""} ${record ? "attended" : ""} ${!day.inCurrentMonth ? "outside" : ""}`} onClick={() => day.inCurrentMonth && openTimeEntry(day.date)} aria-label={isFutureRoutineDate(day.date) ? `${day.date}, unavailable until that day.` : record ? `${day.date}, worked ${formatRoutineTimeRange(record.checkIn, record.checkOut, timeFormat)}. Tap to edit times.` : `${day.date}, tap to record work times.`}><span>{day.dayOfMonth}</span>{record?.checkIn && <small>{formatReminderTime(record.checkIn, timeFormat)}</small>}{day.expected && <i aria-label="Expected workday" />}</button>; })}</div><p className="routine-calendar-note"><i /> Tap a day to record or edit your check-in and check-out time. Future dates stay locked until they arrive.</p></section>}
+      {selectedRoutine && monthRecords.length > 0 && <section className="routine-time-ledger" aria-label="Saved work times"><div><span className="draft-kicker">Saved work times</span><h3>This month’s hours</h3></div><div>{monthRecords.map((record) => <button type="button" key={record.id} onClick={() => openTimeEntry(record.date)}><span>{new Date(`${record.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span><strong>{formatRoutineTimeRange(record.checkIn, record.checkOut, timeFormat)}</strong><ChevronRight size={15} /></button>)}</div></section>}
+      {selectedRoutine && editingDate && <div className="workspace-choice-backdrop" role="dialog" aria-modal="true" aria-label="Record work times" onMouseDown={() => setEditingDate(null)}><aside className="workspace-choice-sheet routine-time-sheet" onMouseDown={(event) => event.stopPropagation()}><div className="workspace-choice-head"><div><span className="draft-kicker">{editingRecord ? "Edit workday" : "Record workday"}</span><h3>{new Date(`${editingDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</h3></div><button className="close-button" onClick={() => setEditingDate(null)} aria-label="Close"><X size={17} /></button></div><p className="routine-time-sheet-copy">Save the time you arrived and left. Your calendar and two-year history keep this personal work record.</p><div className="routine-time-inputs"><label className="form-field"><span>Check in</span><input type="time" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} /></label><label className="form-field"><span>Check out</span><input type="time" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} /></label></div><div className="time-picker-summary"><span>Recorded hours</span><strong>{formatRoutineTimeRange(checkIn, checkOut, timeFormat)}</strong><p>Choose a later check-out time before saving.</p></div><div className="draft-actions"><button className="primary-button" onClick={saveTimeEntry}>Save workday</button>{editingRecord && <button className="secondary-button" onClick={clearTimeEntry}>Remove workday</button>}</div></aside></div>}</>}
   </div>;
 }
 
-function HorizonView({ goals, trips, loans, schedules, routines, attendance, weekStartDay, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onToggleRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onToggleRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
+function HorizonView({ goals, trips, loans, schedules, routines, attendance, weekStartDay, timeFormat, onOpenAddGoal, onOpenAddTrip, onOpenAddLoan, onOpenAddSchedule, onOpenGoal, onOpenTrip, onOpenLoan, onOpenSchedule, onCreateRoutine, onSaveRoutineAttendance, onClearRoutineAttendance, onRemoveRoutine }: { goals: Goal[]; trips: Trip[]; loans: Loan[]; schedules: RecurringSchedule[]; routines: WorkRoutine[]; attendance: RoutineAttendance[]; weekStartDay: RoutineWeekStartDay; timeFormat: ReminderTimeFormat; onOpenAddGoal: () => void; onOpenAddTrip: () => void; onOpenAddLoan: () => void; onOpenAddSchedule: () => void; onOpenGoal: (goal: Goal) => void; onOpenTrip: (trip: Trip) => void; onOpenLoan: (loan: Loan) => void; onOpenSchedule: (schedule: RecurringSchedule) => void; onCreateRoutine: (name: string, daysPerWeek: RoutineDaysPerWeek) => void; onSaveRoutineAttendance: (routineId: string, date: string, checkIn: string, checkOut: string) => void; onClearRoutineAttendance: (routineId: string, date: string) => void; onRemoveRoutine: (routine: WorkRoutine) => void }) {
   const [horizonTab, setHorizonTab] = useState<"goals" | "trips" | "loans" | "recurring" | "routines">("goals");
   const activeSchedules = schedules.filter((schedule) => schedule.status === "active");
   const activeGoals = goals.filter(planningIsActive);
@@ -2542,7 +2593,7 @@ function HorizonView({ goals, trips, loans, schedules, routines, attendance, wee
         </div>
       )}
 
-      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} weekStartDay={weekStartDay} onCreateRoutine={onCreateRoutine} onToggleRoutineAttendance={onToggleRoutineAttendance} onRemoveRoutine={onRemoveRoutine} />}
+      {horizonTab === "routines" && <WorkRoutineView routines={routines} attendance={attendance} weekStartDay={weekStartDay} timeFormat={timeFormat} onCreateRoutine={onCreateRoutine} onSaveRoutineAttendance={onSaveRoutineAttendance} onClearRoutineAttendance={onClearRoutineAttendance} onRemoveRoutine={onRemoveRoutine} />}
     </>
   );
 }
