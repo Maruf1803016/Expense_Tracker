@@ -382,3 +382,8 @@
 
 ## Workday shift timeline presentation
 - [x] Present saved work times as an editorial check-in-to-checkout timeline with clear date labels, a next-day marker, and a duration badge rather than ambiguous plain time text.
+
+## Reference-aligned work-time wheel
+- [x] Replace the current custom time-choice grid with a vertically stacked hour, minute, and AM/PM wheel matching the supplied reference’s interaction model.
+- [x] Preserve the Ink & Ledger warm-paper, ink, and antique-gold styling, while adding explicit Set, Clear, and Cancel controls and retaining 12-hour/24-hour preference support.
+- [x] Validate picker behavior across workday check-in and check-out, run TypeScript, Vitest, production-build, responsive checks, then checkpoint and synchronize only to GitHub `manus_repo`.

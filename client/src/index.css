@@ -1899,3 +1899,31 @@ html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
 }
 .routine-archive-detail .section-mini-head .text-link::before { content: "←"; font-size: 15px; line-height: 1; }
 .routine-archive-detail .section-mini-head .text-link:hover { border-color: #b78a3d; background: #fbf5e8; }
+
+
+/* Reference-aligned three-column time wheel, expressed in the Ink & Ledger palette. */
+.ledger-time-wheel { margin-top: 15px; padding: 18px; border: 1px solid #cbb079; border-radius: 6px; background: linear-gradient(145deg, #fffdf8 0%, #f6eddd 100%); box-shadow: inset 0 0 0 5px rgba(183, 138, 61, .06), 0 12px 28px rgba(40, 33, 20, .10); }
+.ledger-time-wheel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ledger-time-wheel-head h4 { margin: 4px 0 0; color: #1b3a2b; font: 700 21px/1.05 "Fraunces", Georgia, serif; }
+.ledger-time-wheel-summary { display: grid; gap: 4px; margin: 15px 0 17px; padding: 13px 15px; border-left: 3px solid #b78a3d; background: rgba(255, 253, 248, .74); }
+.ledger-time-wheel-summary > span, .ledger-time-wheel-column > span { color: #806b49; font: 800 9px/1 "Space Grotesk", sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+.ledger-time-wheel-summary strong { color: #1b3a2b; font: 700 27px/1 "Space Grotesk", sans-serif; letter-spacing: -.07em; }
+.ledger-time-wheel-summary p { margin: 1px 0 0; color: #746c5f; font-size: 11px; line-height: 1.4; }
+.ledger-time-wheel-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 11px; border: 1px solid #d7c8ad; background: #ede3d2; box-shadow: inset 0 0 0 1px rgba(255,255,255,.65); }
+.ledger-time-wheel-columns.is-24h { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 330px; }
+.ledger-time-wheel-column { display: grid; grid-template-rows: auto 42px 72px 42px; overflow: hidden; border: 1px solid #b8a37d; background: #fffdf8; box-shadow: 0 3px 9px rgba(55, 43, 22, .12); }
+.ledger-time-wheel-column > span { display: grid; place-items: center; min-height: 28px; padding: 0 4px; border-bottom: 1px solid #ded2bd; background: #f4ead9; text-align: center; }
+.ledger-time-wheel-step { display: grid; place-items: center; width: 100%; border: 0; border-bottom: 1px solid #ddd1bc; background: linear-gradient(#fffefa, #eee4d3); color: #7e6843; cursor: pointer; transition: color .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1), transform .16s cubic-bezier(.23,1,.32,1); }
+.ledger-time-wheel-step:last-child { border-top: 1px solid #ddd1bc; border-bottom: 0; }
+.ledger-time-wheel-step:hover { background: linear-gradient(#fffaf0, #ead9bb); color: #1b3a2b; }
+.ledger-time-wheel-step:active { transform: scale(.97); }
+.ledger-time-wheel-step:focus-visible, .ledger-time-wheel-clear:focus-visible { outline: 2px solid #b78a3d; outline-offset: 2px; }
+.ledger-time-wheel-column output { display: grid; place-items: center; min-width: 0; border-top: 1px solid rgba(255,255,255,.8); border-bottom: 1px solid rgba(92, 71, 30, .12); background: linear-gradient(90deg, #fffdf8, #f7ead1 45%, #fffdf8); color: #1b3a2b; font: 800 clamp(25px, 7vw, 38px)/1 "Space Grotesk", sans-serif; letter-spacing: -.08em; }
+.ledger-time-wheel-column:last-child output { font-size: clamp(19px, 5.5vw, 28px); letter-spacing: -.04em; }
+.ledger-time-wheel-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 16px; }
+.ledger-time-wheel-actions .picker-cancel-button, .ledger-time-wheel-actions .picker-confirm-button, .ledger-time-wheel-clear { width: 100%; min-height: 45px; }
+.ledger-time-wheel-clear { border: 1px solid #cbb079; border-radius: 3px; background: #fbf3e3; color: #6e5120; font: 800 10px/1 "Space Grotesk", sans-serif; letter-spacing: .07em; text-transform: uppercase; cursor: pointer; transition: transform .16s cubic-bezier(.23,1,.32,1), background .16s cubic-bezier(.23,1,.32,1); }
+.ledger-time-wheel-clear:hover { background: #f2dfb7; }
+.ledger-time-wheel-clear:active { transform: scale(.97); }
+.ledger-time-wheel-actions:not(:has(.ledger-time-wheel-clear)) { grid-template-columns: 1fr 1fr; }
+@media (max-width: 430px) { .ledger-time-wheel { padding: 14px; } .ledger-time-wheel-columns { gap: 7px; padding: 8px; } .ledger-time-wheel-column { grid-template-rows: auto 37px 62px 37px; } .ledger-time-wheel-step svg { width: 16px; height: 16px; } .ledger-time-wheel-column output { font-size: 27px; } .ledger-time-wheel-column:last-child output { font-size: 18px; } }
