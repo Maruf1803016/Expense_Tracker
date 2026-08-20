@@ -210,6 +210,8 @@
 - [x] Add a Settings notification section where users can enable the daily expense reminder and choose the reminder time, defaulting to 10:00 PM.
 - [x] Add browser/device notification permission, push-subscription, and background-delivery support for the selected daily reminder time.
 - [ ] Publish the reminder callback, register the platform Heartbeat, and live-verify an in-app reminder plus a closed/background device notification.
+  - [x] Publish the protected callback and register the enabled `daily-expense-reminder-dispatch-v1` managed dispatcher (`W7K7Y3aTGRsPdXG2RcrF4P`) against the live Expense Ledger deployment.
+  - [ ] Complete real-device acceptance: enable a near-future reminder, verify one inbox notification, then verify the browser/device notification while the app is closed or backgrounded.
 - [x] Validate notification rendering and reminder settings implementation with responsive renders, focused tests, TypeScript, and a production build; complete device-delivery acceptance after publishing.
 
 ## Android Google Drive backup
