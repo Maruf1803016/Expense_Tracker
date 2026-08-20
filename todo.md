@@ -234,7 +234,7 @@
 - [x] Review the primary Overview, Insights, Horizon, Settings, notification, history, and back-navigation experiences on desktop and narrow mobile layouts.
 - [x] Record verified findings, resolve only release-blocking defects, and preserve the approved Ink & Ledger system.
 - [x] Correct the Android build guidance so the documented debug-APK command supplies the required Android SDK environment path.
-- [ ] Save and synchronize the final audit checkpoint to the `manus_repo` branch after validation.
+- [x] Save and synchronize the final audit checkpoint to the `manus_repo` branch after validation.
 
 ## Expandable settings and enriched transaction records
 - [x] Make Expense Categories, Income Categories, Notification Settings, and Export Data compact, independently expandable Settings sections.
