@@ -14,6 +14,7 @@ import { calculateRoutineShiftMinutes, formatRoutineShiftDuration, formatRoutine
 import { clampRoutineMonth, isWithinTwoYearRetention, planningIsActive, type PlanningLifecycleState } from "@/lib/planningLifecycle";
 import { authorizeAndUploadLedgerBackup, createLedgerBackupFile, getGoogleDriveClientId, isGoogleDriveBackupConfigured, isNativeAndroidDriveBackup, preloadGoogleIdentityServices } from "@/lib/googleDriveBackup";
 import { dashboardMonthLabel } from "@/lib/dashboardDate";
+import { accountEmailGuidance } from "@/lib/accountEmailGuidance";
 
 // Ink & Ledger design note: the Overview is a daily field note; permanent expense containers stay concise while rich subcategories carry the detail.
 
@@ -1208,7 +1209,7 @@ export default function Home() {
     try {
       if (action === "verification") {
         await sendVerification();
-        setProfileNotice("Verification email sent. Open the link in the same browser, then return here and choose Refresh status.");
+        setProfileNotice(accountEmailGuidance.verificationRequested(user?.email ?? "your account email"));
       } else if (action === "refreshVerification") {
         await refreshVerification();
         setProfileNotice("Status refreshed. If this still reads Not verified, open the newest verification link in your inbox and try again.");
@@ -1219,7 +1220,7 @@ export default function Home() {
           return;
         }
         await requestPasswordReset(resetEmail);
-        setProfileNotice("Password-reset instructions were sent. Check Inbox, Spam, and Promotions, then use the newest link.");
+        setProfileNotice(accountEmailGuidance.passwordResetRequested(resetEmail));
       }
     } catch (caught) {
       setProfileNotice(caught instanceof Error ? caught.message : "That account action could not be completed. Try again in a moment.");
@@ -2118,6 +2119,7 @@ export default function Home() {
                 <div className="field-note-row"><span>Email verification</span><b>{user.emailVerified ? "Verified" : "Not verified"}</b></div>
                 <div className="field-note-row"><span>Ledger identity</span><b>{user.uid.slice(0, 10)}…</b></div>
               </div>
+              <div className="profile-action-callout profile-recovery-callout"><div><b>About secure account emails</b><p>{accountEmailGuidance.preflight}</p></div></div>
               {!user.emailVerified && <div className="profile-action-callout"><div><b>Confirm this email</b><p>No email is sent automatically. When you are ready, choose Send verification email to request one link for {user.email}.</p></div><div className="profile-action-buttons"><button className="secondary-button" disabled={authSubmitting} onClick={() => void handleProfileAction("verification")}>{authSubmitting ? "Sending…" : "Send verification email"}</button><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("refreshVerification")}>Refresh status</button></div></div>}
               <div className="profile-action-callout profile-recovery-callout"><div><b>Password recovery</b><p>No reset email is sent unless you select the action. A secure link will be sent to {user.email ?? "your account email"} only after you choose Send reset link.</p></div><button className="text-link" disabled={authSubmitting} onClick={() => void handleProfileAction("passwordReset")}>{authSubmitting ? "Sending…" : "Send reset link"}</button></div>
               {cloudError && <p className="empty-hint" role="alert" style={{ color: "#8b2626", marginBottom: 18 }}>{cloudError}</p>}

@@ -186,6 +186,16 @@
 - [x] Verify responsive presentation, TypeScript, and production build for the Profile controls.
 - [ ] Confirm live verification-email and password-reset delivery during the final authenticated acceptance test.
 
+## Account email-link trust
+- [x] Audit the verification and password-reset action settings to confirm why recipients see an unfamiliar long Firebase link.
+- [x] Document the secure no-cost Firebase default-link path after confirming that no owned public custom domain is available, without weakening Firebase’s one-time action-code protections.
+- [x] Validate the user-facing account-email explanation and record the exact owner-side Firebase domain setup required before any live email is sent.
+
+## No-cost account-email trust
+- [x] Replace the custom-domain plan with a no-cost Firebase default-link decision that keeps the one-time action code intact.
+- [x] Add clear in-app confirmation copy before and after account-email requests so recipients recognise the expected Firebase sender and secure link.
+- [x] Add focused regression coverage for the no-cost account-email guidance and validate the release build before any owner-approved live email test.
+
 ## Loan money flow and notifications
 - [x] Create ledger cash movements when a loan is borrowed, lent, repaid, or collected, without double-counting loan balances in net worth.
 - [x] Show loan cash movements in Overview, History, and relevant money-flow totals with clear source context.
