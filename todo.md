@@ -359,4 +359,4 @@
 - [x] Review and clarify the user-facing text highlighted in Settings, routine creation, and Overview cards without losing the Ink & Ledger tone.
 - [x] Extend Work & Routine attendance so users can record their check-in and check-out time for each attended day and view the saved daily timing.
 - [x] Increase practical small-screen reading comfort and prevent Overview inflow, outflow, and savings-rate values from overlapping their icons or card boundaries.
-- [ ] Add focused coverage, verify mobile and desktop screenshots, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize the repair to GitHub `manus_repo`.
+- [x] Add focused coverage, verify mobile and desktop screenshots, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize the repair to GitHub `manus_repo`.
