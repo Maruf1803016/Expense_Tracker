@@ -195,6 +195,7 @@
 - [x] Replace the custom-domain plan with a no-cost Firebase default-link decision that keeps the one-time action code intact.
 - [x] Add clear in-app confirmation copy before and after account-email requests so recipients recognise the expected Firebase sender and secure link.
 - [x] Add focused regression coverage for the no-cost account-email guidance and validate the release build before any owner-approved live email test.
+- [x] Preserve Firebase’s original secure action-link domain and full one-time-code structure; do not shorten, redirect, or replace account links.
 
 ## Loan money flow and notifications
 - [x] Create ledger cash movements when a loan is borrowed, lent, repaid, or collected, without double-counting loan balances in net worth.
