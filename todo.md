@@ -364,4 +364,4 @@
 ## Polished workday time selector
 - [x] Replace the Android-native check-in and check-out picker with an in-app Ink & Ledger time-selection sheet.
 - [x] Preserve 12-hour and 24-hour preference behavior, keyboard accessibility, explicit confirmation, and the existing saved-time validation.
-- [ ] Verify the new workday time selector on phone and desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
+- [x] Verify the new workday time selector on phone and desktop layouts, run TypeScript, Vitest, and production-build checks, then checkpoint and synchronize to GitHub `manus_repo`.
