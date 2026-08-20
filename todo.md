@@ -480,6 +480,11 @@
 - [x] Rework the responsive picker shell so the clock body can scroll while Set, Clear, and Cancel remain reachable on desktop and small screens.
 - [x] Add a focused regression test, validate phone and desktop layouts, then publish the repair.
 
+## Shared time-picker two-digit minute entry
+- [x] Reproduce the direct minute-field behavior that accepts only the first digit of a two-digit entry.
+- [x] Support uninterrupted sequential two-digit minute input, including leading-zero values, without requiring a second tap.
+- [ ] Add regression coverage across reminder and work-time pickers, validate, and publish the correction.
+
 ## Comprehensive published-web quality review
 - [ ] Inspect the published Overview, Insights, Horizon, History, Settings, and account workspaces at desktop and mobile widths for blocked controls, visual overflow, navigation dead ends, and broken interactions.
 - [ ] Inspect shared modals and forms—including transaction, time, date, category, account, goal, trip, loan, and schedule flows—for viewport-safe action controls and consistent interaction states.

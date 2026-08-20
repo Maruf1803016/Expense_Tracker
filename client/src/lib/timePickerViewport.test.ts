@@ -16,4 +16,12 @@ describe("time-picker viewport safety", () => {
     expect(styles).toContain(".time-picker-sheet .ledger-time-wheel-body { min-height: 0; overflow-y: auto;");
     expect(styles).toContain(".time-picker-sheet .ledger-time-wheel { display: grid; grid-template-rows: auto minmax(0, 1fr) auto;");
   });
+
+  it("keeps a direct minute entry as a draft until both digits are available", () => {
+    expect(homeSource).toContain('const [minuteInputDraft, setMinuteInputDraft] = useState<string | null>(null);');
+    expect(homeSource).toContain('const digits = input.replace(/\\D/g, "").slice(0, 2);');
+    expect(homeSource).toContain("if (digits.length === 2) {");
+    expect(homeSource).toContain("value={minuteInputDraft ?? String(parts.minute).padStart(2, \"0\")}");
+    expect(homeSource).toContain("onChange={(event) => handleMinuteInput(event.target.value)}");
+  });
 });

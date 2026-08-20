@@ -2478,6 +2478,7 @@ function LedgerTimeClockDial({ label, value, options, onValueChange, onSelection
 function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onValueChange, onSet, onCancel, onClear }: { value: string; timeFormat: ReminderTimeFormat; heading: string; summaryLabel: string; onValueChange: (value: string) => void; onSet: () => void; onCancel: () => void; onClear?: () => void }) {
   const parts = reminderTimeParts(value);
   const [activeField, setActiveField] = useState<"hour" | "minute">("hour");
+  const [minuteInputDraft, setMinuteInputDraft] = useState<string | null>(null);
   const displayedHour = timeFormat === "24h" ? Number(value.slice(0, 2)) : parts.hour;
   const hourOptions = timeFormat === "24h" ? Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0")) : ["12", ...Array.from({ length: 11 }, (_, index) => String(index + 1))];
   const minuteDialOptions = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, "0"));
@@ -2492,6 +2493,18 @@ function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onVal
   };
   const acceptHourInput = (input: string) => { const hour = Number(input); if (Number.isInteger(hour) && (timeFormat === "24h" ? hour >= 0 && hour <= 23 : hour >= 1 && hour <= 12)) updateHour(String(hour).padStart(timeFormat === "24h" ? 2 : 1, "0")); };
   const acceptMinuteInput = (input: string) => { const minute = Number(input); if (Number.isInteger(minute) && minute >= 0 && minute <= 59) updateMinute(String(minute).padStart(2, "0")); };
+  const handleMinuteInput = (input: string) => {
+    const digits = input.replace(/\D/g, "").slice(0, 2);
+    setMinuteInputDraft(digits);
+    if (digits.length === 2) {
+      acceptMinuteInput(digits);
+      setMinuteInputDraft(null);
+    }
+  };
+  const commitMinuteInput = () => {
+    if (minuteInputDraft) acceptMinuteInput(minuteInputDraft);
+    setMinuteInputDraft(null);
+  };
 
   return <section className="ledger-time-wheel" aria-label={`Set ${heading}`}>
     <div className="ledger-time-wheel-head"><div><span className="draft-kicker">{heading}</span><h4>Set a precise time</h4></div><button type="button" className="close-button" onClick={onCancel} aria-label="Cancel time selection"><X size={15} /></button></div>
@@ -2501,7 +2514,7 @@ function LedgerTimeWheelPicker({ value, timeFormat, heading, summaryLabel, onVal
         <div className="ledger-time-input-values" aria-label="Selected time">
           <label className={`ledger-time-input-field ${activeField === "hour" ? "is-active" : ""}`}><input aria-label="Hour" inputMode="numeric" maxLength={2} value={String(displayedHour).padStart(2, "0")} onFocus={() => setActiveField("hour")} onChange={(event) => acceptHourInput(event.target.value)} /><span>Hour</span></label>
           <em aria-hidden="true">:</em>
-          <label className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`}><input aria-label="Minute" inputMode="numeric" maxLength={2} value={String(parts.minute).padStart(2, "0")} onFocus={() => setActiveField("minute")} onChange={(event) => acceptMinuteInput(event.target.value)} /><span>Minute</span></label>
+          <label className={`ledger-time-input-field ${activeField === "minute" ? "is-active" : ""}`}><input aria-label="Minute" inputMode="numeric" maxLength={2} value={minuteInputDraft ?? String(parts.minute).padStart(2, "0")} onFocus={() => { setActiveField("minute"); setMinuteInputDraft(""); }} onChange={(event) => handleMinuteInput(event.target.value)} onBlur={commitMinuteInput} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitMinuteInput(); } if (event.key === "Escape") setMinuteInputDraft(null); }} /><span>Minute</span></label>
           {timeFormat === "12h" && <div className="ledger-time-period-switch" aria-label="Select AM or PM"><button type="button" className={parts.meridiem === "AM" ? "is-active" : ""} onClick={() => updatePeriod("AM")} aria-pressed={parts.meridiem === "AM"}>AM</button><button type="button" className={parts.meridiem === "PM" ? "is-active" : ""} onClick={() => updatePeriod("PM")} aria-pressed={parts.meridiem === "PM"}>PM</button></div>}
         </div>
         <div className="ledger-time-input-hint"><span>Direct entry or dial</span><strong>{activeField === "hour" ? "Choose hour, then minutes" : "Adjusting minute"}</strong></div>
