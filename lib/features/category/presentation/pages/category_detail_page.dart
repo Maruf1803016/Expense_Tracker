@@ -416,7 +416,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                                   ),
                                   child: Icon(
                                     expense.subCategoryIcon != null
-                                        ? IconUtils.getIcon(expense.subCategoryIcon)
+                                        ? IconUtils.getIcon(expense.subCategoryIcon, categoryName: expense.subCategory)
                                         : liveCategory.icon, 
                                     color: color, 
                                     size: 18

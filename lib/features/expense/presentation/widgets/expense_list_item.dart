@@ -119,7 +119,7 @@ class ExpenseListItem extends StatelessWidget {
                             const SizedBox(width: 4),
                             if (expense.subCategoryIcon != null) ...[
                               Icon(
-                                IconUtils.getIcon(expense.subCategoryIcon),
+                                IconUtils.getIcon(expense.subCategoryIcon, categoryName: expense.subCategory),
                                 size: 11,
                                 color: AppTheme.muted,
                               ),

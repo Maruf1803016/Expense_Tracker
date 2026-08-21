@@ -716,7 +716,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(category.icon, color: isSelected ? catColor : AppTheme.muted, size: 24),
+                              Icon(
+                                IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                                color: isSelected ? catColor : AppTheme.muted,
+                                size: 24,
+                              ),
                               const SizedBox(height: 6),
                               Text(
                                 category.name,
@@ -1250,7 +1254,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            sub.icon,
+                            IconUtils.getIcon(IconUtils.getIconName(sub.icon), categoryName: sub.name),
                             size: 14,
                             color: isSelected ? catColor : AppTheme.muted,
                           ),

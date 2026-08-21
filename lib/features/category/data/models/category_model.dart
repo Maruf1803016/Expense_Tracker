@@ -16,7 +16,7 @@ class CategoryModel extends Category {
       final subMap = Map<String, dynamic>.from(item as Map);
       return SubCategory(
         name: subMap['name'] ?? '',
-        icon: IconUtils.getIcon(subMap['icon'] as String?),
+        icon: IconUtils.getIcon(subMap['icon'] as String?, categoryName: subMap['name'] as String?),
       );
     }).toList() ?? <SubCategory>[];
 
@@ -24,7 +24,7 @@ class CategoryModel extends Category {
       id: documentId,
       name: map['name'] ?? '',
       type: map['type'] == 'income' ? CategoryType.income : CategoryType.expense,
-      icon: IconUtils.getIcon(map['icon'] as String?),
+      icon: IconUtils.getIcon(map['icon'] as String?, categoryName: map['name'] as String?),
       subCategories: subCategoriesList,
     );
   }
