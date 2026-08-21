@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
-import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/features/plan/presentation/widgets/goals_tab_view.dart';
 import 'package:expense_tracker/features/plan/presentation/widgets/trip_plans_tab_view.dart';
 import 'package:expense_tracker/features/loan/presentation/widgets/loans_tab_view.dart';

@@ -105,131 +105,132 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final showUpcomingIncome = (provider.selectedFilter == ExpenseFilter.income || provider.selectedFilter == ExpenseFilter.all) && incomeSources.isNotEmpty;
     final showUpcomingBills = (provider.selectedFilter == ExpenseFilter.expense || provider.selectedFilter == ExpenseFilter.all) && expenseSources.isNotEmpty;
 
-    return Column(
-      children: [
-        _buildBalanceSummary(context, provider),
-        _buildNetWorthCard(context, provider),
-        _buildSearchAndFilters(context, provider),
-        const SizedBox(height: 16),
-        if (showUpcomingIncome) ...[
-          _buildUpcomingSection(context, incomeSources, isIncome: true),
-          const SizedBox(height: 16),
+    return RefreshIndicator(
+      color: AppTheme.gold,
+      onRefresh: () => provider.init(),
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 100),
+        children: [
+          _buildBalanceSummary(context, provider),
+          _buildNetWorthCard(context, provider),
+          _buildSearchAndFilters(context, provider),
+          const SizedBox(height: 12),
+          if (showUpcomingIncome) ...[
+            _buildUpcomingSection(context, incomeSources, isIncome: true),
+            const SizedBox(height: 12),
+          ],
+          if (showUpcomingBills) ...[
+            _buildUpcomingSection(context, expenseSources, isIncome: false),
+            const SizedBox(height: 12),
+          ],
+          ..._buildTransactionWidgets(context, provider, filteredExpenses),
         ],
-        if (showUpcomingBills) ...[
-          _buildUpcomingSection(context, expenseSources, isIncome: false),
-          const SizedBox(height: 16),
-        ],
-        Expanded(
-          child: _buildBody(context, provider, filteredExpenses),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildBody(BuildContext context, ExpenseProvider provider, List<Expense> filteredExpenses) {
+  List<Widget> _buildTransactionWidgets(BuildContext context, ExpenseProvider provider, List<Expense> filteredExpenses) {
     if (provider.isLoading && provider.expenses.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.gold),
-      );
+      return const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 40.0),
+          child: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
+        ),
+      ];
     }
 
     if (provider.errorMessage != null && provider.expenses.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppTheme.brick),
-            const SizedBox(height: 16),
-            Text(
-              provider.errorMessage!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppTheme.brick),
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: AppTheme.brick),
+                const SizedBox(height: 16),
+                Text(
+                  provider.errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: AppTheme.brick),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => provider.init(),
+                  child: const Text('Retry'),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => provider.init(),
-              child: const Text('Retry'),
-            ),
-          ],
+          ),
         ),
-      );
+      ];
     }
 
     if (provider.expenses.isEmpty) {
-      return _buildEmptyState(context);
+      return [_buildEmptyState(context)];
     }
 
     if (filteredExpenses.isEmpty) {
-      return Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.search_off_rounded, size: 64, color: AppTheme.muted),
-              SizedBox(height: 16),
-              Text(
-                'No results found',
-                style: TextStyle(color: AppTheme.muted, fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.search_off_rounded, size: 48, color: AppTheme.muted),
+                SizedBox(height: 12),
+                Text(
+                  'No results found',
+                  style: TextStyle(color: AppTheme.muted, fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
         ),
-      );
+      ];
     }
 
     // Sort descending
     filteredExpenses.sort((a, b) => b.date.compareTo(a.date));
 
     // Map to list items with group headers
-    final listItems = <_DashboardListItem>[];
+    final widgets = <Widget>[];
     String? currentGroupLabel;
-    
+
     for (var expense in filteredExpenses) {
       final label = _getDateLabel(expense.date);
       if (currentGroupLabel != label) {
         currentGroupLabel = label;
-        listItems.add(_HeaderItem(label));
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.muted,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        );
       }
-      listItems.add(_TransactionItem(expense));
+
+      final category = provider.getCategoryById(expense.categoryId);
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+          child: ExpenseListItem(
+            expense: expense,
+            category: category,
+          ),
+        ),
+      );
     }
 
-    return RefreshIndicator(
-      color: AppTheme.gold,
-      onRefresh: () => provider.init(),
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: 100),
-        itemCount: listItems.length,
-        itemBuilder: (context, index) {
-          final item = listItems[index];
-
-          if (item is _HeaderItem) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-              child: Text(
-                item.title,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.muted,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            );
-          } else {
-            final expense = (item as _TransactionItem).expense;
-            final category = provider.getCategoryById(expense.categoryId);
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: ExpenseListItem(
-                expense: expense,
-                category: category,
-              ),
-            );
-          }
-        },
-      ),
-    );
+    return widgets;
   }
 
   Widget _buildEmptyState(BuildContext context) {
