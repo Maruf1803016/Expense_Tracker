@@ -337,111 +337,68 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final netSavings = totalIncome - totalExpenses;
     final double savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0.0;
 
-    final healthScore = provider.healthScore;
-    final isOnTrack = healthScore >= 70;
-
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppTheme.ink,
-            AppTheme.ink2,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppTheme.ink,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: AppTheme.ink2, width: 1),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        child: Stack(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _HairlinePatternPainter(color: AppTheme.goldLine),
+            Text(
+              'TOTAL BALANCE',
+              style: GoogleFonts.inter(
+                color: AppTheme.goldSoft,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 6),
+            Text(
+              CurrencyFormatter.format(netSavings),
+              style: GoogleFonts.spaceGrotesk(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'TOTAL BALANCE',
-                            style: GoogleFonts.inter(
-                              color: AppTheme.goldSoft,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            CurrencyFormatter.format(netSavings),
-                            style: GoogleFonts.spaceGrotesk(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: (isOnTrack ? AppTheme.emerald : AppTheme.brick).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: (isOnTrack ? AppTheme.emerald : AppTheme.brick).withOpacity(0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: Text(
-                          isOnTrack ? 'On Track' : 'Needs Attention',
-                          style: GoogleFonts.inter(
-                            color: isOnTrack ? AppTheme.goldSoft : AppTheme.goldSoft,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      _buildSummaryItem(context, 'Income', totalIncome, AppTheme.emerald, Icons.arrow_upward_rounded),
-                      const SizedBox(width: 24),
-                      _buildSummaryItem(context, 'Expense', totalExpenses, AppTheme.brick, Icons.arrow_downward_rounded),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.white12, height: 1),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Savings Rate: ${savingsRate.toStringAsFixed(0)}%',
-                        style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 11),
-                      ),
-                      Text(
-                        'Net Savings: ${CurrencyFormatter.format(netSavings)}',
-                        style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+                  _buildSummaryItem(context, 'INCOME', totalIncome, AppTheme.emerald, Icons.arrow_upward_rounded),
+                  Container(width: 1, height: 28, color: Colors.white.withOpacity(0.12)),
+                  const SizedBox(width: 16),
+                  _buildSummaryItem(context, 'EXPENSE', totalExpenses, AppTheme.brick, Icons.arrow_downward_rounded),
                 ],
               ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Savings Rate: ${savingsRate.toStringAsFixed(0)}%',
+                  style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 11, fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  'Net: ${CurrencyFormatter.format(netSavings)}',
+                  style: GoogleFonts.spaceGrotesk(color: AppTheme.goldSoft, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ],
         ),
@@ -456,18 +413,18 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 12, color: color),
+              Icon(icon, size: 11, color: AppTheme.goldSoft),
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             CurrencyFormatter.format(amount),
-            style: GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -479,47 +436,50 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
-          TextField(
-            controller: _searchController,
-            onChanged: (val) {
-              setState(() {
-                _searchQuery = val.trim();
-              });
-            },
-            style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Search transactions...',
-              hintStyle: GoogleFonts.inter(color: AppTheme.muted.withOpacity(0.5)),
-              prefixIcon: const Icon(Icons.search, color: AppTheme.muted, size: 20),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _searchQuery = '';
-                          _searchController.clear();
-                        });
-                      },
-                      child: const Icon(Icons.clear, color: AppTheme.muted, size: 20),
-                    )
-                  : null,
-              filled: true,
-              fillColor: AppTheme.paperCard,
-              contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTheme.line),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTheme.line),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppTheme.gold, width: 1.5),
+          SizedBox(
+            height: 42,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) {
+                setState(() {
+                  _searchQuery = val.trim();
+                });
+              },
+              style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Search transactions...',
+                hintStyle: GoogleFonts.inter(color: AppTheme.muted, fontSize: 13),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.muted, size: 18),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _searchQuery = '';
+                            _searchController.clear();
+                          });
+                        },
+                        child: const Icon(Icons.clear, color: AppTheme.muted, size: 18),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.paperCard,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppTheme.gold, width: 1.5),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -537,19 +497,6 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.gold,
                 ),
                 _buildCategoryPill(
-                  label: 'Income',
-                  icon: Icons.arrow_downward_rounded,
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.income,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategoryId = null;
-                    });
-                    provider.setSelectedFilter(ExpenseFilter.income);
-                  },
-                  color: AppTheme.emerald,
-                ),
-                _buildCategoryPill(
                   label: 'Pending',
                   icon: Icons.hourglass_empty_rounded,
                   isSelected:
@@ -561,6 +508,32 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                     provider.setSelectedFilter(ExpenseFilter.pending);
                   },
                   color: AppTheme.gold,
+                ),
+                _buildCategoryPill(
+                  label: 'Expense',
+                  icon: Icons.arrow_downward_rounded,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.expense,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.expense);
+                  },
+                  color: AppTheme.brick,
+                ),
+                _buildCategoryPill(
+                  label: 'Income',
+                  icon: Icons.arrow_upward_rounded,
+                  isSelected:
+                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.income,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.income);
+                  },
+                  color: AppTheme.emerald,
                 ),
                 _buildCategoryPill(
                   label: 'Goal',
@@ -606,34 +579,34 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     required Color color,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
+      padding: const EdgeInsets.only(right: 6.0),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.ink : AppTheme.paper2,
-            borderRadius: BorderRadius.circular(20),
+            color: isSelected ? AppTheme.ink : AppTheme.paperCard,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? AppTheme.ink : AppTheme.line,
-              width: 1.5,
+              width: 1.0,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 14, color: isSelected ? AppTheme.goldSoft : AppTheme.muted),
-                const SizedBox(width: 6),
+                Icon(icon, size: 12, color: isSelected ? AppTheme.goldSoft : AppTheme.muted),
+                const SizedBox(width: 4),
               ],
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  color: isSelected ? AppTheme.goldSoft : AppTheme.muted,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.goldSoft : AppTheme.textDark,
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ],
@@ -895,11 +868,12 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 ),
               ),
               if (accountBalances.isNotEmpty) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 SizedBox(
-                  height: 38,
+                  height: 42,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
                     itemCount: accountBalances.length,
                     separatorBuilder: (context, index) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
@@ -909,10 +883,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                       final isNegative = balance < 0;
                       
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         decoration: BoxDecoration(
-                          color: AppTheme.paper,
-                          borderRadius: BorderRadius.circular(20),
+                          color: AppTheme.paper2,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: AppTheme.line),
                         ),
                         child: Row(
@@ -932,11 +906,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                                 color: AppTheme.textDark,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Text(
                               CurrencyFormatter.format(balance),
                               style: GoogleFonts.spaceGrotesk(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                                 color: isNegative ? AppTheme.brick : AppTheme.emerald,
                               ),

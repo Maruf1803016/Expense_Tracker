@@ -1082,6 +1082,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
               ElevatedButton(
                 onPressed: _saveExpense,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                  ),
+                ),
                 child: _isSaving
                     ? const SizedBox(
                         height: 20,
@@ -1089,8 +1097,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
                     : Text(
-                        widget.expenseToEdit != null ? 'Save Changes' : 'Save Transaction',
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
+                        widget.expenseToEdit != null
+                            ? 'Save Changes'
+                            : (_mode == TransactionMode.plan
+                                ? 'Save Goal'
+                                : (_mode == TransactionMode.income
+                                    ? 'Save Income'
+                                    : (_mode == TransactionMode.transfer
+                                        ? 'Save Transfer'
+                                        : 'Save Expense'))),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15),
                       ),
               ),
 
@@ -1122,18 +1138,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isActive ? AppTheme.ink : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.inter(
               color: isActive ? AppTheme.goldSoft : AppTheme.muted,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13,
             ),
           ),
         ),
@@ -1143,13 +1159,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
   Widget _buildSectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      padding: const EdgeInsets.only(top: 18, bottom: 8),
       child: Text(
         label,
         style: GoogleFonts.inter(
           color: AppTheme.muted,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
         ),
       ),
     );

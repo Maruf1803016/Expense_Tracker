@@ -211,19 +211,12 @@ class _HomePageState extends State<HomePage> {
       body: _pages[_currentIndex],
 
       bottomNavigationBar: Container(
-        height: 68 + MediaQuery.of(context).padding.bottom,
-        decoration: BoxDecoration(
+        height: 64 + MediaQuery.of(context).padding.bottom,
+        decoration: const BoxDecoration(
           color: AppTheme.paperCard,
-          border: const Border(
-            top: BorderSide(color: AppTheme.line),
+          border: Border(
+            top: BorderSide(color: AppTheme.line, width: 1.0),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
-            ),
-          ],
         ),
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
         child: Row(
@@ -235,22 +228,22 @@ class _HomePageState extends State<HomePage> {
                 onTap: _openAddExpense,
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.ink,
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
+                        color: AppTheme.gold.withOpacity(0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: const Center(
                     child: Icon(
                       Icons.add_rounded,
-                      color: AppTheme.goldSoft,
-                      size: 28,
+                      color: Colors.white,
+                      size: 26,
                     ),
                   ),
                 ),

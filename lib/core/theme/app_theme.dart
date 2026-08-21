@@ -6,19 +6,19 @@ class AppTheme {
   AppTheme._();
 
   // Colors
-  static const Color ink = Color(0xFF12141A);       // primary dark surface (was navy)
-  static const Color ink2 = Color(0xFF1D2029);       // secondary dark surface
-  static const Color paper = Color(0xFFFAF8F3);      // main background (light cream)
-  static const Color paperCard = Color(0xFFFFFFFF);  // card background
-  static const Color paper2 = Color(0xFFF1EEE5);     // subtle secondary surface / track backgrounds
-  static const Color gold = Color(0xFFB08D3F);       // primary accent
-  static const Color goldSoft = Color(0xFFE7D9AE);   // light gold, used on dark ink surfaces
-  static const Color goldLine = Color(0x59B08D3F);   // hairline pattern on balance card, ~35% opacity
-  static const Color textDark = Color(0xFF1B1D22);   // primary text on light backgrounds
-  static const Color muted = Color(0xFF5A5548);      // secondary/muted text, darkened to satisfy WCAG AA contrast (was 767061)
-  static const Color line = Color(0x291B1D22);       // hairline borders, increased from ~9% to ~16% opacity (was 171B1D22)
-  static const Color emerald = Color(0xFF1E6F55);    // income / positive
-  static const Color brick = Color(0xFFA23B3B);      // expense / negative / over-budget
+  static const Color ink = Color(0xFF1B3A2B);       // primary deep archival ink
+  static const Color ink2 = Color(0xFF12261C);      // secondary dark surface
+  static const Color paper = Color(0xFFF8F4EC);     // main warm-paper background
+  static const Color paperCard = Color(0xFFFFFFFF); // card background
+  static const Color paper2 = Color(0xFFF1EDE4);    // subtle secondary surface / track / chip backgrounds
+  static const Color gold = Color(0xFFB78A3D);      // primary Ledger Gold accent
+  static const Color goldSoft = Color(0xFFE5D2A4);  // light gold for dark surfaces
+  static const Color goldLine = Color(0x3DB78A3D);  // subtle gold divider / accent line
+  static const Color textDark = Color(0xFF1C221D);  // primary text on light backgrounds
+  static const Color muted = Color(0xFF5C635B);     // secondary/muted text with WCAG AA compliance
+  static const Color line = Color(0xFFE2DDD1);      // hairline borders, fine low-contrast
+  static const Color emerald = Color(0xFF1E6F55);   // income / positive
+  static const Color brick = Color(0xFFA23B3B);     // expense / negative / over-budget
 
   // Aliases for backward compatibility
   static const Color primaryBackground = paper;
@@ -32,11 +32,11 @@ class AppTheme {
   static const Color incomeColor = emerald;
   static const Color expenseColor = brick;
 
-  static const double cardRadius = 20.0; // Editorial style: 18-24px
+  static const double cardRadius = 14.0; // Restrained editorial radius
 
   // Category warm-toned muted palette
   static const List<Color> categoryPalette = [
-    Color(0xFFB08D3F), // Food: muted gold
+    Color(0xFFB78A3D), // Food: Ledger gold
     Color(0xFF3B6EA5), // Transport: muted blue
     Color(0xFF8B5FA3), // Shopping: muted purple
     Color(0xFF4A7A6B), // Bills: muted teal-green
@@ -48,7 +48,7 @@ class AppTheme {
   static Color getCategoryColor(String id, String name) {
     final nameLower = name.toLowerCase();
     if (nameLower.contains('food') || nameLower.contains('dining') || nameLower.contains('restaurant') || nameLower.contains('cafe') || nameLower.contains('groceries')) {
-      return const Color(0xFFB08D3F); // Muted gold
+      return const Color(0xFFB78A3D); // Ledger gold
     } else if (nameLower.contains('transport') || nameLower.contains('car') || nameLower.contains('taxi') || nameLower.contains('bus')) {
       return const Color(0xFF3B6EA5); // Muted blue
     } else if (nameLower.contains('shop') || nameLower.contains('clothes') || nameLower.contains('gadget') || nameLower.contains('shopping')) {
@@ -94,7 +94,7 @@ class AppTheme {
         titleTextStyle: GoogleFonts.fraunces(
           color: textDark,
           fontSize: 20,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
         iconTheme: const IconThemeData(color: textDark),
       ),
@@ -121,17 +121,17 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(cardRadius),
-          borderSide: const BorderSide(color: gold, width: 2),
+          borderSide: const BorderSide(color: gold, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 18,
+          horizontal: 16,
+          vertical: 14,
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: ink,
         foregroundColor: goldSoft,
-        elevation: 2,
+        elevation: 1,
         shape: CircleBorder(),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
@@ -139,45 +139,33 @@ class AppTheme {
         selectedItemColor: ink,
         unselectedItemColor: muted,
         type: BottomNavigationBarType.fixed,
-        elevation: 4,
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: paperCard,
-        indicatorColor: line,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const TextStyle(color: ink, fontWeight: FontWeight.bold);
-          }
-          return const TextStyle(color: muted);
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: ink);
-          }
-          return const IconThemeData(color: muted);
-        }),
+        elevation: 0,
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: gold,
-          textStyle: const TextStyle(fontWeight: FontWeight.bold),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: ink,
-          foregroundColor: goldSoft,
-          minimumSize: const Size.fromHeight(56),
+          backgroundColor: gold,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(50),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(cardRadius),
           ),
           elevation: 0,
+          textStyle: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
         ),
       ),
       textTheme: interTextTheme.copyWith(
-        headlineLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w500),
-        headlineMedium: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w500),
-        titleLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w500),
+        headlineLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
+        headlineMedium: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
+        titleLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
         bodyLarge: const TextStyle(color: textDark),
         bodyMedium: const TextStyle(color: muted),
       ),

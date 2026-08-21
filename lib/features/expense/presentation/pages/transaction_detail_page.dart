@@ -261,12 +261,12 @@ class TransactionDetailPage extends StatelessWidget {
                 icon: const Icon(Icons.edit_rounded, size: 18),
                 label: Text(
                   'Modify Entry',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.ink,
-                  foregroundColor: AppTheme.goldSoft,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: AppTheme.gold,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                   ),
