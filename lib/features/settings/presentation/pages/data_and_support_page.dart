@@ -59,7 +59,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
                   trailing: _isExportingJson
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold))
                       : const Icon(Icons.download_rounded),
-                  onTap: _isExportingJson ? null : () => _exportJsonArchive(context),
+                  onTap: _isExportingJson ? null : () => _exportJsonArchive(),
                 ),
                 const Divider(height: 1, color: AppTheme.line),
                 ListTile(
@@ -139,7 +139,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
     );
   }
 
-  Future<void> _exportJsonArchive(BuildContext context) async {
+  Future<void> _exportJsonArchive() async {
     setState(() => _isExportingJson = true);
     try {
       final expenseProvider = context.read<ExpenseProvider>();
