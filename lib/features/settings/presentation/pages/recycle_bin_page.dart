@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
-import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 
 class RecycleBinPage extends StatelessWidget {
@@ -18,58 +18,89 @@ class RecycleBinPage extends StatelessWidget {
     final deletedExpenses = provider.recycleBinExpenses;
 
     return Scaffold(
+      backgroundColor: AppTheme.paper,
       appBar: AppBar(
-        title: const Text('Recycle Bin'),
+        backgroundColor: AppTheme.paper,
+        title: Text(
+          'Recycle Bin',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+        ),
         actions: [
           if (deletedExpenses.isNotEmpty)
             TextButton(
               onPressed: () => _showEmptyBinDialog(context, provider),
-              child: const Text('Empty Bin', style: TextStyle(color: Colors.red)),
+              child: Text(
+                'Empty Bin',
+                style: GoogleFonts.inter(color: AppTheme.brick, fontWeight: FontWeight.bold),
+              ),
             ),
         ],
       ),
       body: deletedExpenses.isEmpty
           ? const EmptyState(
               title: 'Recycle Bin is Empty',
-              message: 'Deleted expenses will appear here for 30 days before being permanently removed.',
+              message: 'Deleted transactions will appear here for 30 days before being permanently removed.',
               icon: Icons.delete_outline_rounded,
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               itemCount: deletedExpenses.length,
               itemBuilder: (context, index) {
                 final expense = deletedExpenses[index];
                 final category = provider.getCategoryById(expense.categoryId);
                 final isIncome = category.type == CategoryType.income;
+                final catColor = AppTheme.getCategoryColor(category.id, category.name);
 
-                return Card(
+                return Container(
                   margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.paperCard,
+                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                    border: Border.all(color: AppTheme.line),
+                  ),
                   child: ListTile(
                     leading: Container(
-                      padding: const EdgeInsets.all(8),
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: (isIncome ? AppTheme.incomeColor : AppTheme.expenseColor).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: catColor.withOpacity(0.15),
+                        shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        category.icon,
-                        color: isIncome ? AppTheme.incomeColor : AppTheme.expenseColor,
+                      child: Center(
+                        child: Icon(
+                          IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                          color: catColor,
+                          size: 18,
+                        ),
                       ),
                     ),
-                    title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      expense.title.isNotEmpty ? expense.title : category.name,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark, fontSize: 14),
+                    ),
                     subtitle: Text(
                       'Deleted on ${DateFormatter.format(expense.deletedAt ?? DateTime.now())}',
-                      style: const TextStyle(fontSize: 12),
+                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          CurrencyFormatter.format(expense.amount),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          '${isIncome ? '+' : '-'} ${CurrencyFormatter.format(expense.amount)}',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: isIncome ? AppTheme.emerald : AppTheme.brick,
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 4),
                         PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert, color: AppTheme.muted, size: 20),
+                          color: AppTheme.paperCard,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(color: AppTheme.line),
+                          ),
                           onSelected: (val) {
                             if (val == 'restore') {
                               provider.restoreExpense(expense.id);
@@ -78,23 +109,23 @@ class RecycleBinPage extends StatelessWidget {
                             }
                           },
                           itemBuilder: (context) => [
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'restore',
                               child: Row(
                                 children: [
-                                  Icon(Icons.restore, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Restore'),
+                                  const Icon(Icons.restore, size: 18, color: AppTheme.emerald),
+                                  const SizedBox(width: 8),
+                                  Text('Restore', style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 13)),
                                 ],
                               ),
                             ),
-                            const PopupMenuItem(
+                            PopupMenuItem(
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  Icon(Icons.delete_forever, size: 20, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Delete Forever', style: TextStyle(color: Colors.red)),
+                                  const Icon(Icons.delete_forever, size: 18, color: AppTheme.brick),
+                                  const SizedBox(width: 8),
+                                  Text('Delete Forever', style: GoogleFonts.inter(color: AppTheme.brick, fontSize: 13)),
                                 ],
                               ),
                             ),
@@ -113,16 +144,35 @@ class RecycleBinPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Empty Recycle Bin?'),
-        content: const Text('This will permanently delete all items in the bin. This action cannot be undone.'),
+        backgroundColor: AppTheme.paperCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.line),
+        ),
+        title: Text(
+          'Empty Recycle Bin?',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+        ),
+        content: Text(
+          'This will permanently delete all items in the bin. This action cannot be undone.',
+          style: GoogleFonts.inter(color: AppTheme.textDark),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brick,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
               provider.emptyRecycleBin();
               Navigator.pop(context);
             },
-            child: const Text('Empty Bin', style: TextStyle(color: Colors.red)),
+            child: Text('Empty Bin', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -133,16 +183,35 @@ class RecycleBinPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Permanently?'),
-        content: const Text('This item will be removed forever.'),
+        backgroundColor: AppTheme.paperCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.line),
+        ),
+        title: Text(
+          'Delete Permanently?',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+        ),
+        content: Text(
+          'This item will be removed forever.',
+          style: GoogleFonts.inter(color: AppTheme.textDark),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brick,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
               provider.deleteForever(id);
               Navigator.pop(context);
             },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

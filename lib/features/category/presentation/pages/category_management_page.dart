@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
-import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_detail_page.dart';
@@ -21,7 +21,10 @@ class CategoryManagementPage extends StatelessWidget {
     final categories = categoryProvider.categories;
 
     if (categoryProvider.isLoading && categories.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.emeraldGreen));
+      return const Scaffold(
+        backgroundColor: AppTheme.paper,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
+      );
     }
 
     final topLevelCategories = categories;
@@ -29,16 +32,23 @@ class CategoryManagementPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
+        backgroundColor: AppTheme.paper,
         appBar: AppBar(
-          toolbarHeight: 0,
-          bottom: const TabBar(
+          backgroundColor: AppTheme.paper,
+          title: Text(
+            'Categories',
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          ),
+          bottom: TabBar(
             tabs: [
-              Tab(text: 'Expense'),
-              Tab(text: 'Income'),
+              Tab(child: Text('Expense', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+              Tab(child: Text('Income', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
             ],
-            indicatorColor: AppTheme.emeraldGreen,
-            labelColor: AppTheme.emeraldGreen,
-            unselectedLabelColor: Colors.white54,
+            indicatorColor: AppTheme.ink,
+            indicatorWeight: 2.5,
+            labelColor: AppTheme.ink,
+            unselectedLabelColor: AppTheme.muted,
+            dividerColor: AppTheme.line,
           ),
         ),
         body: TabBarView(
@@ -54,7 +64,7 @@ class CategoryManagementPage extends StatelessWidget {
   Widget _buildGridSection(BuildContext context, List<Category> categories, ExpenseProvider expenseProvider) {
     final type = categories.isNotEmpty ? categories.first.type : CategoryType.expense;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: _buildCategoryGrid(context, categories, expenseProvider, type),
     );
   }
@@ -67,37 +77,37 @@ class CategoryManagementPage extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.35,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.25,
       ),
       itemCount: categories.length + 1,
       itemBuilder: (context, index) {
         if (index == categories.length) {
-          return Card(
-            color: AppTheme.secondaryBackground,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: Colors.white.withOpacity(0.08)),
+          return Container(
+            decoration: BoxDecoration(
+              color: AppTheme.paperCard,
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              border: Border.all(color: AppTheme.line, style: BorderStyle.solid),
             ),
             child: InkWell(
               onTap: () => _showAddCategorySheet(context, categoryProvider, type),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.add_circle_outline_rounded,
-                    color: Colors.white.withOpacity(0.3),
-                    size: 28,
+                    color: AppTheme.gold,
+                    size: 26,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Add Category',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.5),
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: AppTheme.textDark,
                     ),
                   ),
                 ],
@@ -107,7 +117,7 @@ class CategoryManagementPage extends StatelessWidget {
         }
 
         final category = categories[index];
-        final color = category.type == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor;
+        final isIncome = category.type == CategoryType.income;
         final catColor = AppTheme.getCategoryColor(category.id, category.name);
 
         // Calculate this month's spending/income for the category
@@ -132,11 +142,11 @@ class CategoryManagementPage extends StatelessWidget {
           ),
         );
 
-        return Card(
-          color: AppTheme.secondaryBackground,
-          shape: RoundedRectangleBorder(
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.paperCard,
             borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            side: BorderSide(color: catColor.withOpacity(0.15)),
+            border: Border.all(color: AppTheme.line),
           ),
           child: InkWell(
             onTap: () {
@@ -148,55 +158,68 @@ class CategoryManagementPage extends StatelessWidget {
               );
             },
             borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: catColor.withOpacity(0.15),
-                  child: Icon(
-                    category.icon,
-                    color: catColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  category.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  category.type == CategoryType.expense
-                      ? (budgetStatus.limit > 0 
-                          ? '${CurrencyFormatter.format(totalSpent)} spent / ${CurrencyFormatter.format(budgetStatus.limit)}' 
-                          : '${CurrencyFormatter.format(totalSpent)} spent')
-                      : '${CurrencyFormatter.format(totalSpent)} earned',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (category.type == CategoryType.expense && budgetStatus.limit > 0) ...[
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
-                        minHeight: 3,
-                        backgroundColor: Colors.white.withOpacity(0.05),
-                        color: budgetStatus.isExceeded ? AppTheme.expenseColor : AppTheme.emeraldGreen,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: catColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                        color: catColor,
+                        size: 20,
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    category.name,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: AppTheme.textDark,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isIncome
+                        ? '${CurrencyFormatter.format(totalSpent)} earned'
+                        : (budgetStatus.limit > 0 
+                            ? '${CurrencyFormatter.format(totalSpent)} / ${CurrencyFormatter.format(budgetStatus.limit)}' 
+                            : '${CurrencyFormatter.format(totalSpent)} spent'),
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 10,
+                      color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (!isIncome && budgetStatus.limit > 0) ...[
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
+                        minHeight: 4,
+                        backgroundColor: AppTheme.paper2,
+                        color: budgetStatus.isExceeded ? AppTheme.brick : AppTheme.emerald,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         );
@@ -249,8 +272,8 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
       decoration: const BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        color: AppTheme.paper,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -259,47 +282,51 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Create Custom ${widget.type == CategoryType.expense ? 'Expense' : 'Income'} Category',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Create Custom ${widget.type == CategoryType.expense ? 'Expense' : 'Income'} Category',
+                    style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppTheme.muted, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               
               // Name
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 6),
-                child: Text('Category Name', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(
+                'CATEGORY NAME',
+                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: _nameController,
+                style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 14),
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Travel, Rent, Investments',
                 ),
-                child: TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Travel, Rent, Investments',
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
-                ),
+                onChanged: (_) => setState(() {}),
+                validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Select Icon
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
-                child: Text('Select Icon', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(
+                'SELECT ICON',
+                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
               ),
+              const SizedBox(height: 8),
               SizedBox(
                 height: 180,
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 6,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
                   ),
                   itemCount: IconUtils.availableIconNames.length,
                   itemBuilder: (context, index) {
@@ -308,16 +335,17 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                     final isSelected = _selectedIconName == name;
                     return InkWell(
                       onTap: () => setState(() => _selectedIconName = name),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.emeraldGreen.withOpacity(0.15) : Colors.white.withOpacity(0.02),
+                          color: isSelected ? AppTheme.ink : AppTheme.paperCard,
                           border: Border.all(
-                            color: isSelected ? AppTheme.emeraldGreen : Colors.white10,
-                            width: isSelected ? 2 : 1,
+                            color: isSelected ? AppTheme.ink : AppTheme.line,
+                            width: 1,
                           ),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(icon, color: isSelected ? AppTheme.emeraldGreen : Colors.white60, size: 20),
+                        child: Icon(icon, color: isSelected ? AppTheme.goldSoft : AppTheme.textDark, size: 18),
                       ),
                     );
                   },
@@ -327,10 +355,10 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emeraldGreen,
+                  backgroundColor: AppTheme.gold,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
                 ),
                 onPressed: (_nameController.text.trim().isEmpty || _selectedIconName == null || _isSaving)
                     ? null
@@ -357,7 +385,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                           setState(() => _isSaving = false);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
+                              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.brick),
                             );
                           }
                         }
@@ -368,7 +396,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('Save Category', style: TextStyle(fontWeight: FontWeight.bold)),
+                    : Text('Save Category', style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ],
           ),

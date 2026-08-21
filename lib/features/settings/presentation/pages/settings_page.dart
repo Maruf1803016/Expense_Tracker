@@ -273,8 +273,8 @@ class SettingsPage extends StatelessWidget {
         _buildSectionHeader('Account'),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.logout_rounded, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            leading: const Icon(Icons.logout_rounded, color: AppTheme.brick),
+            title: Text('Sign Out', style: GoogleFonts.inter(color: AppTheme.brick, fontWeight: FontWeight.w600)),
             onTap: () => _showLogoutDialog(context, authProvider, expenseProvider),
           ),
         ),
@@ -284,13 +284,13 @@ class SettingsPage extends StatelessWidget {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0, left: 4.0),
+      padding: const EdgeInsets.only(bottom: 10.0, left: 4.0),
       child: Text(
         title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
+        style: GoogleFonts.inter(
+          fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: Colors.grey,
+          color: AppTheme.muted,
           letterSpacing: 1.5,
         ),
       ),
@@ -301,17 +301,36 @@ class SettingsPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sign Out?'),
-        content: const Text('Are you sure you want to sign out?'),
+        backgroundColor: AppTheme.paperCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.line),
+        ),
+        title: Text(
+          'Sign Out?',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+        ),
+        content: Text(
+          'Are you sure you want to sign out from your account?',
+          style: GoogleFonts.inter(color: AppTheme.textDark),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.brick,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () {
               Navigator.pop(context);
               expense.clear();
               auth.signOut();
             },
-            child: const Text('Sign Out', style: TextStyle(color: Color(0xFFFF4D6A))),
+            child: Text('Sign Out', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
