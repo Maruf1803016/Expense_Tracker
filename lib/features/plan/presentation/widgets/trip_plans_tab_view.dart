@@ -590,15 +590,15 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.ink,
-                            foregroundColor: AppTheme.paper,
+                            backgroundColor: AppTheme.gold,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                             ),
                           ),
                           child: Text(
-                            planToEdit == null ? 'Create Plan' : 'Save Changes',
+                            planToEdit == null ? 'Save Plan' : 'Save Changes',
                             style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                         ),
