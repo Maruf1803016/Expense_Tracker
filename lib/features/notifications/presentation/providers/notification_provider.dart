@@ -23,6 +23,26 @@ class NotificationProvider with ChangeNotifier {
     _subscription?.cancel();
     _subscription = repository.getNotificationsStream().listen(
       (list) {
+        if (list.isEmpty) {
+          final sample1 = AppNotification(
+            id: 'notif_1',
+            title: 'Budget Alert: Food & Dining',
+            body: 'You have reached 85% of your monthly dining allocation.',
+            date: DateTime.now().subtract(const Duration(hours: 2)),
+            type: 'budget',
+            isRead: false,
+          );
+          final sample2 = AppNotification(
+            id: 'notif_2',
+            title: 'Recurring Rent Due Tomorrow',
+            body: 'Monthly Apartment Rent (\$1,850.00) is scheduled for clearance tomorrow.',
+            date: DateTime.now().subtract(const Duration(hours: 14)),
+            type: 'reminder',
+            isRead: true,
+          );
+          repository.addNotification(sample1);
+          repository.addNotification(sample2);
+        }
         _notifications = list;
         _isLoading = false;
         notifyListeners();

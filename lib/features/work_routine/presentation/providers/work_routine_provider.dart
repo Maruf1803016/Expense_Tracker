@@ -23,6 +23,60 @@ class WorkRoutineProvider with ChangeNotifier {
     _routinesSubscription?.cancel();
     _routinesSubscription = repository.getWorkRoutinesStream().listen(
       (list) {
+        if (list.isEmpty) {
+          final now = DateTime.now();
+          final sampleRoutine = WorkRoutine(
+            id: 'routine_clinical_shift',
+            title: 'Clinical Shift',
+            workplace: 'General Hospital Dept',
+            hourlyRate: 45.0,
+            icon: Icons.badge_outlined,
+            color: const Color(0xFF2E5A44),
+            expectedDaysPerWeek: 5,
+            createdAt: now,
+            entries: [
+              AttendanceEntry(
+                id: 'att_1',
+                date: DateTime(now.year, now.month, 1),
+                checkIn: '08:00',
+                checkOut: '16:30',
+                durationHours: 8.5,
+                shiftType: ShiftType.regular,
+              ),
+              AttendanceEntry(
+                id: 'att_2',
+                date: DateTime(now.year, now.month, 2),
+                checkIn: '08:00',
+                checkOut: '16:30',
+                durationHours: 8.5,
+                shiftType: ShiftType.regular,
+              ),
+              AttendanceEntry(
+                id: 'att_3',
+                date: DateTime(now.year, now.month, 3),
+                checkIn: '08:15',
+                checkOut: '16:15',
+                durationHours: 8.0,
+                shiftType: ShiftType.regular,
+              ),
+              AttendanceEntry(
+                id: 'att_4',
+                date: DateTime(now.year, now.month, 4),
+                shiftType: ShiftType.attendanceOnly,
+                durationHours: 0.0,
+              ),
+              AttendanceEntry(
+                id: 'att_5',
+                date: DateTime(now.year, now.month, 5),
+                checkIn: '08:00',
+                checkOut: '16:30',
+                durationHours: 8.5,
+                shiftType: ShiftType.regular,
+              ),
+            ],
+          );
+          repository.addWorkRoutine(sampleRoutine);
+        }
         _routines = list;
         _isLoading = false;
         notifyListeners();

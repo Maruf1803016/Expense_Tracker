@@ -676,75 +676,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
               ] else ...[
                 // Transaction Form (Expense/Income)
                 ...[
-                  _buildSectionLabel('Category'),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4,
-                      crossAxisSpacing: 6,
-                      mainAxisSpacing: 6,
-                      childAspectRatio: 1.15,
-                    ),
-                    itemCount: filteredCategories.length + 1,
-                    itemBuilder: (context, idx) {
-                      if (idx == filteredCategories.length) {
-                        return _buildAddCategoryTile(context, currentCategoryType);
-                      }
-                      
-                      final category = filteredCategories[idx];
-                      final isSelected = _selectedCategoryId == category.id;
-                      final catColor = AppTheme.getCategoryColor(category.id, category.name);
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            _selectedCategoryId = category.id;
-                            _selectedSubCategoryName = null;
-                            _selectedSubCategoryIconName = null;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected ? catColor.withValues(alpha: 0.15) : AppTheme.paper2,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: isSelected ? catColor : AppTheme.line,
-                              width: isSelected ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
-                                color: isSelected ? catColor : AppTheme.muted,
-                                size: 18,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                category.name,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                  color: isSelected ? AppTheme.textDark : AppTheme.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  if (_mode == TransactionMode.expense && selectedCategory != null) ...[
-                    _buildSubCategorySection(context, selectedCategory),
-                    const SizedBox(height: 20),
-                  ],
+                  _buildCompactCategorySection(context, filteredCategories, currentCategoryType, selectedCategory),
+                  const SizedBox(height: 16),
                 ],
 
                 Row(
@@ -1205,6 +1138,320 @@ class _AddExpensePageState extends State<AddExpensePage> {
               style: GoogleFonts.inter(color: AppTheme.textDark),
             ),
             const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.muted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactCategorySection(BuildContext context, List<Category> filteredCategories, CategoryType currentCategoryType, Category? selectedCategory) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionLabel('Category'),
+            InkWell(
+              onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'All Categories (${filteredCategories.length})',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: AppTheme.gold),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Active Category Card or Selector Row
+        if (selectedCategory != null)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.paperCard,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppTheme.line),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getCategoryColor(selectedCategory.id, selectedCategory.name).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      IconUtils.getIcon(IconUtils.getIconName(selectedCategory.icon), categoryName: selectedCategory.name),
+                      size: 14,
+                      color: AppTheme.getCategoryColor(selectedCategory.id, selectedCategory.name),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedCategory.name,
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      ),
+                      if (_selectedSubCategoryName != null)
+                        Text(
+                          'Subcategory: $_selectedSubCategoryName',
+                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                        ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.paper2,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.line),
+                    ),
+                    child: Row(
+                      children: [
+                        Text('Change', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.ink)),
+                        const Icon(Icons.arrow_drop_down_rounded, size: 16, color: AppTheme.ink),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Quick Picks Horizontal Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ...filteredCategories.take(6).map((category) {
+                final isSelected = _selectedCategoryId == category.id;
+                final catColor = AppTheme.getCategoryColor(category.id, category.name);
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = category.id;
+                      _selectedSubCategoryName = null;
+                      _selectedSubCategoryIconName = null;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.ink : AppTheme.paper2,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.ink : AppTheme.line,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                          color: isSelected ? AppTheme.goldSoft : catColor,
+                          size: 13,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          category.name,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? Colors.white : AppTheme.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              GestureDetector(
+                onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.paper2,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.line),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.more_horiz_rounded, size: 14, color: AppTheme.muted),
+                      const SizedBox(width: 3),
+                      Text('More', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (_mode == TransactionMode.expense && selectedCategory != null)
+          _buildSubCategorySection(context, selectedCategory),
+      ],
+    );
+  }
+
+  void _showAllCategoriesSheet(BuildContext context, List<Category> categories, CategoryType type) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: AppTheme.paper,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Select ${type == CategoryType.expense ? 'Expense' : 'Income'} Category',
+                    style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppTheme.muted, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppTheme.line),
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: categories.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                itemBuilder: (context, idx) {
+                  if (idx == categories.length) {
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => CreateCategorySheet(
+                            categoryProvider: context.read<CategoryProvider>(),
+                            type: type,
+                            onSave: (newCategoryId) {
+                              setState(() {
+                                _selectedCategoryId = newCategoryId;
+                                _selectedSubCategoryName = null;
+                                _selectedSubCategoryIconName = null;
+                              });
+                            },
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.paperCard,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.line, strokeAlign: BorderSide.strokeAlignCenter),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add_circle_outline_rounded, color: AppTheme.gold, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Create Custom Category', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final cat = categories[idx];
+                  final isSelected = _selectedCategoryId == cat.id;
+                  final catColor = AppTheme.getCategoryColor(cat.id, cat.name);
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedCategoryId = cat.id;
+                        _selectedSubCategoryName = null;
+                        _selectedSubCategoryIconName = null;
+                      });
+                      Navigator.pop(ctx);
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.ink : AppTheme.paperCard,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isSelected ? AppTheme.ink : AppTheme.line),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.goldSoft.withValues(alpha: 0.2) : catColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                IconUtils.getIcon(IconUtils.getIconName(cat.icon), categoryName: cat.name),
+                                size: 16,
+                                color: isSelected ? AppTheme.goldSoft : catColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              cat.name,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? Colors.white : AppTheme.textDark,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_rounded, color: AppTheme.goldSoft, size: 18),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),

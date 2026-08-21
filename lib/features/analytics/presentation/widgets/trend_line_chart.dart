@@ -37,22 +37,42 @@ class TrendLineChart extends StatelessWidget {
       monthLabels.add(DateFormat('MMM').format(targetDate));
     }
 
+    double maxY = 100.0;
+    for (var v in [...incomeTrend, ...expenseTrend]) {
+      if (v > maxY) maxY = v;
+    }
+    maxY = maxY * 1.15;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            _buildLegendItem('Income', AppTheme.emerald),
+            _buildLegendItem('Inflow', AppTheme.emerald),
             const SizedBox(width: 16),
-            _buildLegendItem('Expense', AppTheme.brick),
+            _buildLegendItem('Outflow', AppTheme.brick),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         AspectRatio(
-          aspectRatio: 1.7,
+          aspectRatio: 2.1,
           child: LineChart(
             LineChartData(
-              gridData: const FlGridData(show: false),
+              minX: 0,
+              maxX: (monthLabels.length - 1).toDouble(),
+              minY: 0,
+              maxY: maxY,
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: maxY / 3 > 0 ? maxY / 3 : 100,
+                getDrawingHorizontalLine: (val) => FlLine(
+                  color: AppTheme.line.withValues(alpha: 0.5),
+                  strokeWidth: 1,
+                  dashArray: [4, 4],
+                ),
+              ),
               titlesData: FlTitlesData(
                 show: true,
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -61,14 +81,19 @@ class TrendLineChart extends StatelessWidget {
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
+                    interval: 1,
                     getTitlesWidget: (val, meta) {
-                      final idx = val.toInt();
+                      final idx = val.round();
                       if (idx >= 0 && idx < monthLabels.length) {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             monthLabels[idx],
-                            style: const TextStyle(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: AppTheme.muted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         );
                       }
@@ -84,19 +109,41 @@ class TrendLineChart extends StatelessWidget {
                   spots: incomeTrend.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
                   isCurved: true,
                   color: AppTheme.emerald,
-                  barWidth: 3.5,
+                  barWidth: 2.5,
                   isStrokeCapRound: true,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(show: false),
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                      radius: 3,
+                      color: AppTheme.emerald,
+                      strokeWidth: 1.5,
+                      strokeColor: AppTheme.paperCard,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: AppTheme.emerald.withValues(alpha: 0.08),
+                  ),
                 ),
                 LineChartBarData(
                   spots: expenseTrend.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
                   isCurved: true,
                   color: AppTheme.brick,
-                  barWidth: 3.5,
+                  barWidth: 2.5,
                   isStrokeCapRound: true,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(show: false),
+                  dotData: FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                      radius: 3,
+                      color: AppTheme.brick,
+                      strokeWidth: 1.5,
+                      strokeColor: AppTheme.paperCard,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: AppTheme.brick.withValues(alpha: 0.08),
+                  ),
                 ),
               ],
             ),
@@ -108,19 +155,20 @@ class TrendLineChart extends StatelessWidget {
 
   Widget _buildLegendItem(String label, Color color) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 10,
-          height: 10,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(color: AppTheme.muted, fontSize: 11, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: AppTheme.textDark, fontSize: 11, fontWeight: FontWeight.w600),
         ),
       ],
     );

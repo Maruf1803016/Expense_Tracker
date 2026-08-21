@@ -39,10 +39,17 @@ class CategoryManagementPage extends StatelessWidget {
             'Categories',
             style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.gold),
+              tooltip: 'Add Category',
+              onPressed: () => _showAddCategorySheet(context, categoryProvider, CategoryType.expense),
+            ),
+          ],
           bottom: TabBar(
             tabs: [
-              Tab(child: Text('Expense', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
-              Tab(child: Text('Income', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+              Tab(child: Text('Expense Categories', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+              Tab(child: Text('Income Categories', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
             ],
             indicatorColor: AppTheme.ink,
             indicatorWeight: 2.5,
@@ -53,102 +60,100 @@ class CategoryManagementPage extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _buildGridSection(context, topLevelCategories.where((c) => c.type == CategoryType.expense).toList(), expenseProvider),
-            _buildGridSection(context, topLevelCategories.where((c) => c.type == CategoryType.income && c.id != 'other').toList(), expenseProvider),
+            _buildLedgerSection(context, topLevelCategories.where((c) => c.type == CategoryType.expense).toList(), expenseProvider, CategoryType.expense),
+            _buildLedgerSection(context, topLevelCategories.where((c) => c.type == CategoryType.income && c.id != 'other').toList(), expenseProvider, CategoryType.income),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildGridSection(BuildContext context, List<Category> categories, ExpenseProvider expenseProvider) {
-    final type = categories.isNotEmpty ? categories.first.type : CategoryType.expense;
-    return SingleChildScrollView(
+  Widget _buildLedgerSection(BuildContext context, List<Category> categories, ExpenseProvider expenseProvider, CategoryType type) {
+    final categoryProvider = context.read<CategoryProvider>();
+
+    return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: _buildCategoryGrid(context, categories, expenseProvider, type),
+      children: [
+        // Category Header / Kicker
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8.0, left: 2.0, top: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${categories.length} ${type == CategoryType.expense ? 'EXPENSE' : 'INCOME'} CATEGORIES',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: AppTheme.muted,
+                ),
+              ),
+              InkWell(
+                onTap: () => _showAddCategorySheet(context, categoryProvider, type),
+                child: Row(
+                  children: [
+                    const Icon(Icons.add_rounded, size: 14, color: AppTheme.gold),
+                    const SizedBox(width: 2),
+                    Text(
+                      'New Category',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.gold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        ...categories.map((cat) => _buildCategoryLedgerCard(context, cat, expenseProvider, categoryProvider)),
+      ],
     );
   }
 
-  Widget _buildCategoryGrid(BuildContext context, List<Category> categories, ExpenseProvider expenseProvider, CategoryType type) {
-    final categoryProvider = context.read<CategoryProvider>();
+  Widget _buildCategoryLedgerCard(BuildContext context, Category category, ExpenseProvider expenseProvider, CategoryProvider categoryProvider) {
+    final isIncome = category.type == CategoryType.income;
+    final catColor = AppTheme.getCategoryColor(category.id, category.name);
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1.5,
+    // Calculate this month's spending
+    final now = DateTime.now();
+    final thisMonthExpenses = expenseProvider.expenses.where((e) {
+      return e.categoryId == category.id &&
+          !e.isDeleted &&
+          e.date.month == now.month &&
+          e.date.year == now.year;
+    });
+    final totalSpent = thisMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    final budgetStatus = expenseProvider.rolledUpBudgetStatuses.firstWhere(
+      (b) => b.categoryId == category.id,
+      orElse: () => CategoryBudgetStatus.fromAmounts(
+        categoryId: category.id,
+        categoryName: category.name,
+        limit: 0.0,
+        spent: totalSpent,
+        month: now.month,
+        year: now.year,
       ),
-      itemCount: categories.length + 1,
-      itemBuilder: (context, index) {
-        if (index == categories.length) {
-          return Container(
-            decoration: BoxDecoration(
-              color: AppTheme.paperCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.line, style: BorderStyle.solid),
-            ),
-            child: InkWell(
-              onTap: () => _showAddCategorySheet(context, categoryProvider, type),
-              borderRadius: BorderRadius.circular(10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.add_circle_outline_rounded,
-                    color: AppTheme.gold,
-                    size: 20,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Add Category',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
-                      color: AppTheme.textDark,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
+    );
 
-        final category = categories[index];
-        final isIncome = category.type == CategoryType.income;
-        final catColor = AppTheme.getCategoryColor(category.id, category.name);
+    final isPermanent = Category.defaultCategories.any((c) => c.id == category.id);
 
-        // Calculate this month's spending/income for the category
-        final now = DateTime.now();
-        final thisMonthExpenses = expenseProvider.expenses.where((e) {
-          return e.categoryId == category.id &&
-              !e.isDeleted &&
-              e.date.month == now.month &&
-              e.date.year == now.year;
-        });
-        final totalSpent = thisMonthExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
-
-        final budgetStatus = expenseProvider.rolledUpBudgetStatuses.firstWhere(
-          (b) => b.categoryId == category.id,
-          orElse: () => CategoryBudgetStatus.fromAmounts(
-            categoryId: category.id,
-            categoryName: category.name,
-            limit: 0.0,
-            spent: totalSpent,
-            month: now.month,
-            year: now.year,
-          ),
-        );
-
-        return Container(
-          decoration: BoxDecoration(
-            color: AppTheme.paperCard,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.line),
-          ),
-          child: InkWell(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Parent Category Row
+          InkWell(
             onTap: () {
               Navigator.push(
                 context,
@@ -159,77 +164,212 @@ class CategoryManagementPage extends StatelessWidget {
             },
             borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: catColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
-                            color: catColor,
-                            size: 16,
-                          ),
-                        ),
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: catColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                        color: catColor,
+                        size: 16,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          category.name,
-                          style: GoogleFonts.inter(
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                category.name,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  color: AppTheme.textDark,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: isPermanent ? AppTheme.paper2 : AppTheme.goldSoft.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isPermanent ? 'Permanent type' : 'Custom type',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: isPermanent ? AppTheme.muted : AppTheme.gold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isIncome
+                              ? '${CurrencyFormatter.format(totalSpent)} earned'
+                              : (budgetStatus.limit > 0
+                                  ? '${CurrencyFormatter.format(totalSpent)} / ${CurrencyFormatter.format(budgetStatus.limit)} budget'
+                                  : '${CurrencyFormatter.format(totalSpent)} spent'),
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 11,
+                            color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
                             fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            color: AppTheme.textDark,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Add Subcategory Button
+                  if (!isIncome)
+                    InkWell(
+                      onTap: () => _showAddSubCategoryDialog(context, categoryProvider, category),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.paper2,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add_rounded, size: 12, color: AppTheme.ink),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Subcategory',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isIncome
-                        ? '${CurrencyFormatter.format(totalSpent)} earned'
-                        : (budgetStatus.limit > 0 
-                            ? '${CurrencyFormatter.format(totalSpent)} / ${CurrencyFormatter.format(budgetStatus.limit)}' 
-                            : '${CurrencyFormatter.format(totalSpent)} spent'),
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 10,
-                      color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
-                      fontWeight: FontWeight.w600,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (!isIncome && budgetStatus.limit > 0) ...[
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
-                        minHeight: 3,
-                        backgroundColor: AppTheme.paper2,
-                        color: budgetStatus.isExceeded ? AppTheme.brick : AppTheme.emerald,
-                      ),
-                    ),
-                  ],
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.muted),
                 ],
               ),
             ),
           ),
-        );
-      },
+
+          // Subcategories Child Ledger Rows
+          if (category.subCategories.isNotEmpty) ...[
+            Container(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.line, width: 0.8)),
+                color: AppTheme.paper,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: category.subCategories.map((sub) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.paperCard,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.line),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: catColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          sub.name,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAddSubCategoryDialog(BuildContext context, CategoryProvider categoryProvider, Category category) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.paperCard,
+        title: Text(
+          'Add Subcategory to ${category.name}',
+          style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Restaurants, Coffee, Takeout',
+          ),
+          style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                final newSub = SubCategory(
+                  name: name,
+                  icon: Icons.circle,
+                );
+                final updatedCategory = Category(
+                  id: category.id,
+                  name: category.name,
+                  type: category.type,
+                  icon: category.icon,
+                  subCategories: [...category.subCategories, newSub],
+                );
+                await categoryProvider.update(updatedCategory);
+                if (ctx.mounted) Navigator.pop(ctx);
+              }
+            },
+            child: Text('Add', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 

@@ -46,8 +46,8 @@ class PreferencesPage extends StatelessWidget {
             ),
             child: Column(
               children: [
-                SwitchListTile.adaptive(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   title: Text(
                     '24-Hour Time Format',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textDark),
@@ -56,10 +56,42 @@ class PreferencesPage extends StatelessWidget {
                     settings.is24HourTime ? 'Using 24h clock (e.g. 17:30)' : 'Using 12h clock (e.g. 5:30 PM)',
                     style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
                   ),
-                  value: settings.is24HourTime,
-                  activeColor: AppTheme.gold,
-                  activeTrackColor: AppTheme.gold.withValues(alpha: 0.25),
-                  onChanged: (val) => settings.toggleTimeFormat(val),
+                  trailing: GestureDetector(
+                    onTap: () => settings.toggleTimeFormat(!settings.is24HourTime),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 48,
+                      height: 28,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: settings.is24HourTime ? AppTheme.ink : AppTheme.paper2,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: settings.is24HourTime ? AppTheme.ink : AppTheme.line,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: AnimatedAlign(
+                        duration: const Duration(milliseconds: 200),
+                        alignment: settings.is24HourTime ? Alignment.centerRight : Alignment.centerLeft,
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: settings.is24HourTime ? AppTheme.gold : AppTheme.muted,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
                 const Divider(height: 1, color: AppTheme.line),
                 ListTile(
