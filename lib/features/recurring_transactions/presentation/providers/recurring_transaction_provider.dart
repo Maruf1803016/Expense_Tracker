@@ -45,6 +45,30 @@ class RecurringTransactionProvider with ChangeNotifier {
     _subscription?.cancel();
     _subscription = _getRecurringSources().listen(
       (data) {
+        if (data.isEmpty) {
+          final sampleSalary = RecurringTransactionSource(
+            id: 'rec_salary',
+            name: 'Monthly Salary',
+            expectedAmount: 4500.0,
+            frequency: 'monthly',
+            nextDueDate: DateTime(2026, 8, 30),
+            status: 'active',
+            type: 'income',
+            createdAt: DateTime(2026, 7, 1),
+          );
+          final sampleRent = RecurringTransactionSource(
+            id: 'rec_rent',
+            name: 'Apartment Rent',
+            expectedAmount: 1850.0,
+            frequency: 'monthly',
+            nextDueDate: DateTime(2026, 8, 25),
+            status: 'active',
+            type: 'expense',
+            createdAt: DateTime(2026, 7, 1),
+          );
+          _addRecurringSource(sampleSalary);
+          _addRecurringSource(sampleRent);
+        }
         _sources = data;
         _isLoading = false;
         _errorMessage = null;

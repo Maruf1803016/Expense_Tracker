@@ -108,10 +108,13 @@ class _InsightsPageState extends State<InsightsPage> {
     }
 
     // Calculate Inflow, Outflow, Net for current view
-    final now = DateTime.now();
-    final thisMonthExpenses = expenseProvider.expenses.where(
-      (e) => e.date.year == now.year && e.date.month == now.month && !e.isDeleted,
-    );
+    final selectedMonth = expenseProvider.selectedMonth;
+    var thisMonthExpenses = expenseProvider.expenses.where(
+      (e) => e.date.year == selectedMonth.year && e.date.month == selectedMonth.month && !e.isDeleted,
+    ).toList();
+    if (thisMonthExpenses.isEmpty) {
+      thisMonthExpenses = expenseProvider.expenses.where((e) => !e.isDeleted).toList();
+    }
     final totalInflow = thisMonthExpenses
         .where((e) => e.type == CategoryType.income)
         .fold<double>(0.0, (sum, e) => sum + e.amount);

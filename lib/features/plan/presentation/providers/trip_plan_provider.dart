@@ -23,6 +23,17 @@ class TripPlanProvider with ChangeNotifier {
     _tripPlansSubscription?.cancel();
     _tripPlansSubscription = repository.getTripPlansStream().listen(
       (list) {
+        if (list.isEmpty) {
+          final sampleTrip = TripPlan(
+            id: 'trip_cox_bazar',
+            title: "Cox's Bazar Retreat",
+            budgetAmount: 2500.0,
+            startDate: DateTime(2026, 8, 1),
+            endDate: DateTime(2026, 8, 5),
+            createdAt: DateTime(2026, 7, 20),
+          );
+          repository.addTripPlan(sampleTrip);
+        }
         _tripPlans = list;
         _isLoading = false;
         notifyListeners();
