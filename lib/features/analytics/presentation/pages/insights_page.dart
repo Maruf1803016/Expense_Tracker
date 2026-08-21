@@ -5,6 +5,7 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/analytics/presentation/providers/financial_insights_provider.dart';
 import 'package:expense_tracker/features/analytics/presentation/widgets/trend_line_chart.dart';
@@ -121,9 +122,12 @@ class _InsightsPageState extends State<InsightsPage> {
 
     // Category Mix aggregation
     final categoryTotals = <String, double>{};
+    final categoryProvider = context.watch<CategoryProvider>();
     for (var exp in thisMonthExpenses.where((e) => e.type == CategoryType.expense)) {
-      final catName = exp.categoryName.isNotEmpty ? exp.categoryName : 'Other';
-      categoryTotals[catName] = (categoryTotals[catName] ?? 0.0) + exp.amount;
+      final matchingCat = categoryProvider.categories.where((c) => c.id == exp.categoryId).firstOrNull;
+      final catName = matchingCat?.name ?? exp.categoryId;
+      final displayName = catName.isNotEmpty ? catName : 'Other';
+      categoryTotals[displayName] = (categoryTotals[displayName] ?? 0.0) + exp.amount;
     }
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -402,7 +406,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                 ),
                                 child: Center(
                                   child: Icon(
-                                    IconUtils.getIcon(IconUtils.getIconName(null), categoryName: entry.key),
+                                    IconUtils.getIcon(null, categoryName: entry.key),
                                     size: 12,
                                     color: catColor,
                                   ),
