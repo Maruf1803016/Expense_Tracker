@@ -23,25 +23,92 @@ class NotificationProvider with ChangeNotifier {
     _subscription?.cancel();
     _subscription = repository.getNotificationsStream().listen(
       (list) {
-        if (list.isEmpty) {
-          final sample1 = AppNotification(
-            id: 'notif_1',
-            title: 'Budget Alert: Food & Dining',
-            body: 'You have reached 85% of your monthly dining allocation.',
-            date: DateTime.now().subtract(const Duration(hours: 2)),
-            type: 'budget',
-            isRead: false,
-          );
-          final sample2 = AppNotification(
-            id: 'notif_2',
-            title: 'Recurring Rent Due Tomorrow',
-            body: 'Monthly Apartment Rent (\$1,850.00) is scheduled for clearance tomorrow.',
-            date: DateTime.now().subtract(const Duration(hours: 14)),
-            type: 'reminder',
-            isRead: true,
-          );
-          repository.addNotification(sample1);
-          repository.addNotification(sample2);
+        if (list.length < 10) {
+          final samples = [
+            AppNotification(
+              id: 'notif_1',
+              title: 'Budget Alert: Food & Dining',
+              body: 'You have reached 85% of your monthly dining allocation.',
+              date: DateTime.now().subtract(const Duration(minutes: 15)),
+              type: 'budget',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_2',
+              title: 'Recurring Rent Due Tomorrow',
+              body: 'Monthly Apartment Rent (\$1,850.00) is scheduled for clearance tomorrow.',
+              date: DateTime.now().subtract(const Duration(hours: 1)),
+              type: 'reminder',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_3',
+              title: 'Salary Deposit Confirmed',
+              body: 'Monthly Salary of \$4,500.00 has cleared into Checking Account.',
+              date: DateTime.now().subtract(const Duration(hours: 3)),
+              type: 'alert',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_4',
+              title: 'Goal Milestone Reached',
+              body: 'You have funded 50% of your Wedding Savings Goal.',
+              date: DateTime.now().subtract(const Duration(hours: 6)),
+              type: 'budget',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_5',
+              title: 'Trip Budget Reminder: Cox’s Bazar',
+              body: '3 expenses logged toward your retreat budget.',
+              date: DateTime.now().subtract(const Duration(hours: 12)),
+              type: 'reminder',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_6',
+              title: 'Debt Payment Due in 3 Days',
+              body: 'Equipment Loan monthly installment (\$500.00) is due soon.',
+              date: DateTime.now().subtract(const Duration(hours: 18)),
+              type: 'alert',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_7',
+              title: 'Weekly Financial Field Note',
+              body: 'Your savings rate was 83% this week. Strong discipline!',
+              date: DateTime.now().subtract(const Duration(days: 1)),
+              type: 'budget',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_8',
+              title: 'Work Routine Schedule',
+              body: 'Clinical Shift logged for 5 days (33.5 hrs) this month.',
+              date: DateTime.now().subtract(const Duration(days: 1, hours: 4)),
+              type: 'reminder',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_9',
+              title: 'Subscription Renewal Alert',
+              body: 'Cloud Storage subscription (\$9.99) will renew next week.',
+              date: DateTime.now().subtract(const Duration(days: 2)),
+              type: 'reminder',
+              isRead: false,
+            ),
+            AppNotification(
+              id: 'notif_10',
+              title: 'Monthly Ledger Summary Ready',
+              body: 'Your July report is prepared for export to PDF / CSV.',
+              date: DateTime.now().subtract(const Duration(days: 3)),
+              type: 'alert',
+              isRead: false,
+            ),
+          ];
+          for (final s in samples) {
+            repository.addNotification(s);
+          }
         }
         _notifications = list;
         _isLoading = false;

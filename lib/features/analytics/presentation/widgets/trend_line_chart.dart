@@ -83,7 +83,8 @@ class TrendLineChart extends StatelessWidget {
                     showTitles: true,
                     interval: 1,
                     getTitlesWidget: (val, meta) {
-                      final idx = val.round();
+                      final idx = val.toInt();
+                      if ((val - idx).abs() > 0.001) return const SizedBox.shrink();
                       if (idx >= 0 && idx < monthLabels.length) {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),

@@ -497,9 +497,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     ],
                   ),
                 ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
-              // Large Space Grotesk amount display
+              // Balanced Space Grotesk amount display
               Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -508,24 +508,24 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     Text(
                       currencySymbol,
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 40,
+                        fontSize: 30,
                         fontWeight: FontWeight.bold,
                         color: displayColor,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     IntrinsicWidth(
                       child: TextFormField(
                         controller: _amountController,
                         style: GoogleFonts.spaceGrotesk(
-                          fontSize: 40,
+                          fontSize: 30,
                           fontWeight: FontWeight.bold,
                           color: displayColor,
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           hintText: '0.00',
-                          hintStyle: GoogleFonts.spaceGrotesk(color: AppTheme.muted.withOpacity(0.3)),
+                          hintStyle: GoogleFonts.spaceGrotesk(color: AppTheme.muted.withValues(alpha: 0.3)),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -542,7 +542,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
 
               if (_mode == TransactionMode.plan) ...[
                 // Plan form

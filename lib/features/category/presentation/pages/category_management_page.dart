@@ -187,21 +187,19 @@ class CategoryManagementPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Text(
+                          category.name,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: AppTheme.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
-                            Flexible(
-                              child: Text(
-                                category.name,
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: AppTheme.textDark,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
@@ -209,7 +207,7 @@ class CategoryManagementPage extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                isPermanent ? 'Permanent type' : 'Custom type',
+                                isPermanent ? 'Permanent' : 'Custom',
                                 style: GoogleFonts.inter(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
@@ -217,25 +215,29 @@ class CategoryManagementPage extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                isIncome
+                                    ? '${CurrencyFormatter.format(totalSpent)} earned'
+                                    : (budgetStatus.limit > 0
+                                        ? '${CurrencyFormatter.format(totalSpent)} / ${CurrencyFormatter.format(budgetStatus.limit)}'
+                                        : '${CurrencyFormatter.format(totalSpent)} spent'),
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 11,
+                                  color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isIncome
-                              ? '${CurrencyFormatter.format(totalSpent)} earned'
-                              : (budgetStatus.limit > 0
-                                  ? '${CurrencyFormatter.format(totalSpent)} / ${CurrencyFormatter.format(budgetStatus.limit)} budget'
-                                  : '${CurrencyFormatter.format(totalSpent)} spent'),
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 11,
-                            color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
-                            fontWeight: FontWeight.w600,
-                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   // Add Subcategory Button
                   if (!isIncome)
                     InkWell(

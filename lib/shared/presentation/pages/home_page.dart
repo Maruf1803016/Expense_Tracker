@@ -113,41 +113,52 @@ class _HomePageState extends State<HomePage> {
                 return Stack(
                   alignment: Alignment.center,
                   children: [
-                    IconButton(
-                      tooltip: 'Notifications',
-                      icon: Icon(
-                        notifProvider.hasUnread ? Icons.notifications_rounded : Icons.notifications_none_rounded,
-                        color: notifProvider.hasUnread ? AppTheme.gold : AppTheme.textDark,
-                      ),
-                      onPressed: () {
+                    GestureDetector(
+                      onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const NotificationInboxPage(),
                           ),
                         );
                       },
+                      child: IconButton(
+                        tooltip: 'Notifications',
+                        icon: Icon(
+                          notifProvider.hasUnread ? Icons.notifications_rounded : Icons.notifications_none_rounded,
+                          color: notifProvider.hasUnread ? AppTheme.gold : AppTheme.textDark,
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationInboxPage(),
+                            ),
+                          );
+                        },
+                      ),
                     ),
                     if (notifProvider.hasUnread)
                       Positioned(
-                        top: 10,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppTheme.gold,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            notifProvider.unreadBadge,
-                            style: GoogleFonts.spaceGrotesk(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                        top: 8,
+                        right: 6,
+                        child: IgnorePointer(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppTheme.gold,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              notifProvider.unreadBadge,
+                              style: GoogleFonts.spaceGrotesk(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
