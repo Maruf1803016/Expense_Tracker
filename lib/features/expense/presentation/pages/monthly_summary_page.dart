@@ -14,6 +14,7 @@ import 'package:expense_tracker/features/expense/domain/entities/monthly_summary
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
@@ -373,7 +374,7 @@ class MonthlySummaryPage extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              category.icon,
+                              IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
                               color: catColor,
                               size: 20,
                             ),

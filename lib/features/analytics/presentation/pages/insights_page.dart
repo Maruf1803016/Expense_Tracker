@@ -41,10 +41,11 @@ class _InsightsPageState extends State<InsightsPage> {
             color: AppTheme.paper,
             child: TabBar(
               tabs: [
-                Tab(child: Text('Insight', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
-                Tab(child: Text('Summary', style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Insights', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+                Tab(child: Text('Summary', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
               ],
               indicatorColor: AppTheme.ink,
+              indicatorWeight: 2.5,
               labelColor: AppTheme.ink,
               unselectedLabelColor: AppTheme.muted,
               dividerColor: AppTheme.line,

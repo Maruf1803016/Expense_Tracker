@@ -26,11 +26,12 @@ class _HorizonPageState extends State<HorizonPage> {
             color: AppTheme.paper,
             child: TabBar(
               tabs: [
-                Tab(child: Text('Goals', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
-                Tab(child: Text('Plans', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
-                Tab(child: Text('Debt & Loans', style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold))),
+                Tab(child: Text('Goals', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+                Tab(child: Text('Plans', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
+                Tab(child: Text('Debt & Loans', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
               ],
               indicatorColor: AppTheme.ink,
+              indicatorWeight: 2.5,
               labelColor: AppTheme.ink,
               unselectedLabelColor: AppTheme.muted,
               dividerColor: AppTheme.line,

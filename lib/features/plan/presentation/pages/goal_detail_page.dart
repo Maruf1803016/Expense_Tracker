@@ -9,6 +9,7 @@ import 'package:expense_tracker/features/plan/presentation/providers/goal_provid
 import 'package:expense_tracker/features/plan/domain/entities/goal.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class GoalDetailPage extends StatelessWidget {
   final Goal plan;
@@ -196,7 +197,11 @@ class GoalDetailPage extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(category.icon, size: 16, color: catColor),
+                                    Icon(
+                                      IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                                      size: 16,
+                                      color: catColor,
+                                    ),
                                     const SizedBox(width: 8),
                                     Text(
                                       category.name,
@@ -287,7 +292,11 @@ class GoalDetailPage extends StatelessWidget {
                             color: catColor.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(category.icon, color: catColor, size: 20),
+                          child: Icon(
+                            IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                            color: catColor,
+                            size: 20,
+                          ),
                         ),
                         title: Text(exp.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark, fontSize: 14)),
                         subtitle: Text(
