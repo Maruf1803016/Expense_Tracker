@@ -328,27 +328,49 @@ class _GoalsTabViewState extends State<GoalsTabView> {
                                       ),
                                       const Divider(height: 1),
                                       Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                           children: [
-                                            TextButton.icon(
-                                              icon: const Icon(Icons.add_rounded, size: 18),
-                                              label: const Text('Deposit'),
-                                              style: TextButton.styleFrom(foregroundColor: AppTheme.emerald),
-                                              onPressed: () => _showDepositWithdrawSheet(context, plan, true, amountSaved),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                icon: const Icon(Icons.add_rounded, size: 14),
+                                                label: const Text('Deposit', style: TextStyle(fontSize: 12)),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: AppTheme.emerald,
+                                                  side: const BorderSide(color: AppTheme.line),
+                                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                ),
+                                                onPressed: () => _showDepositWithdrawSheet(context, plan, true, amountSaved),
+                                              ),
                                             ),
-                                            TextButton.icon(
-                                              icon: const Icon(Icons.remove_rounded, size: 18),
-                                              label: const Text('Withdraw'),
-                                              style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
-                                              onPressed: () => _showDepositWithdrawSheet(context, plan, false, amountSaved),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                icon: const Icon(Icons.remove_rounded, size: 14),
+                                                label: const Text('Withdraw', style: TextStyle(fontSize: 12)),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: AppTheme.brick,
+                                                  side: const BorderSide(color: AppTheme.line),
+                                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                ),
+                                                onPressed: () => _showDepositWithdrawSheet(context, plan, false, amountSaved),
+                                              ),
                                             ),
-                                            TextButton.icon(
-                                              icon: const Icon(Icons.history_rounded, size: 18),
-                                              label: const Text('History'),
-                                              style: TextButton.styleFrom(foregroundColor: AppTheme.gold),
-                                              onPressed: () => _showHistorySheet(context, plan, planExpenses),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                icon: const Icon(Icons.history_rounded, size: 14),
+                                                label: const Text('History', style: TextStyle(fontSize: 12)),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: AppTheme.gold,
+                                                  side: const BorderSide(color: AppTheme.line),
+                                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                ),
+                                                onPressed: () => _showHistorySheet(context, plan, planExpenses),
+                                              ),
                                             ),
                                           ],
                                         ),

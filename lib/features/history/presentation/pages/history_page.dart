@@ -8,6 +8,9 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
+import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/account/domain/entities/account.dart';
+import 'package:expense_tracker/features/export/presentation/providers/export_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/expense_list_item.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -235,6 +238,82 @@ class _HistoryPageState extends State<HistoryPage> {
                     letterSpacing: 1.5,
                     color: AppTheme.muted,
                   ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () async {
+                        final catNames = {for (var c in categoryProvider.categories) c.id: c.name};
+                        final accNames = {for (var a in context.read<AccountProvider>().accounts) a.id: a.name};
+                        final accBalances = {
+                          for (var a in context.read<AccountProvider>().accounts)
+                            a.id: Account.calculateBalance(a, expenseProvider.expenses)
+                        };
+                        await context.read<ExportProvider>().exportMonth(
+                          month: _selectedMonth.month,
+                          year: _selectedMonth.year,
+                          format: ExportFormat.csv,
+                          categoryNames: catNames,
+                          accountNames: accNames,
+                          accountBalances: accBalances,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.paper2,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.table_view_rounded, size: 13, color: AppTheme.emerald),
+                            const SizedBox(width: 4),
+                            Text('CSV', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () async {
+                        final catNames = {for (var c in categoryProvider.categories) c.id: c.name};
+                        final accNames = {for (var a in context.read<AccountProvider>().accounts) a.id: a.name};
+                        final accBalances = {
+                          for (var a in context.read<AccountProvider>().accounts)
+                            a.id: Account.calculateBalance(a, expenseProvider.expenses)
+                        };
+                        await context.read<ExportProvider>().exportMonth(
+                          month: _selectedMonth.month,
+                          year: _selectedMonth.year,
+                          format: ExportFormat.pdf,
+                          categoryNames: catNames,
+                          accountNames: accNames,
+                          accountBalances: accBalances,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.paper2,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.picture_as_pdf_rounded, size: 13, color: AppTheme.brick),
+                            const SizedBox(width: 4),
+                            Text('PDF', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

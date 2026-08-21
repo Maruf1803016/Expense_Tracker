@@ -609,6 +609,39 @@ class _WorkRoutinePageState extends State<WorkRoutinePage> {
                   const SizedBox(height: 16),
                 ],
 
+                Builder(
+                  builder: (context) {
+                    if (shiftType == ShiftType.attendanceOnly) return const SizedBox.shrink();
+                    final double checkInDec = checkInTime.hour + checkInTime.minute / 60.0;
+                    final double checkOutDec = checkOutTime.hour + checkOutTime.minute / 60.0;
+                    double computedHours = checkOutDec >= checkInDec ? (checkOutDec - checkInDec) : (24.0 - checkInDec + checkOutDec);
+                    if (computedHours > 16.0) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gold.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.gold),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, color: AppTheme.gold, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Long shift notice · That is longer than sixteen hours (${computedHours.toStringAsFixed(1)} hrs). Please check the range.',
+                                style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
                 Text('Notes (Optional)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.muted)),
                 const SizedBox(height: 6),
                 TextField(
@@ -623,7 +656,7 @@ class _WorkRoutinePageState extends State<WorkRoutinePage> {
                     if (shiftType != ShiftType.attendanceOnly) {
                       final double checkInDec = checkInTime.hour + checkInTime.minute / 60.0;
                       final double checkOutDec = checkOutTime.hour + checkOutTime.minute / 60.0;
-                      hours = (checkOutDec - checkInDec).clamp(0.0, 24.0);
+                      hours = checkOutDec >= checkInDec ? (checkOutDec - checkInDec) : (24.0 - checkInDec + checkOutDec);
                       if (hours <= 0) hours = 8.0;
                     }
 
@@ -731,7 +764,7 @@ class _WorkRoutinePageState extends State<WorkRoutinePage> {
                   title: Text('Attendance Only', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark)),
                   subtitle: Text('Track presence without requiring shift hours', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
                   value: isAttendanceOnly,
-                  activeColor: AppTheme.gold,
+                  activeThumbColor: AppTheme.gold,
                   onChanged: (val) => setModalState(() => isAttendanceOnly = val),
                 ),
                 const SizedBox(height: 24),
