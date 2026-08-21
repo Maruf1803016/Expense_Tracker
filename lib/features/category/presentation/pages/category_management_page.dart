@@ -238,37 +238,41 @@ class CategoryManagementPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Add Subcategory Button
-                  if (!isIncome)
-                    InkWell(
-                      onTap: () => _showAddSubCategoryDialog(context, categoryProvider, category),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.paper2,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.line),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.add_rounded, size: 12, color: AppTheme.ink),
-                            const SizedBox(width: 2),
-                            Text(
-                              'Subcategory',
-                              style: GoogleFonts.inter(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.ink,
-                              ),
-                            ),
-                          ],
-                        ),
+                  // Category Actions Menu
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.muted),
+                    color: AppTheme.paperCard,
+                    onSelected: (val) {
+                      if (val == 'rename') {
+                        _showRenameCategoryDialog(context, categoryProvider, category);
+                      } else if (val == 'subcat') {
+                        _showAddSubCategoryDialog(context, categoryProvider, category);
+                      } else if (val == 'merge') {
+                        _showMergeCategoryDialog(context, categoryProvider, expenseProvider, category);
+                      } else if (val == 'delete') {
+                        _confirmDeleteCategory(context, categoryProvider, expenseProvider, category);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Rename'),
                       ),
-                    ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right_rounded, size: 18, color: AppTheme.muted),
+                      const PopupMenuItem(
+                        value: 'subcat',
+                        child: Text('Add Subcategory'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'merge',
+                        child: Text('Merge into...'),
+                      ),
+                      if (!isPermanent)
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Delete', style: TextStyle(color: AppTheme.brick)),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -369,6 +373,151 @@ class CategoryManagementPage extends StatelessWidget {
               }
             },
             child: Text('Add', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRenameCategoryDialog(BuildContext context, CategoryProvider categoryProvider, Category category) {
+    final controller = TextEditingController(text: category.name);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.paperCard,
+        title: Text('Rename Category', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.inter(color: AppTheme.textDark),
+          decoration: const InputDecoration(labelText: 'Category Name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty && newName != category.name) {
+                final updated = Category(
+                  id: category.id,
+                  name: newName,
+                  type: category.type,
+                  icon: category.icon,
+                  subCategories: category.subCategories,
+                );
+                await categoryProvider.update(updated);
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMergeCategoryDialog(BuildContext context, CategoryProvider categoryProvider, ExpenseProvider expenseProvider, Category sourceCategory) {
+    final sameTypeCategories = categoryProvider.categories
+        .where((c) => c.type == sourceCategory.type && c.id != sourceCategory.id)
+        .toList();
+
+    if (sameTypeCategories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No other categories available to merge into.')),
+      );
+      return;
+    }
+
+    String? targetId = sameTypeCategories.first.id;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.paperCard,
+          title: Text('Merge "${sourceCategory.name}"', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Move all past transactions from ${sourceCategory.name} to target category:',
+                style: GoogleFonts.inter(fontSize: 13, color: AppTheme.muted),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: targetId,
+                dropdownColor: AppTheme.paperCard,
+                items: sameTypeCategories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                onChanged: (val) {
+                  if (val != null) setDialogState(() => targetId = val);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+              onPressed: () async {
+                if (targetId != null) {
+                  // Reassign expenses
+                  final affected = expenseProvider.expenses.where((e) => e.categoryId == sourceCategory.id).toList();
+                  for (final exp in affected) {
+                    await expenseProvider.updateExpense(exp.copyWith(categoryId: targetId));
+                  }
+                  // Remove merged source if not permanent
+                  final isPermanent = Category.defaultCategories.any((c) => c.id == sourceCategory.id);
+                  if (!isPermanent) {
+                    await categoryProvider.remove(sourceCategory.id);
+                  }
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Merge & Reassign'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteCategory(BuildContext context, CategoryProvider categoryProvider, ExpenseProvider expenseProvider, Category category) {
+    final hasExpenses = expenseProvider.expenses.any((e) => e.categoryId == category.id);
+    if (hasExpenses) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.paperCard,
+          title: Text('Category In Use', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+          content: Text(
+            '"${category.name}" cannot be deleted because transactions are recorded under it. Please use "Merge into..." to reassign its entries first.',
+            style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.paperCard,
+        title: Text('Delete Category?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+        content: Text('Delete unused custom category "${category.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brick, foregroundColor: Colors.white),
+            onPressed: () async {
+              await categoryProvider.remove(category.id);
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            child: const Text('Delete'),
           ),
         ],
       ),

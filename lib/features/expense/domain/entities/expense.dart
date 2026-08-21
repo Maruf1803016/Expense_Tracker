@@ -25,6 +25,9 @@ class Expense extends Equatable {
   final String? paymentMethod;
   final String? payerPayee;
   final String? toAccountId;
+  final String? attachmentUrl;
+  final String? attachmentName;
+  final String? attachmentType;
 
   const Expense({
     required this.id,
@@ -44,7 +47,56 @@ class Expense extends Equatable {
     this.paymentMethod,
     this.payerPayee,
     this.toAccountId,
+    this.attachmentUrl,
+    this.attachmentName,
+    this.attachmentType,
   });
+
+  Expense copyWith({
+    String? id,
+    String? title,
+    double? amount,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+    CategoryType? type,
+    bool? isDeleted,
+    DateTime? deletedAt,
+    String? subCategory,
+    String? subCategoryIcon,
+    String? planId,
+    String? accountId,
+    PaymentStatus? paymentStatus,
+    String? paymentMethod,
+    String? payerPayee,
+    String? toAccountId,
+    String? attachmentUrl,
+    String? attachmentName,
+    String? attachmentType,
+  }) {
+    return Expense(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      amount: amount ?? this.amount,
+      categoryId: categoryId ?? this.categoryId,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      type: type ?? this.type,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
+      subCategory: subCategory ?? this.subCategory,
+      subCategoryIcon: subCategoryIcon ?? this.subCategoryIcon,
+      planId: planId ?? this.planId,
+      accountId: accountId ?? this.accountId,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      payerPayee: payerPayee ?? this.payerPayee,
+      toAccountId: toAccountId ?? this.toAccountId,
+      attachmentUrl: attachmentUrl ?? this.attachmentUrl,
+      attachmentName: attachmentName ?? this.attachmentName,
+      attachmentType: attachmentType ?? this.attachmentType,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -65,5 +117,8 @@ class Expense extends Equatable {
         paymentMethod,
         payerPayee,
         toAccountId,
+        attachmentUrl,
+        attachmentName,
+        attachmentType,
       ];
 }

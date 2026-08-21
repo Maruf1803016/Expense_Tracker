@@ -19,6 +19,12 @@ class SettingsProvider with ChangeNotifier {
   int _financialYearStartMonth = 1; // 1 = January
   int get financialYearStartMonth => _financialYearStartMonth;
 
+  bool _isDailyReminderEnabled = false;
+  bool get isDailyReminderEnabled => _isDailyReminderEnabled;
+
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+  TimeOfDay get reminderTime => _reminderTime;
+
   static const Map<String, String> currencySymbols = {
     'USD': '\$',
     'EUR': '€',
@@ -94,6 +100,16 @@ class SettingsProvider with ChangeNotifier {
 
   void setFinancialYearStartMonth(int month) {
     _financialYearStartMonth = month;
+    notifyListeners();
+  }
+
+  void toggleDailyReminder(bool enabled) {
+    _isDailyReminderEnabled = enabled;
+    notifyListeners();
+  }
+
+  void setReminderTime(TimeOfDay time) {
+    _reminderTime = time;
     notifyListeners();
   }
 }

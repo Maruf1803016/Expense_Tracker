@@ -204,6 +204,13 @@ class LoanDetailPage extends StatelessWidget {
                       label: 'Due Date',
                       value: DateFormatter.format(loan.dueDate!),
                       icon: Icons.event_available_rounded,
+                      trailing: TextButton(
+                        onPressed: () => _showExtendDueDateDialog(context, loan),
+                        child: Text(
+                          'Extend',
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.gold),
+                        ),
+                      ),
                     ),
                   ],
                   if (loan.notes != null && loan.notes!.isNotEmpty) ...[
@@ -358,22 +365,114 @@ class LoanDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMetaTile({required String label, required String value, required IconData icon}) {
+  Widget _buildMetaTile({required String label, required String value, required IconData icon, Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
           Icon(icon, size: 18, color: AppTheme.muted),
           const SizedBox(width: 14),
-          Column(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
+                const SizedBox(height: 2),
+                Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  void _showExtendDueDateDialog(BuildContext context, Loan loan) {
+    DateTime newDueDate = loan.dueDate ?? DateTime.now().add(const Duration(days: 30));
+    final reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.paperCard,
+          title: Text('Extend Due Date', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
-              const SizedBox(height: 2),
-              Text(value, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+              Text('Select Extended Due Date', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: newDueDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => newDueDate = picked);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.paper2,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.line),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(DateFormatter.format(newDueDate), style: GoogleFonts.inter(color: AppTheme.textDark)),
+                      const Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.muted),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Reason / History Note (Optional)', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: reasonController,
+                style: GoogleFonts.inter(color: AppTheme.textDark),
+                decoration: const InputDecoration(hintText: 'e.g. Mutual agreement to extend 1 month'),
+              ),
             ],
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+              onPressed: () async {
+                final reason = reasonController.text.trim();
+                final existingNotes = loan.notes ?? '';
+                final updatedNotes = reason.isNotEmpty
+                    ? '$existingNotes\n[Due date extended to ${DateFormatter.format(newDueDate)}: $reason]'.trim()
+                    : existingNotes;
+
+                final updatedLoan = Loan(
+                  id: loan.id,
+                  title: loan.title,
+                  counterparty: loan.counterparty,
+                  originalAmount: loan.originalAmount,
+                  type: loan.type,
+                  createdAt: loan.createdAt,
+                  dueDate: newDueDate,
+                  notes: updatedNotes.isNotEmpty ? updatedNotes : null,
+                  isCompleted: loan.isCompleted,
+                  repayments: loan.repayments,
+                );
+
+                await context.read<LoanProvider>().update(updatedLoan);
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Save Extension'),
+            ),
+          ],
+        ),
       ),
     );
   }

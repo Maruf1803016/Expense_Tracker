@@ -29,6 +29,7 @@ enum ExpenseFilter {
   all,
   expense,
   income,
+  transfer,
   pending,
   plan,
 }

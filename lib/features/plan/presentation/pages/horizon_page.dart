@@ -23,7 +23,7 @@ class _HorizonPageState extends State<HorizonPage> with SingleTickerProviderStat
   late TabController _tabController;
 
   final List<String> _modules = [
-    'Savings Goals',
+    'Goals',
     'Trip & Event Plans',
     'Debt & Loans',
     'Recurring Bills',

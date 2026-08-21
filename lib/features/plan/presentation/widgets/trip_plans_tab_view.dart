@@ -10,6 +10,7 @@ import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_p
 import 'package:expense_tracker/features/plan/domain/entities/trip_plan.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
+import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
 
 class TripPlansTabView extends StatefulWidget {
   const TripPlansTabView({super.key});
@@ -130,6 +131,30 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                               ),
                                             ),
                                           ],
+                                        ),
+                                        const SizedBox(height: 14),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: OutlinedButton.icon(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) => AddExpensePage(preselectedPlanId: plan.id),
+                                                ),
+                                              );
+                                            },
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              side: const BorderSide(color: AppTheme.line),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.add_rounded, size: 14, color: AppTheme.gold),
+                                            label: Text(
+                                              'Add Plan Expense',
+                                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                                            ),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -304,20 +329,21 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Plan'),
-        content: Text('Are you sure you want to delete "${plan.title}"?\n\nThe transactions linked to this plan will NOT be deleted.'),
+        backgroundColor: AppTheme.paperCard,
+        title: Text('Remove Trip Plan?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+        content: Text('Remove plan "${plan.title}"?\n\nAll transactions linked to this plan will remain untouched in your ledger.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               context.read<TripPlanProvider>().delete(plan.id);
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
-            child: const Text('Delete'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brick, foregroundColor: Colors.white),
+            child: const Text('Remove Plan & Retain Transactions'),
           ),
         ],
       ),

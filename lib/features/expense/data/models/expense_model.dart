@@ -22,6 +22,9 @@ class ExpenseModel extends Expense {
     super.paymentMethod,
     super.payerPayee,
     super.toAccountId,
+    super.attachmentUrl,
+    super.attachmentName,
+    super.attachmentType,
   });
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -52,6 +55,9 @@ class ExpenseModel extends Expense {
       paymentMethod: map['paymentMethod'] as String?,
       payerPayee: map['payerPayee'] as String?,
       toAccountId: map['toAccountId'] as String?,
+      attachmentUrl: map['attachmentUrl'] as String?,
+      attachmentName: map['attachmentName'] as String?,
+      attachmentType: map['attachmentType'] as String?,
     );
   }
 
@@ -73,6 +79,9 @@ class ExpenseModel extends Expense {
       if (paymentMethod != null) 'paymentMethod': paymentMethod,
       if (payerPayee != null) 'payerPayee': payerPayee,
       if (toAccountId != null) 'toAccountId': toAccountId,
+      if (attachmentUrl != null) 'attachmentUrl': attachmentUrl,
+      if (attachmentName != null) 'attachmentName': attachmentName,
+      if (attachmentType != null) 'attachmentType': attachmentType,
     };
   }
 
@@ -95,6 +104,9 @@ class ExpenseModel extends Expense {
       paymentMethod: expense.paymentMethod,
       payerPayee: expense.payerPayee,
       toAccountId: expense.toAccountId,
+      attachmentUrl: expense.attachmentUrl,
+      attachmentName: expense.attachmentName,
+      attachmentType: expense.attachmentType,
     );
   }
 }

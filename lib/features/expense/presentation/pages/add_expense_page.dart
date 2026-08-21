@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
@@ -64,6 +67,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
   String? _selectedToAccountId;
   PaymentStatus _paymentStatus = PaymentStatus.settled;
   String? _selectedPaymentMethod;
+  String? _attachmentPath;
+  String? _attachmentName;
+  String? _attachmentType;
 
   // Plan Mode specific fields
   DateTime _planStartDate = DateTime.now();
@@ -97,6 +103,101 @@ class _AddExpensePageState extends State<AddExpensePage> {
         }
         _recurringNextDueDate = DateTime(nextYear, nextMonth, nextDay, now.hour, now.minute, now.second);
         break;
+      case 'six_months':
+        int nextYear = now.year;
+        int nextMonth = now.month + 6;
+        if (nextMonth > 12) {
+          nextMonth -= 12;
+          nextYear += 1;
+        }
+        int nextDay = now.day;
+        int daysInNextMonth = _getDaysInMonth(nextYear, nextMonth);
+        if (nextDay > daysInNextMonth) {
+          nextDay = daysInNextMonth;
+        }
+        _recurringNextDueDate = DateTime(nextYear, nextMonth, nextDay, now.hour, now.minute, now.second);
+        break;
+      case 'yearly':
+        _recurringNextDueDate = DateTime(now.year + 1, now.month, now.day, now.hour, now.minute, now.second);
+        break;
+    }
+  }
+
+  Future<void> _pickAttachment(String source) async {
+    try {
+      if (source == 'camera') {
+        final picker = ImagePicker();
+        final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+        if (photo != null) {
+          setState(() {
+            _attachmentPath = photo.path;
+            _attachmentName = photo.name;
+            _attachmentType = 'image';
+          });
+        }
+      } else if (source == 'gallery') {
+        final picker = ImagePicker();
+        final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+        if (image != null) {
+          setState(() {
+            _attachmentPath = image.path;
+            _attachmentName = image.name;
+            _attachmentType = 'image';
+          });
+        }
+      } else if (source == 'file') {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'txt'],
+        );
+        if (result != null && result.files.single.path != null) {
+          final file = result.files.single;
+          setState(() {
+            _attachmentPath = file.path;
+            _attachmentName = file.name;
+            _attachmentType = file.extension == 'pdf' ? 'pdf' : 'file';
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to attach proof: $e'), backgroundColor: AppTheme.brick),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveAttachment() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.paperCard,
+        title: Text('Remove Proof Attachment?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Removing this attachment will detach the file link. The transaction itself will NOT be deleted.',
+          style: TextStyle(color: AppTheme.textDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _attachmentPath = null;
+        _attachmentName = null;
+        _attachmentType = null;
+      });
     }
   }
 
@@ -137,6 +238,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _selectedToAccountId = widget.expenseToEdit?.toAccountId;
     _paymentStatus = widget.expenseToEdit?.paymentStatus ?? PaymentStatus.settled;
     _selectedPaymentMethod = widget.expenseToEdit?.paymentMethod;
+    _attachmentPath = widget.expenseToEdit?.attachmentUrl;
+    _attachmentName = widget.expenseToEdit?.attachmentName;
+    _attachmentType = widget.expenseToEdit?.attachmentType;
 
     if (widget.preselectedPlanMode) {
       _mode = TransactionMode.plan;
@@ -321,6 +425,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           paymentStatus: _paymentStatus,
           paymentMethod: _selectedPaymentMethod,
           payerPayee: _payerPayeeController.text.trim().isNotEmpty ? _payerPayeeController.text.trim() : null,
+          attachmentUrl: _attachmentPath,
+          attachmentName: _attachmentName,
+          attachmentType: _attachmentType,
         );
 
         final provider = context.read<ExpenseProvider>();
@@ -806,6 +913,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
+                _buildReceiptProofSection(),
+
                 _buildSectionLabel('Payment Status'),
                 Container(
                   decoration: BoxDecoration(
@@ -996,6 +1105,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
                         DropdownMenuItem(value: 'biweekly', child: Text('Biweekly')),
                         DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                        DropdownMenuItem(value: 'six_months', child: Text('Every 6 Months')),
+                        DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
                       ],
                       onChanged: (val) {
                         if (val != null) {
@@ -1141,6 +1252,145 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildReceiptProofSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('Receipt or Proof (Optional)'),
+        if (_attachmentPath != null) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.paper2,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.line),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.paperCard,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.line),
+                  ),
+                  child: _attachmentType == 'image' && File(_attachmentPath!).existsSync()
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_attachmentPath!),
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : const Icon(Icons.description_outlined, color: AppTheme.gold, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _attachmentName ?? 'Attached Proof',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textDark,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _attachmentType?.toUpperCase() ?? 'FILE',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: AppTheme.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, color: AppTheme.muted),
+                  color: AppTheme.paperCard,
+                  onSelected: (val) {
+                    if (val == 'replace_gallery') _pickAttachment('gallery');
+                    if (val == 'replace_camera') _pickAttachment('camera');
+                    if (val == 'replace_file') _pickAttachment('file');
+                    if (val == 'remove') _confirmRemoveAttachment();
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'replace_gallery',
+                      child: Text('Replace from Gallery'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'replace_camera',
+                      child: Text('Replace from Camera'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'replace_file',
+                      child: Text('Replace with File'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Remove Proof', style: TextStyle(color: AppTheme.brick)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickAttachment('gallery'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: const BorderSide(color: AppTheme.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.photo_library_outlined, size: 16, color: AppTheme.gold),
+                  label: Text('Gallery', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickAttachment('camera'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: const BorderSide(color: AppTheme.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.camera_alt_outlined, size: 16, color: AppTheme.gold),
+                  label: Text('Camera', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickAttachment('file'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: const BorderSide(color: AppTheme.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.attach_file_rounded, size: 16, color: AppTheme.gold),
+                  label: Text('File', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 16),
+      ],
     );
   }
 

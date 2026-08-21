@@ -55,10 +55,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           matchesTab = true;
           break;
         case ExpenseFilter.expense:
-          matchesTab = e.type == CategoryType.expense && e.planId == null;
+          matchesTab = e.type == CategoryType.expense && e.toAccountId == null && e.planId == null;
           break;
         case ExpenseFilter.income:
-          matchesTab = e.type == CategoryType.income;
+          matchesTab = e.type == CategoryType.income && e.toAccountId == null;
+          break;
+        case ExpenseFilter.transfer:
+          matchesTab = e.type == CategoryType.transfer || e.toAccountId != null;
           break;
         case ExpenseFilter.pending:
           matchesTab = e.paymentStatus == PaymentStatus.pending;
@@ -549,8 +552,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               children: [
                 _buildCategoryPill(
                   label: 'All',
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.all,
+                  isSelected: provider.selectedFilter == ExpenseFilter.all,
                   onTap: () {
                     setState(() {
                       _selectedCategoryId = null;
@@ -560,23 +562,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.gold,
                 ),
                 _buildCategoryPill(
-                  label: 'Pending',
-                  icon: Icons.hourglass_empty_rounded,
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.pending,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategoryId = null;
-                    });
-                    provider.setSelectedFilter(ExpenseFilter.pending);
-                  },
-                  color: AppTheme.gold,
-                ),
-                _buildCategoryPill(
                   label: 'Expense',
                   icon: Icons.arrow_downward_rounded,
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.expense,
+                  isSelected: provider.selectedFilter == ExpenseFilter.expense,
                   onTap: () {
                     setState(() {
                       _selectedCategoryId = null;
@@ -588,8 +576,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 _buildCategoryPill(
                   label: 'Income',
                   icon: Icons.arrow_upward_rounded,
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.income,
+                  isSelected: provider.selectedFilter == ExpenseFilter.income,
                   onTap: () {
                     setState(() {
                       _selectedCategoryId = null;
@@ -599,33 +586,29 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.emerald,
                 ),
                 _buildCategoryPill(
-                  label: 'Goal',
-                  icon: Icons.track_changes_rounded,
-                  isSelected:
-                      _selectedCategoryId == null && provider.selectedFilter == ExpenseFilter.plan,
+                  label: 'Transfer',
+                  icon: Icons.swap_horiz_rounded,
+                  isSelected: provider.selectedFilter == ExpenseFilter.transfer,
                   onTap: () {
                     setState(() {
                       _selectedCategoryId = null;
                     });
-                    provider.setSelectedFilter(ExpenseFilter.plan);
+                    provider.setSelectedFilter(ExpenseFilter.transfer);
+                  },
+                  color: AppTheme.ink2,
+                ),
+                _buildCategoryPill(
+                  label: 'Pending',
+                  icon: Icons.hourglass_empty_rounded,
+                  isSelected: provider.selectedFilter == ExpenseFilter.pending,
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = null;
+                    });
+                    provider.setSelectedFilter(ExpenseFilter.pending);
                   },
                   color: AppTheme.gold,
                 ),
-                ...provider.categories.where((category) => category.type == CategoryType.expense).map((category) {
-                  final catColor = AppTheme.getCategoryColor(category.id, category.name);
-                  return _buildCategoryPill(
-                    label: category.name,
-                    icon: category.icon,
-                    isSelected: _selectedCategoryId == category.id,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategoryId = category.id;
-                      });
-                      provider.setSelectedFilter(ExpenseFilter.expense);
-                    },
-                    color: catColor,
-                  );
-                }),
               ],
             ),
           ),
@@ -860,12 +843,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     
     // Sum of all accounts balance
     double netWorth = 0.0;
-    final List<MapEntry<Account, double>> accountBalances = [];
-    
     for (final account in accounts) {
       final balance = Account.calculateBalance(account, expenseProvider.expenses);
       netWorth += balance;
-      accountBalances.add(MapEntry(account, balance));
     }
     
     return Container(
@@ -904,7 +884,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   Row(
                     children: [
                       Text(
-                        'Manage',
+                        'Accounts & Assets',
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -930,61 +910,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.textDark,
                 ),
               ),
-              if (accountBalances.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                SizedBox(
-                  height: 42,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: accountBalances.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final entry = accountBalances[index];
-                      final account = entry.key;
-                      final balance = entry.value;
-                      final isNegative = balance < 0;
-                      
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.paper2,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.line),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconUtils.buildIcon(
-                              IconUtils.getIconName(account.icon),
-                              color: account.color,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${account.name}${account.accountNumber != null && account.accountNumber!.isNotEmpty ? ' (${Account.getMaskedAccountNumber(account.accountNumber)})' : ''}',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textDark,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              CurrencyFormatter.format(balance),
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: isNegative ? AppTheme.brick : AppTheme.emerald,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                '${accounts.length} ${accounts.length == 1 ? 'account' : 'accounts'} linked',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppTheme.muted,
                 ),
-              ],
+              ),
             ],
           ),
         ),
