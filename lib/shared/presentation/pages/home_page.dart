@@ -34,12 +34,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  String _greetingForHour(int hour) {
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   String _initialsFor(String? name) {
     final parts = (name ?? '')
         .trim()
@@ -92,33 +86,21 @@ class _HomePageState extends State<HomePage> {
     final titles = ['Expenses', 'Stats', 'Horizon', 'Settings'];
     final user = context.watch<AuthProvider>().user;
     final displayName = user?.displayName?.trim();
-    final hasDisplayName = displayName != null && displayName.isNotEmpty;
     final isDashboard = _currentIndex == 0;
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: isDashboard ? 76 : kToolbarHeight,
+        toolbarHeight: kToolbarHeight,
         centerTitle: !isDashboard,
         title: isDashboard
-            ? Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+            ? Row(
                 children: [
                   Text(
-                    _greetingForHour(DateTime.now().hour),
-                    style: GoogleFonts.inter(
-                      color: AppTheme.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    hasDisplayName ? displayName : 'Your finances',
+                    'Expense Tracker',
                     style: GoogleFonts.fraunces(
                       color: AppTheme.textDark,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],

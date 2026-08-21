@@ -87,14 +87,14 @@ class TransactionDetailPage extends StatelessWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Amount Hero Card
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
               decoration: BoxDecoration(
                 color: AppTheme.paperCard,
                 borderRadius: BorderRadius.circular(AppTheme.cardRadius),
@@ -108,19 +108,19 @@ class TransactionDetailPage extends StatelessWidget {
                       if (expense.paymentStatus == PaymentStatus.pending) ...[
                         Container(
                           margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.gold.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                            color: AppTheme.gold.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
                           ),
                           child: Text(
                             'PENDING',
                             style: GoogleFonts.spaceGrotesk(
-                              fontSize: 10,
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.gold,
-                              letterSpacing: 1.0,
+                              letterSpacing: 0.8,
                             ),
                           ),
                         ),
@@ -128,18 +128,18 @@ class TransactionDetailPage extends StatelessWidget {
                       Text(
                         '$amountPrefix${CurrencyFormatter.format(expense.amount)}',
                         style: GoogleFonts.spaceGrotesk(
-                          fontSize: 32,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: amountColor,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     expense.title,
                     style: GoogleFonts.fraunces(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textDark,
                     ),
@@ -147,19 +147,19 @@ class TransactionDetailPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Details Ledger Section
             Text(
               'TRANSACTION INFORMATION',
               style: GoogleFonts.inter(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
                 color: AppTheme.muted,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
 
             Container(
               decoration: BoxDecoration(
@@ -200,6 +200,13 @@ class TransactionDetailPage extends StatelessWidget {
                       iconColor: toAccount.color,
                     ),
                   ],
+                  const Divider(height: 1, color: AppTheme.line),
+                  _buildDetailRow(
+                    label: 'Payment Status',
+                    value: expense.paymentStatus == PaymentStatus.pending ? 'Pending Clearance' : 'Settled & Cleared',
+                    icon: expense.paymentStatus == PaymentStatus.pending ? Icons.hourglass_empty_rounded : Icons.check_circle_outline_rounded,
+                    iconColor: expense.paymentStatus == PaymentStatus.pending ? AppTheme.gold : AppTheme.emerald,
+                  ),
                   if (expense.paymentMethod != null && expense.paymentMethod!.isNotEmpty) ...[
                     const Divider(height: 1, color: AppTheme.line),
                     _buildDetailRow(
@@ -245,30 +252,32 @@ class TransactionDetailPage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 36),
+            const SizedBox(height: 20),
 
             // Primary Action Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => AddExpensePage(expenseToEdit: expense),
+            Center(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => AddExpensePage(expenseToEdit: expense),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: Text(
+                    'Modify Entry',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.gold,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.edit_rounded, size: 18),
-                label: Text(
-                  'Modify Entry',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 15),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.cardRadius),
                   ),
                 ),
               ),

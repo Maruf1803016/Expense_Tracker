@@ -103,12 +103,12 @@ class _InsightsPageState extends State<InsightsPage> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildHealthScoreCard(expenseProvider.healthScore, expenseProvider),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
           Container(
             decoration: BoxDecoration(
               color: AppTheme.paperCard,
@@ -116,7 +116,7 @@ class _InsightsPageState extends State<InsightsPage> {
               border: Border.all(color: AppTheme.line),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(24.0),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -128,20 +128,20 @@ class _InsightsPageState extends State<InsightsPage> {
                         children: [
                           Text(
                             'Spending Trend',
-                            style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             'Comparison to previous month',
-                            style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
+                            style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
                           ),
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: (insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
                           insights.trendComparison > 0
@@ -150,31 +150,31 @@ class _InsightsPageState extends State<InsightsPage> {
                           style: GoogleFonts.inter(
                             color: insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald,
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   TrendLineChart(trendData: insights.expenseTrend),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          _buildSectionHeader('Budget Performance'),
-          const SizedBox(height: 12),
-          _buildBudgetPerformance(insights.successfulBudgets, insights.totalBudgetedCategories),
           const SizedBox(height: 16),
+          _buildSectionHeader('Budget Performance'),
+          const SizedBox(height: 8),
+          _buildBudgetPerformance(insights.successfulBudgets, insights.totalBudgetedCategories),
+          const SizedBox(height: 12),
           _buildTopCategory(insights.topSpendingCategory, insights.topSpendingCategoryPercentage),
-          const SizedBox(height: 32),
+          const SizedBox(height: 20),
           if (alerts.isNotEmpty) ...[
             Text(
               'Smart Alerts',
-              style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             ...alerts.map((alert) => _buildAlertCard(alert)),
           ],
         ],
@@ -190,11 +190,11 @@ class _InsightsPageState extends State<InsightsPage> {
   }
 
   Widget _buildHealthScoreCard(double score, ExpenseProvider provider) {
-    String description = '';
-    String label = '';
-    Color color = AppTheme.muted;
+    String description;
+    String label;
+    Color color;
 
-    if (provider.summary.totalIncome == 0) {
+    if (score == 0) {
       description = 'Add income transactions to calculate your financial health score.';
       label = 'INCOMPLETE';
       color = AppTheme.muted;
@@ -219,23 +219,23 @@ class _InsightsPageState extends State<InsightsPage> {
         border: Border.all(color: AppTheme.line),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Text(
               'Financial Health Score',
-              style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             Stack(
               alignment: Alignment.center,
               children: [
                 SizedBox(
-                  height: 130,
-                  width: 130,
+                  height: 84,
+                  width: 84,
                   child: CircularProgressIndicator(
-                    value: score / 100,
-                    strokeWidth: 12,
+                    value: score == 0 ? 1.0 : (score / 100),
+                    strokeWidth: 7,
                     color: color,
                     backgroundColor: AppTheme.paper2,
                     strokeCap: StrokeCap.round,
@@ -246,29 +246,29 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       '${score.toInt()}',
-                      style: GoogleFonts.spaceGrotesk(fontSize: 36, fontWeight: FontWeight.bold, color: color),
+                      style: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.bold, color: color),
                     ),
                     Text(
                       label,
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                      style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: color),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             Text(
               description,
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark, height: 1.4),
+              style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark, height: 1.3),
             ),
-            const SizedBox(height: 24),
-            const Divider(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppTheme.line),
+            const SizedBox(height: 10),
             _buildScoreLegend('Savings Rate: ${provider.savingsPoints.toStringAsFixed(0)}/40', 'Worth 40 points', provider.savingsPoints >= 24),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             _buildScoreLegend('Budget Adherence: ${provider.budgetPoints.toStringAsFixed(0)}/30', 'Worth 30 points', provider.budgetPoints >= 18),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             _buildScoreLegend('Consistency: ${provider.consistencyPoints.toStringAsFixed(0)}/30', 'Worth 30 points', provider.consistencyPoints >= 18),
           ],
         ),

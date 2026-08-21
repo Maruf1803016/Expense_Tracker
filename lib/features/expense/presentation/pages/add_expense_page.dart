@@ -682,9 +682,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 4,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.9,
+                      crossAxisSpacing: 6,
+                      mainAxisSpacing: 6,
+                      childAspectRatio: 1.15,
                     ),
                     itemCount: filteredCategories.length + 1,
                     itemBuilder: (context, idx) {
@@ -703,14 +703,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             _selectedSubCategoryIconName = null;
                           });
                         },
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                         child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isSelected ? catColor.withOpacity(0.15) : AppTheme.paper2,
-                            borderRadius: BorderRadius.circular(16),
+                            color: isSelected ? catColor.withValues(alpha: 0.15) : AppTheme.paper2,
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(
-                              color: isSelected ? catColor : Colors.transparent,
-                              width: 2,
+                              color: isSelected ? catColor : AppTheme.line,
+                              width: isSelected ? 1.5 : 1,
                             ),
                           ),
                           child: Column(
@@ -719,9 +720,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
                               Icon(
                                 IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
                                 color: isSelected ? catColor : AppTheme.muted,
-                                size: 24,
+                                size: 18,
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 category.name,
                                 textAlign: TextAlign.center,
@@ -729,7 +730,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
                                   fontSize: 10,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                                   color: isSelected ? AppTheme.textDark : AppTheme.muted,
                                 ),
                               ),
@@ -1327,21 +1328,22 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
           color: AppTheme.paper2,
           border: Border.all(
             color: AppTheme.line,
             width: 1,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add, color: AppTheme.muted, size: 24),
-            const SizedBox(height: 6),
+            const Icon(Icons.add, color: AppTheme.muted, size: 18),
+            const SizedBox(height: 4),
             Text(
               'Add Category',
               textAlign: TextAlign.center,

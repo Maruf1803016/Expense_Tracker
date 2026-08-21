@@ -48,106 +48,189 @@ class AccountsManagementPage extends StatelessWidget {
           ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
           : accounts.isEmpty
               ? _buildEmptyState(context, accountProvider)
-              : ListView.separated(
-                  padding: const EdgeInsets.all(24),
-                  itemCount: accounts.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final account = accounts[index];
-                    final balance = Account.calculateBalance(account, expenseProvider.expenses);
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.paperCard,
-                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                        border: Border.all(color: AppTheme.line),
-                      ),
-                      child: InkWell(
-                        onTap: () => _showAddEditAccountSheet(context, accountProvider, account),
-                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: account.color.withOpacity(0.15),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: IconUtils.buildIcon(
-                                    IconUtils.getIconName(account.icon),
-                                    color: account.color,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Total Asset Balance Hero Card
+                      Builder(
+                        builder: (context) {
+                          double total = 0.0;
+                          for (final a in accounts) {
+                            total += Account.calculateBalance(a, expenseProvider.expenses);
+                          }
+                          return Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.ink,
+                              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                              border: Border.all(color: AppTheme.ink2),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          account.name,
-                                          style: GoogleFonts.inter(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: AppTheme.textDark,
-                                          ),
-                                        ),
-                                        if (account.isDefault) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.gold.withOpacity(0.15),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              'DEFAULT',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.gold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
+                                    Text(
+                                      'TOTAL ASSET LIQUIDITY',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.2,
+                                        color: AppTheme.goldSoft,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      [
-                                        if (account.holderName != null && account.holderName!.isNotEmpty) account.holderName!,
-                                        if (account.accountNumber != null && account.accountNumber!.isNotEmpty) Account.getMaskedAccountNumber(account.accountNumber),
-                                        account.isDefault ? 'Primary Account' : 'Custom Account',
-                                      ].join(' • '),
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: AppTheme.muted,
+                                      CurrencyFormatter.format(total),
+                                      style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${accounts.length} Accounts',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.goldSoft,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
+                      Text(
+                        'ACCOUNTS & ASSETS',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: AppTheme.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: accounts.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final account = accounts[index];
+                          final balance = Account.calculateBalance(account, expenseProvider.expenses);
+
+                          return Container(
+                            decoration: BoxDecoration(
+                              color: AppTheme.paperCard,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.line),
+                            ),
+                            child: InkWell(
+                              onTap: () => _showAddEditAccountSheet(context, accountProvider, account),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: account.color.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: IconUtils.buildIcon(
+                                          IconUtils.getIconName(account.icon),
+                                          color: account.color,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                account.name,
+                                                style: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                  color: AppTheme.textDark,
+                                                ),
+                                              ),
+                                              if (account.isDefault) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.gold.withValues(alpha: 0.15),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    'DEFAULT',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 8,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: AppTheme.gold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            [
+                                              if (account.holderName != null && account.holderName!.isNotEmpty) account.holderName!,
+                                              if (account.accountNumber != null && account.accountNumber!.isNotEmpty) Account.getMaskedAccountNumber(account.accountNumber),
+                                              account.isDefault ? 'Primary' : 'Secondary',
+                                            ].join(' • '),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 11,
+                                              color: AppTheme.muted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      CurrencyFormatter.format(balance),
+                                      style: GoogleFonts.spaceGrotesk(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: balance >= 0 ? AppTheme.emerald : AppTheme.brick,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Text(
-                                CurrencyFormatter.format(balance),
-                                style: GoogleFonts.spaceGrotesk(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: balance >= 0 ? AppTheme.emerald : AppTheme.brick,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
     );
   }

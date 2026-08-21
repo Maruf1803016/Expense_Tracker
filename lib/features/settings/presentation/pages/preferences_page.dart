@@ -35,92 +35,111 @@ class PreferencesPage extends StatelessWidget {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         children: [
           _buildSectionHeader('Time & Date Display'),
           Container(
             decoration: BoxDecoration(
               color: AppTheme.paperCard,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppTheme.line),
             ),
             child: Column(
               children: [
-                SwitchListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                SwitchListTile.adaptive(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                   title: Text(
                     '24-Hour Time Format',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textDark),
                   ),
                   subtitle: Text(
-                    settings.is24HourTime ? 'Display times in 24h format (e.g. 17:30)' : 'Display times in 12h format with AM/PM (e.g. 5:30 PM)',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
+                    settings.is24HourTime ? 'Using 24h clock (e.g. 17:30)' : 'Using 12h clock (e.g. 5:30 PM)',
+                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
                   ),
                   value: settings.is24HourTime,
                   activeColor: AppTheme.gold,
+                  activeTrackColor: AppTheme.gold.withValues(alpha: 0.25),
                   onChanged: (val) => settings.toggleTimeFormat(val),
                 ),
                 const Divider(height: 1, color: AppTheme.line),
                 ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                   title: Text(
                     'First Day of the Week',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textDark),
                   ),
                   subtitle: Text(
-                    'Calendar and week calculations start on ${weekdays[settings.startDayOfWeek - 1]}',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
+                    'Calendar starts on ${weekdays[settings.startDayOfWeek - 1]}',
+                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
                   ),
-                  trailing: DropdownButton<int>(
-                    value: settings.startDayOfWeek,
-                    underline: const SizedBox(),
-                    dropdownColor: AppTheme.paperCard,
-                    items: List.generate(7, (i) {
-                      return DropdownMenuItem(
-                        value: i + 1,
-                        child: Text(weekdays[i], style: GoogleFonts.inter(color: AppTheme.textDark)),
-                      );
-                    }),
-                    onChanged: (val) {
-                      if (val != null) settings.setStartDayOfWeek(val);
-                    },
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.paper2,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.line),
+                    ),
+                    child: DropdownButton<int>(
+                      value: settings.startDayOfWeek,
+                      underline: const SizedBox(),
+                      isDense: true,
+                      dropdownColor: AppTheme.paperCard,
+                      items: List.generate(7, (i) {
+                        return DropdownMenuItem(
+                          value: i + 1,
+                          child: Text(weekdays[i], style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                        );
+                      }),
+                      onChanged: (val) {
+                        if (val != null) settings.setStartDayOfWeek(val);
+                      },
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           _buildSectionHeader('Accounting & Fiscal Year'),
           Container(
             decoration: BoxDecoration(
               color: AppTheme.paperCard,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppTheme.line),
             ),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               title: Text(
                 'Financial Year Starts',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textDark),
               ),
               subtitle: Text(
-                'Fiscal year resets every ${months[settings.financialYearStartMonth - 1]}',
-                style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
+                'Resets every ${months[settings.financialYearStartMonth - 1]}',
+                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
               ),
-              trailing: DropdownButton<int>(
-                value: settings.financialYearStartMonth,
-                underline: const SizedBox(),
-                dropdownColor: AppTheme.paperCard,
-                items: List.generate(12, (i) {
-                  return DropdownMenuItem(
-                    value: i + 1,
-                    child: Text(months[i], style: GoogleFonts.inter(color: AppTheme.textDark)),
-                  );
-                }),
-                onChanged: (val) {
-                  if (val != null) settings.setFinancialYearStartMonth(val);
-                },
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.paper2,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.line),
+                ),
+                child: DropdownButton<int>(
+                  value: settings.financialYearStartMonth,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  dropdownColor: AppTheme.paperCard,
+                  items: List.generate(12, (i) {
+                    return DropdownMenuItem(
+                      value: i + 1,
+                      child: Text(months[i], style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                    );
+                  }),
+                  onChanged: (val) {
+                    if (val != null) settings.setFinancialYearStartMonth(val);
+                  },
+                ),
               ),
             ),
           ),
@@ -131,11 +150,11 @@ class PreferencesPage extends StatelessWidget {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0, left: 4.0),
+      padding: const EdgeInsets.only(bottom: 6.0, left: 4.0),
       child: Text(
         title.toUpperCase(),
         style: GoogleFonts.inter(
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: FontWeight.bold,
           color: AppTheme.muted,
           letterSpacing: 1.5,

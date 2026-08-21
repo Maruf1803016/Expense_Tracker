@@ -64,7 +64,7 @@ class CategoryManagementPage extends StatelessWidget {
   Widget _buildGridSection(BuildContext context, List<Category> categories, ExpenseProvider expenseProvider) {
     final type = categories.isNotEmpty ? categories.first.type : CategoryType.expense;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: _buildCategoryGrid(context, categories, expenseProvider, type),
     );
   }
@@ -77,9 +77,9 @@ class CategoryManagementPage extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.25,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1.5,
       ),
       itemCount: categories.length + 1,
       itemBuilder: (context, index) {
@@ -87,26 +87,26 @@ class CategoryManagementPage extends StatelessWidget {
           return Container(
             decoration: BoxDecoration(
               color: AppTheme.paperCard,
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: AppTheme.line, style: BorderStyle.solid),
             ),
             child: InkWell(
               onTap: () => _showAddCategorySheet(context, categoryProvider, type),
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              borderRadius: BorderRadius.circular(10),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.add_circle_outline_rounded,
                     color: AppTheme.gold,
-                    size: 26,
+                    size: 20,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
                     'Add Category',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: 11,
                       color: AppTheme.textDark,
                     ),
                   ),
@@ -145,7 +145,7 @@ class CategoryManagementPage extends StatelessWidget {
         return Container(
           decoration: BoxDecoration(
             color: AppTheme.paperCard,
-            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppTheme.line),
           ),
           child: InkWell(
@@ -157,40 +157,46 @@ class CategoryManagementPage extends StatelessWidget {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.all(12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: catColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
-                        color: catColor,
-                        size: 20,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: catColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
+                            color: catColor,
+                            size: 16,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          category.name,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            color: AppTheme.textDark,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    category.name,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: AppTheme.textDark,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     isIncome
                         ? '${CurrencyFormatter.format(totalSpent)} earned'
@@ -207,12 +213,12 @@ class CategoryManagementPage extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (!isIncome && budgetStatus.limit > 0) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
-                        minHeight: 4,
+                        minHeight: 3,
                         backgroundColor: AppTheme.paper2,
                         color: budgetStatus.isExceeded ? AppTheme.brick : AppTheme.emerald,
                       ),

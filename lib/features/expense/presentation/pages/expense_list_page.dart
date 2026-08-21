@@ -337,94 +337,156 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final netSavings = totalIncome - totalExpenses;
     final double savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0.0;
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.ink,
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.ink2, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'TOTAL BALANCE',
-              style: GoogleFonts.inter(
-                color: AppTheme.goldSoft,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-              ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Editorial Field Note Kicker & Headline
+          Text(
+            'TODAY’S FIELD NOTE',
+            style: GoogleFonts.inter(
+              color: AppTheme.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
             ),
-            const SizedBox(height: 6),
-            Text(
-              CurrencyFormatter.format(netSavings),
-              style: GoogleFonts.spaceGrotesk(
-                color: Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                letterSpacing: -0.5,
-              ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Money, in order.',
+            style: GoogleFonts.fraunces(
+              color: AppTheme.textDark,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
             ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withOpacity(0.08)),
-              ),
-              child: Row(
-                children: [
-                  _buildSummaryItem(context, 'INCOME', totalIncome, AppTheme.emerald, Icons.arrow_upward_rounded),
-                  Container(width: 1, height: 28, color: Colors.white.withOpacity(0.12)),
-                  const SizedBox(width: 16),
-                  _buildSummaryItem(context, 'EXPENSE', totalExpenses, AppTheme.brick, Icons.arrow_downward_rounded),
-                ],
-              ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'The few signals that matter before the day moves on.',
+            style: GoogleFonts.inter(
+              color: AppTheme.muted,
+              fontSize: 12,
             ),
-            const SizedBox(height: 14),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+          const SizedBox(height: 12),
+
+          // Archival Ink Hero Balance Card
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppTheme.ink,
+              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+              border: Border.all(color: AppTheme.ink2, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Savings Rate: ${savingsRate.toStringAsFixed(0)}%',
-                  style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 11, fontWeight: FontWeight.w500),
+                  'AVAILABLE BALANCE',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.goldSoft,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'Net: ${CurrencyFormatter.format(netSavings)}',
-                  style: GoogleFonts.spaceGrotesk(color: AppTheme.goldSoft, fontSize: 12, fontWeight: FontWeight.bold),
+                  CurrencyFormatter.format(netSavings),
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Across your asset accounts, with liabilities held apart for a truthful net worth.',
+                  style: GoogleFonts.inter(
+                    color: AppTheme.goldSoft.withValues(alpha: 0.7),
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+
+          // 3-Card Summary Strip
+          Row(
+            children: [
+              Expanded(
+                child: _buildMiniStatCard(
+                  'Inflow',
+                  CurrencyFormatter.format(totalIncome),
+                  'Cash in',
+                  Icons.arrow_upward_rounded,
+                  AppTheme.emerald,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMiniStatCard(
+                  'Outflow',
+                  CurrencyFormatter.format(totalExpenses),
+                  'Cash out',
+                  Icons.arrow_downward_rounded,
+                  AppTheme.brick,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMiniStatCard(
+                  'Savings',
+                  '${savingsRate.toStringAsFixed(0)}%',
+                  'Saved rate',
+                  Icons.star_rounded,
+                  AppTheme.gold,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSummaryItem(BuildContext context, String label, double amount, Color color, IconData icon) {
-    return Expanded(
+  Widget _buildMiniStatCard(String label, String value, String caption, IconData icon, Color iconColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.paperCard,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.line),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 11, color: AppTheme.goldSoft),
+              Icon(icon, size: 12, color: iconColor),
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.inter(color: AppTheme.goldSoft, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.8),
+                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.muted),
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
-            CurrencyFormatter.format(amount),
-            style: GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            value,
+            style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            style: GoogleFonts.inter(fontSize: 9, color: AppTheme.muted),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
