@@ -10,6 +10,8 @@ import 'package:expense_tracker/features/account/presentation/providers/account_
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_add_card.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class AccountsManagementPage extends StatelessWidget {
   const AccountsManagementPage({super.key});
@@ -21,31 +23,25 @@ class AccountsManagementPage extends StatelessWidget {
     final accounts = accountProvider.accounts;
 
     return Scaffold(
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.bg,
       appBar: AppBar(
-        backgroundColor: AppTheme.paper,
+        backgroundColor: context.bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textDark),
+          icon: Icon(Icons.arrow_back, color: context.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Manage Accounts',
           style: GoogleFonts.fraunces(
             fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+            color: context.textPrimary,
             fontSize: 20,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: AppTheme.textDark),
-            onPressed: () => _showAddEditAccountSheet(context, accountProvider, null),
-          ),
-        ],
       ),
       body: accountProvider.isLoading && accounts.isEmpty
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
+          ? Center(child: CircularProgressIndicator(color: context.gold))
           : accounts.isEmpty
               ? _buildEmptyState(context, accountProvider)
               : SingleChildScrollView(
@@ -53,9 +49,9 @@ class AccountsManagementPage extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Total Asset Balance Hero Card
+                      // Total Asset Balance Hero Card (Main Card)
                       Builder(
-                        builder: (context) {
+                        builder: (ctx) {
                           double total = 0.0;
                           for (final a in accounts) {
                             total += Account.calculateBalance(a, expenseProvider.expenses);
@@ -65,9 +61,9 @@ class AccountsManagementPage extends StatelessWidget {
                             margin: const EdgeInsets.only(bottom: 16),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                             decoration: BoxDecoration(
-                              color: AppTheme.ink,
+                              color: ctx.cardBg,
                               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                              border: Border.all(color: AppTheme.ink2),
+                              border: Border.all(color: ctx.line),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -81,7 +77,7 @@ class AccountsManagementPage extends StatelessWidget {
                                         fontSize: 9,
                                         fontWeight: FontWeight.bold,
                                         letterSpacing: 1.2,
-                                        color: AppTheme.goldSoft,
+                                        color: ctx.textMuted,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -90,7 +86,7 @@ class AccountsManagementPage extends StatelessWidget {
                                       style: GoogleFonts.spaceGrotesk(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                        color: ctx.textPrimary,
                                       ),
                                     ),
                                   ],
@@ -98,7 +94,7 @@ class AccountsManagementPage extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.1),
+                                    color: ctx.surface2,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -106,7 +102,7 @@ class AccountsManagementPage extends StatelessWidget {
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: AppTheme.goldSoft,
+                                      color: ctx.gold,
                                     ),
                                   ),
                                 ),
@@ -116,13 +112,28 @@ class AccountsManagementPage extends StatelessWidget {
                         },
                       ),
 
+                      // Dedicated Add an Account Card (Under Main Card)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: InkLedgerAddCard(
+                          title: 'Add an account',
+                          subtitle: 'Track bank, mobile money, cash, or credit',
+                          icon: Icons.account_balance_wallet_outlined,
+                          buttonText: 'Add',
+                          onTap: () {
+                            HapticsService.selection();
+                            _showAddEditAccountSheet(context, accountProvider, null);
+                          },
+                        ),
+                      ),
+
                       Text(
                         'ACCOUNTS & ASSETS',
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: AppTheme.muted,
+                          color: context.textMuted,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -138,12 +149,15 @@ class AccountsManagementPage extends StatelessWidget {
 
                           return Container(
                             decoration: BoxDecoration(
-                              color: AppTheme.paperCard,
+                              color: context.cardBg,
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.line),
+                              border: Border.all(color: context.line),
                             ),
                             child: InkWell(
-                              onTap: () => _showAddEditAccountSheet(context, accountProvider, account),
+                              onTap: () {
+                                HapticsService.selection();
+                                _showAddEditAccountSheet(context, accountProvider, account);
+                              },
                               borderRadius: BorderRadius.circular(10),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -176,7 +190,7 @@ class AccountsManagementPage extends StatelessWidget {
                                                 style: GoogleFonts.inter(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 13,
-                                                  color: AppTheme.textDark,
+                                                  color: context.textPrimary,
                                                 ),
                                               ),
                                               if (account.isDefault) ...[
@@ -184,7 +198,7 @@ class AccountsManagementPage extends StatelessWidget {
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.gold.withValues(alpha: 0.15),
+                                                    color: context.gold.withValues(alpha: 0.15),
                                                     borderRadius: BorderRadius.circular(4),
                                                   ),
                                                   child: Text(
@@ -192,7 +206,7 @@ class AccountsManagementPage extends StatelessWidget {
                                                     style: GoogleFonts.inter(
                                                       fontSize: 8,
                                                       fontWeight: FontWeight.bold,
-                                                      color: AppTheme.gold,
+                                                      color: context.gold,
                                                     ),
                                                   ),
                                                 ),
@@ -208,7 +222,7 @@ class AccountsManagementPage extends StatelessWidget {
                                             ].join(' • '),
                                             style: GoogleFonts.inter(
                                               fontSize: 11,
-                                              color: AppTheme.muted,
+                                              color: context.textMuted,
                                             ),
                                           ),
                                         ],
@@ -219,7 +233,7 @@ class AccountsManagementPage extends StatelessWidget {
                                       style: GoogleFonts.spaceGrotesk(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
-                                        color: balance >= 0 ? AppTheme.emerald : AppTheme.brick,
+                                        color: balance >= 0 ? context.emerald : context.brick,
                                       ),
                                     ),
                                   ],
@@ -245,31 +259,34 @@ class AccountsManagementPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.05),
+                color: context.gold.withValues(alpha: 0.05),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.account_balance_wallet_outlined, size: 64, color: AppTheme.gold),
+              child: Icon(Icons.account_balance_wallet_outlined, size: 64, color: context.gold),
             ),
             const SizedBox(height: 24),
             Text(
               'No Accounts Found',
-              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(color: context.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Create accounts to start tracking your finances across multiple sources.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppTheme.muted),
+              style: GoogleFonts.inter(color: context.textMuted),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.gold,
+                backgroundColor: context.gold,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () => _showAddEditAccountSheet(context, provider, null),
+              onPressed: () {
+                HapticsService.selection();
+                _showAddEditAccountSheet(context, provider, null);
+              },
               child: const Text('Add Account', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
@@ -349,27 +366,27 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
       bool? confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: AppTheme.paperCard,
+          backgroundColor: context.cardBg,
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: AppTheme.line),
+            side: BorderSide(color: context.line),
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             'Duplicate Name',
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
           content: Text(
             'You already have an account named "$name" — are you sure?',
-            style: GoogleFonts.inter(color: AppTheme.textDark),
+            style: GoogleFonts.inter(color: context.textPrimary),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+              child: Text('Cancel', style: GoogleFonts.inter(color: context.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.gold,
+                backgroundColor: context.gold,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -457,29 +474,29 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
       bool? confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: AppTheme.paperCard,
+          backgroundColor: context.cardBg,
           shape: RoundedRectangleBorder(
-            side: const BorderSide(color: AppTheme.line),
+            side: BorderSide(color: context.line),
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
             'Delete Account',
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.brick),
           ),
           content: Text(
             transactionCount > 0
                 ? '$transactionCount transactions are tagged to this account. Deleting it will move them to ${defaultAccount.name}. This can\'t be undone.'
                 : 'Are you sure you want to delete this account? This cannot be undone.',
-            style: GoogleFonts.inter(color: AppTheme.textDark),
+            style: GoogleFonts.inter(color: context.textPrimary),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+              child: Text('Cancel', style: GoogleFonts.inter(color: context.textMuted)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.brick,
+                backgroundColor: context.brick,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -514,6 +531,7 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
   }
 
   Widget _buildPresetChip({
+    required BuildContext context,
     required String label,
     required String iconName,
     required Color color,
@@ -525,15 +543,16 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
         style: GoogleFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: AppTheme.textDark,
+          color: context.textPrimary,
         ),
       ),
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.surface2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppTheme.line),
+        side: BorderSide(color: context.line),
       ),
       onPressed: () {
+        HapticsService.selection();
         setState(() {
           _nameController.text = label;
           _selectedIconName = iconName;
@@ -549,9 +568,10 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: AppTheme.paperCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: context.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: context.line),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -568,12 +588,12 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                     style: GoogleFonts.fraunces(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textDark,
+                      color: context.textPrimary,
                     ),
                   ),
                   if (isEdit && !widget.account!.isDefault)
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppTheme.brick),
+                      icon: Icon(Icons.delete_outline, color: context.brick),
                       onPressed: _isSaving ? null : _onDelete,
                     ),
                 ],
@@ -584,7 +604,7 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               if (!isEdit) ...[
                 Text(
                   'Presets',
-                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 SingleChildScrollView(
@@ -592,30 +612,35 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                   child: Row(
                     children: [
                       _buildPresetChip(
+                        context: context,
                         label: 'Cash',
                         iconName: 'cash',
                         color: AppTheme.categoryPalette[5],
                       ),
                       const SizedBox(width: 8),
                       _buildPresetChip(
+                        context: context,
                         label: 'Visa',
                         iconName: 'visa',
                         color: AppTheme.categoryPalette[1],
                       ),
                       const SizedBox(width: 8),
                       _buildPresetChip(
+                        context: context,
                         label: 'Mastercard',
                         iconName: 'mastercard',
                         color: AppTheme.categoryPalette[4],
                       ),
                       const SizedBox(width: 8),
                       _buildPresetChip(
+                        context: context,
                         label: 'Credit Card',
                         iconName: 'cards',
                         color: AppTheme.categoryPalette[0],
                       ),
                       const SizedBox(width: 8),
                       _buildPresetChip(
+                        context: context,
                         label: 'Savings',
                         iconName: 'shield_card',
                         color: AppTheme.categoryPalette[3],
@@ -629,14 +654,19 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               // Name
               Text(
                 'Account Name',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _nameController,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(
+                style: GoogleFonts.inter(color: context.textPrimary),
+                decoration: InputDecoration(
                   hintText: 'e.g. Savings, Credit Card',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                 ),
                 validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
               ),
@@ -646,20 +676,25 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               if (!isEdit) ...[
                 Text(
                   'Starting Balance (Optional)',
-                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Money already in this account before you started tracking it here.',
-                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11),
+                  style: GoogleFonts.inter(color: context.textMuted, fontSize: 11),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _balanceController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  style: GoogleFonts.spaceGrotesk(color: context.textPrimary),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: '0.00',
+                    hintStyle: GoogleFonts.spaceGrotesk(color: context.textMuted),
+                    filled: true,
+                    fillColor: context.cardBg,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -668,7 +703,7 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               // Color Picker
               Text(
                 'Account Color',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -681,7 +716,10 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                     final color = AppTheme.categoryPalette[index];
                     final isSelected = _selectedColor == color;
                     return GestureDetector(
-                      onTap: () => setState(() => _selectedColor = color),
+                      onTap: () {
+                        HapticsService.selection();
+                        setState(() => _selectedColor = color);
+                      },
                       child: Container(
                         width: 44,
                         height: 44,
@@ -689,7 +727,7 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
                           color: color,
                           shape: BoxShape.circle,
                           border: isSelected
-                              ? Border.all(color: AppTheme.textDark, width: 3)
+                              ? Border.all(color: Colors.white, width: 3)
                               : Border.all(color: Colors.transparent),
                         ),
                         child: isSelected
@@ -705,14 +743,19 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               // Account Holder Name
               Text(
                 'Account Holder Name (Optional)',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _holderNameController,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(
+                style: GoogleFonts.inter(color: context.textPrimary),
+                decoration: InputDecoration(
                   hintText: 'e.g. John Doe',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -720,27 +763,35 @@ class _AddEditAccountSheetState extends State<AddEditAccountSheet> {
               // Account Number
               Text(
                 'Account Number (Optional)',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _accountNumberController,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
+                style: GoogleFonts.inter(color: context.textPrimary),
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'e.g. Last 4 or full 16 digits',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                 ),
               ),
               const SizedBox(height: 24),
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
+                  backgroundColor: context.gold,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                onPressed: _isSaving ? null : _onSave,
+                onPressed: _isSaving ? null : () {
+                  HapticsService.lightImpact();
+                  _onSave();
+                },
                 child: _isSaving
                     ? const SizedBox(
                         height: 20,

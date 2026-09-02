@@ -39,21 +39,21 @@ class _InsightsPageState extends State<InsightsPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: AppTheme.paper,
+        backgroundColor: context.bg,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Container(
-            color: AppTheme.paper,
+            color: context.bg,
             child: TabBar(
               tabs: [
                 Tab(child: Text('Insights & Trends', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
                 Tab(child: Text('Monthly Summary', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
               ],
-              indicatorColor: AppTheme.ink,
+              indicatorColor: context.gold,
               indicatorWeight: 2.5,
-              labelColor: AppTheme.ink,
-              unselectedLabelColor: AppTheme.muted,
-              dividerColor: AppTheme.line,
+              labelColor: context.textPrimary,
+              unselectedLabelColor: context.textMuted,
+              dividerColor: context.line,
             ),
           ),
         ),
@@ -75,7 +75,7 @@ class _InsightsPageState extends State<InsightsPage> {
     final alerts = alertsProvider.alerts;
 
     if (insightsProvider.isLoading || alertsProvider.isLoading || expenseProvider.isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.gold));
+      return Center(child: CircularProgressIndicator(color: context.gold));
     }
 
     if (insights == null || expenseProvider.expenses.isEmpty) {
@@ -86,47 +86,59 @@ class _InsightsPageState extends State<InsightsPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.gold.withValues(alpha: 0.05),
+                color: context.gold.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.insights_rounded, size: 64, color: AppTheme.gold),
+              child: Icon(Icons.insights_rounded, size: 64, color: context.gold),
             ),
             const SizedBox(height: 24),
             Text(
               'No Insights Yet',
-              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(color: context.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Your spending habits, trends, and smart alerts will appear here as you track more transactions.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppTheme.muted),
+              style: GoogleFonts.inter(color: context.textMuted),
             ),
           ],
         ),
       );
     }
 
-    // Calculate Inflow, Outflow, Net for current view
     final selectedMonth = expenseProvider.selectedMonth;
-    var thisMonthExpenses = expenseProvider.expenses.where(
-      (e) => e.date.year == selectedMonth.year && e.date.month == selectedMonth.month && !e.isDeleted,
-    ).toList();
-    if (thisMonthExpenses.isEmpty) {
-      thisMonthExpenses = expenseProvider.expenses.where((e) => !e.isDeleted).toList();
+    final allExpenses = expenseProvider.expenses.where((e) => !e.isDeleted).toList();
+    
+    DateTime rangeStart;
+    final rangeEnd = DateTime(selectedMonth.year, selectedMonth.month + 1, 0, 23, 59, 59);
+
+    if (_selectedLensIndex == 0) {
+      rangeStart = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    } else if (_selectedLensIndex == 1) {
+      rangeStart = DateTime(selectedMonth.year, selectedMonth.month - 2, 1);
+    } else if (_selectedLensIndex == 2) {
+      rangeStart = DateTime(selectedMonth.year, selectedMonth.month - 5, 1);
+    } else {
+      rangeStart = DateTime(selectedMonth.year, selectedMonth.month - 11, 1);
     }
-    final totalInflow = thisMonthExpenses
-        .where((e) => e.type == CategoryType.income)
+
+    final lensExpenses = allExpenses.where((e) {
+      return e.date.isAfter(rangeStart.subtract(const Duration(seconds: 1))) &&
+          e.date.isBefore(rangeEnd.add(const Duration(seconds: 1)));
+    }).toList();
+
+    final totalInflow = lensExpenses
+        .where((e) => e.type == CategoryType.income && e.toAccountId == null)
         .fold<double>(0.0, (sum, e) => sum + e.amount);
-    final totalOutflow = thisMonthExpenses
-        .where((e) => e.type == CategoryType.expense)
+    final totalOutflow = lensExpenses
+        .where((e) => e.type == CategoryType.expense && e.toAccountId == null)
         .fold<double>(0.0, (sum, e) => sum + e.amount);
     final netCashFlow = totalInflow - totalOutflow;
 
-    // Category Mix aggregation
     final categoryTotals = <String, double>{};
     final categoryProvider = context.watch<CategoryProvider>();
-    for (var exp in thisMonthExpenses.where((e) => e.type == CategoryType.expense)) {
+    for (var exp in lensExpenses.where((e) => e.type == CategoryType.expense && e.toAccountId == null)) {
       final matchingCat = categoryProvider.categories.where((c) => c.id == exp.categoryId).firstOrNull;
       final catName = matchingCat?.name ?? exp.categoryId;
       final displayName = catName.isNotEmpty ? catName : 'Other';
@@ -152,7 +164,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.5,
-                    color: AppTheme.gold,
+                    color: context.gold,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -161,7 +173,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   style: GoogleFonts.fraunces(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textDark,
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -169,7 +181,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   'Cash flow patterns and allocation mix across your ledger.',
                   style: GoogleFonts.inter(
                     fontSize: 12,
-                    color: AppTheme.muted,
+                    color: context.textMuted,
                   ),
                 ),
               ],
@@ -180,9 +192,9 @@ class _InsightsPageState extends State<InsightsPage> {
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: AppTheme.paper2,
+              color: context.surface2,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Row(
               children: List.generate(_lensOptions.length, (idx) {
@@ -193,12 +205,12 @@ class _InsightsPageState extends State<InsightsPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 7),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.paperCard : Colors.transparent,
+                        color: isSelected ? context.cardBg : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
+                                  color: Colors.black.withValues(alpha: context.isDark ? 0.2 : 0.04),
                                   blurRadius: 4,
                                   offset: const Offset(0, 1),
                                 ),
@@ -211,7 +223,7 @@ class _InsightsPageState extends State<InsightsPage> {
                         style: GoogleFonts.inter(
                           fontSize: 11,
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected ? AppTheme.textDark : AppTheme.muted,
+                          color: isSelected ? context.textPrimary : context.textMuted,
                         ),
                       ),
                     ),
@@ -225,9 +237,9 @@ class _InsightsPageState extends State<InsightsPage> {
           // 1. Cash Flow Trend Panel
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -244,20 +256,20 @@ class _InsightsPageState extends State<InsightsPage> {
                           style: GoogleFonts.fraunces(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
+                            color: context.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Income vs. Outflow trajectory',
-                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                          style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                         ),
                       ],
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                       decoration: BoxDecoration(
-                        color: (insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald).withValues(alpha: 0.12),
+                        color: (insights.trendComparison > 0 ? context.brick : context.emerald).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
@@ -265,7 +277,7 @@ class _InsightsPageState extends State<InsightsPage> {
                             ? '+${insights.trendComparison.toStringAsFixed(0)}% (Warning)'
                             : '${insights.trendComparison.toStringAsFixed(0)}% (Disciplined)',
                         style: GoogleFonts.inter(
-                          color: insights.trendComparison > 0 ? AppTheme.brick : AppTheme.emerald,
+                          color: insights.trendComparison > 0 ? context.brick : context.emerald,
                           fontWeight: FontWeight.bold,
                           fontSize: 10,
                         ),
@@ -279,9 +291,9 @@ class _InsightsPageState extends State<InsightsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.paper2,
+                    color: context.surface2,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.line.withValues(alpha: 0.6)),
+                    border: Border.all(color: context.line.withValues(alpha: 0.6)),
                   ),
                   child: Row(
                     children: [
@@ -289,41 +301,45 @@ class _InsightsPageState extends State<InsightsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('INFLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.muted, letterSpacing: 0.8)),
+                            Text('INFLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.textMuted, letterSpacing: 0.8)),
                             const SizedBox(height: 2),
                             Text(
                               CurrencyFormatter.format(totalInflow),
-                              style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                              style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: context.emerald),
                             ),
                           ],
                         ),
                       ),
-                      Container(width: 1, height: 26, color: AppTheme.line),
+                      Container(width: 1, height: 26, color: context.line),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('OUTFLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.muted, letterSpacing: 0.8)),
+                            Text('OUTFLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.textMuted, letterSpacing: 0.8)),
                             const SizedBox(height: 2),
                             Text(
                               CurrencyFormatter.format(totalOutflow),
-                              style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.brick),
+                              style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: context.brick),
                             ),
                           ],
                         ),
                       ),
-                      Container(width: 1, height: 26, color: AppTheme.line),
+                      Container(width: 1, height: 26, color: context.line),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('NET FLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.muted, letterSpacing: 0.8)),
+                            Text('NET FLOW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.textMuted, letterSpacing: 0.8)),
                             const SizedBox(height: 2),
                             Text(
                               CurrencyFormatter.format(netCashFlow),
-                              style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: netCashFlow >= 0 ? context.emerald : context.brick,
+                              ),
                             ),
                           ],
                         ),
@@ -332,7 +348,7 @@ class _InsightsPageState extends State<InsightsPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TrendLineChart(trendData: insights.expenseTrend),
+                TrendLineChart(selectedLensIndex: _selectedLensIndex),
               ],
             ),
           ),
@@ -341,9 +357,9 @@ class _InsightsPageState extends State<InsightsPage> {
           // 2. Category Mix Panel
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -360,19 +376,19 @@ class _InsightsPageState extends State<InsightsPage> {
                           style: GoogleFonts.fraunces(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textDark,
+                            color: context.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Spending distribution across categories',
-                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                          style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                         ),
                       ],
                     ),
                     Text(
                       '${sortedCategories.length} Categories',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(fontSize: 11, color: context.textMuted, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -384,7 +400,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     child: Center(
                       child: Text(
                         'No expense categories logged for this period.',
-                        style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted),
+                        style: GoogleFonts.inter(fontSize: 12, color: context.textMuted),
                       ),
                     ),
                   )
@@ -404,7 +420,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                 width: 22,
                                 height: 22,
                                 decoration: BoxDecoration(
-                                  color: catColor.withValues(alpha: 0.12),
+                                  color: catColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Center(
@@ -422,19 +438,19 @@ class _InsightsPageState extends State<InsightsPage> {
                                   style: GoogleFonts.inter(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: AppTheme.textDark,
+                                    color: context.textPrimary,
                                   ),
                                 ),
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.paper2,
+                                  color: context.surface2,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   '${(percentage * 100).toStringAsFixed(0)}%',
-                                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.muted),
+                                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.textMuted),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -443,7 +459,7 @@ class _InsightsPageState extends State<InsightsPage> {
                                 style: GoogleFonts.spaceGrotesk(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.textDark,
+                                  color: context.textPrimary,
                                 ),
                               ),
                             ],
@@ -454,7 +470,7 @@ class _InsightsPageState extends State<InsightsPage> {
                             child: LinearProgressIndicator(
                               value: percentage.clamp(0.0, 1.0),
                               minHeight: 4,
-                              backgroundColor: AppTheme.paper2,
+                              backgroundColor: context.surface2,
                               valueColor: AlwaysStoppedAnimation<Color>(catColor),
                             ),
                           ),
@@ -468,24 +484,24 @@ class _InsightsPageState extends State<InsightsPage> {
           const SizedBox(height: 14),
 
           // 3. Compact Financial Health Score Card
-          _buildHealthScoreCard(expenseProvider.healthScore, expenseProvider),
+          _buildHealthScoreCard(context, expenseProvider.healthScore, expenseProvider),
           const SizedBox(height: 14),
 
           // 4. Smart Alerts
           if (alerts.isNotEmpty) ...[
             Text(
               'Smart Alerts',
-              style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: GoogleFonts.fraunces(fontSize: 15, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             const SizedBox(height: 8),
-            ...alerts.map((alert) => _buildAlertCard(alert)),
+            ...alerts.map((alert) => _buildAlertCard(context, alert)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildHealthScoreCard(double score, ExpenseProvider provider) {
+  Widget _buildHealthScoreCard(BuildContext context, double score, ExpenseProvider provider) {
     String description;
     String label;
     Color color;
@@ -493,26 +509,26 @@ class _InsightsPageState extends State<InsightsPage> {
     if (score == 0) {
       description = 'Add income transactions to calculate your financial health score.';
       label = 'INCOMPLETE';
-      color = AppTheme.muted;
+      color = context.textMuted;
     } else if (score >= 80) {
       description = 'Your finances are in great shape. Keep up the disciplined habits.';
       label = 'EXCELLENT';
-      color = AppTheme.emerald;
+      color = context.emerald;
     } else if (score >= 60) {
       description = 'Your financial health is decent but has room for improvement.';
       label = 'GOOD';
-      color = AppTheme.gold;
+      color = context.gold;
     } else {
       description = 'Your financial health needs attention. Review your spending patterns.';
       label = 'POOR';
-      color = AppTheme.brick;
+      color = context.brick;
     }
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -530,7 +546,7 @@ class _InsightsPageState extends State<InsightsPage> {
                       value: score == 0 ? 1.0 : (score / 100),
                       strokeWidth: 5,
                       color: color,
-                      backgroundColor: AppTheme.paper2,
+                      backgroundColor: context.surface2,
                       strokeCap: StrokeCap.round,
                     ),
                   ),
@@ -556,12 +572,12 @@ class _InsightsPageState extends State<InsightsPage> {
                   children: [
                     Text(
                       'Financial Health Discipline',
-                      style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      style: GoogleFonts.fraunces(fontSize: 14, fontWeight: FontWeight.bold, color: context.textPrimary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       description,
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted, height: 1.3),
+                      style: GoogleFonts.inter(fontSize: 11, color: context.textMuted, height: 1.3),
                     ),
                   ],
                 ),
@@ -569,18 +585,23 @@ class _InsightsPageState extends State<InsightsPage> {
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1, color: AppTheme.line),
+          Divider(height: 1, color: context.line),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: _buildMiniScoreItem('Savings', '${provider.savingsPoints.toStringAsFixed(0)}/40', provider.savingsPoints >= 24),
+                child: _buildMiniScoreItem(context, 'Savings', '${provider.savingsPoints.toStringAsFixed(0)}/50', provider.savingsPoints >= 25),
               ),
               Expanded(
-                child: _buildMiniScoreItem('Budget', '${provider.budgetPoints.toStringAsFixed(0)}/30', provider.budgetPoints >= 18),
+                child: _buildMiniScoreItem(
+                  context,
+                  'Cash Flow',
+                  provider.summary.totalIncome >= provider.summary.totalExpense ? '+Surplus' : '-Deficit',
+                  provider.summary.totalIncome >= provider.summary.totalExpense,
+                ),
               ),
               Expanded(
-                child: _buildMiniScoreItem('Consistency', '${provider.consistencyPoints.toStringAsFixed(0)}/30', provider.consistencyPoints >= 18),
+                child: _buildMiniScoreItem(context, 'Consistency', '${provider.consistencyPoints.toStringAsFixed(0)}/50', provider.consistencyPoints >= 25),
               ),
             ],
           ),
@@ -589,23 +610,23 @@ class _InsightsPageState extends State<InsightsPage> {
     );
   }
 
-  Widget _buildMiniScoreItem(String title, String score, bool isPositive) {
+  Widget _buildMiniScoreItem(BuildContext context, String title, String score, bool isPositive) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: GoogleFonts.inter(fontSize: 10, color: AppTheme.muted)),
+        Text(title, style: GoogleFonts.inter(fontSize: 10, color: context.textMuted)),
         const SizedBox(height: 2),
         Row(
           children: [
             Icon(
               isPositive ? Icons.check_circle_rounded : Icons.info_outline_rounded,
               size: 12,
-              color: isPositive ? AppTheme.emerald : AppTheme.muted,
+              color: isPositive ? context.emerald : context.textMuted,
             ),
             const SizedBox(width: 4),
             Text(
               score,
-              style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
           ],
         ),
@@ -613,25 +634,25 @@ class _InsightsPageState extends State<InsightsPage> {
     );
   }
 
-  Widget _buildAlertCard(SmartAlert alert) {
-    Color color = AppTheme.gold;
+  Widget _buildAlertCard(BuildContext context, SmartAlert alert) {
+    Color color = context.gold;
     IconData icon = Icons.info_outline;
 
     switch (alert.type) {
       case AlertType.spendingSpike:
-        color = AppTheme.gold;
+        color = context.gold;
         icon = Icons.warning_amber_rounded;
         break;
       case AlertType.budgetExceeded:
-        color = AppTheme.brick;
+        color = context.brick;
         icon = Icons.cancel_outlined;
         break;
       case AlertType.unusualActivity:
-        color = AppTheme.gold;
+        color = context.gold;
         icon = Icons.error_outline_rounded;
         break;
       case AlertType.trendWarning:
-        color = AppTheme.gold;
+        color = context.gold;
         icon = Icons.trending_up_rounded;
         break;
     }
@@ -639,9 +660,9 @@ class _InsightsPageState extends State<InsightsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: ListTile(
         leading: Container(
@@ -652,10 +673,9 @@ class _InsightsPageState extends State<InsightsPage> {
           ),
           child: Icon(icon, color: color, size: 18),
         ),
-        title: Text(alert.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark)),
-        subtitle: Text(alert.message, style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
+        title: Text(alert.title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: context.textPrimary)),
+        subtitle: Text(alert.message, style: GoogleFonts.inter(color: context.textMuted, fontSize: 11)),
       ),
     );
   }
 }
-

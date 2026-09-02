@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
-import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
 import 'package:expense_tracker/features/recurring_transactions/domain/entities/recurring_transaction_source.dart';
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_category_selector.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class EditRecurringTransactionSheet extends StatefulWidget {
-  final RecurringTransactionSource source;
+  final RecurringTransactionSource? source;
 
-  const EditRecurringTransactionSheet({super.key, required this.source});
+  const EditRecurringTransactionSheet({super.key, this.source});
 
   @override
   State<EditRecurringTransactionSheet> createState() => _EditRecurringTransactionSheetState();
@@ -22,6 +24,7 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _amountController;
+  late String _type; // 'expense' or 'income'
   late String _frequency;
   late DateTime _nextDueDate;
   String? _selectedCategoryId;
@@ -31,12 +34,14 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.source.name);
-    _amountController = TextEditingController(text: widget.source.expectedAmount.toString());
-    _frequency = widget.source.frequency;
-    _nextDueDate = widget.source.nextDueDate;
-    _selectedCategoryId = widget.source.categoryId;
-    _selectedAccountId = widget.source.accountId;
+    final s = widget.source;
+    _nameController = TextEditingController(text: s?.name ?? '');
+    _amountController = TextEditingController(text: s != null ? s.expectedAmount.toString() : '');
+    _type = s?.type ?? 'expense';
+    _frequency = s?.frequency ?? 'monthly';
+    _nextDueDate = s?.nextDueDate ?? DateTime.now().add(const Duration(days: 30));
+    _selectedCategoryId = s?.categoryId;
+    _selectedAccountId = s?.accountId;
   }
 
   @override
@@ -67,32 +72,43 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final updated = RecurringTransactionSource(
-        id: widget.source.id,
+      final s = widget.source;
+      final newSource = RecurringTransactionSource(
+        id: s?.id ?? const Uuid().v4(),
         name: _nameController.text.trim(),
         expectedAmount: double.parse(_amountController.text.trim()),
         frequency: _frequency,
         nextDueDate: _nextDueDate,
-        status: widget.source.status,
-        type: widget.source.type,
+        status: s?.status ?? 'active',
+        type: _type,
         categoryId: _selectedCategoryId,
         accountId: _selectedAccountId,
-        createdAt: widget.source.createdAt,
+        createdAt: s?.createdAt ?? DateTime.now(),
       );
 
-      await context.read<RecurringTransactionProvider>().updateSource(updated);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Recurring source updated'),
-          backgroundColor: AppTheme.emerald,
-        ),
-      );
+      if (s == null) {
+        await context.read<RecurringTransactionProvider>().addSource(newSource);
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Recurring rule added'),
+            backgroundColor: context.emerald,
+          ),
+        );
+      } else {
+        await context.read<RecurringTransactionProvider>().updateSource(newSource);
+        messenger.showSnackBar(
+          SnackBar(
+            content: const Text('Recurring rule updated'),
+            backgroundColor: context.emerald,
+          ),
+        );
+      }
       if (mounted) Navigator.pop(context);
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.brick,
+          backgroundColor: context.brick,
         ),
       );
     } finally {
@@ -101,21 +117,24 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
   }
 
   Future<void> _delete() async {
+    if (widget.source == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Stop Tracking?'),
-        content: const Text(
-          'Are you sure you want to delete this recurring source? Historical transactions generated from this source will NOT be deleted.',
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.cardBg,
+        title: Text('Stop Tracking?', style: TextStyle(color: ctx.textPrimary)),
+        content: Text(
+          'Are you sure you want to delete this recurring rule? Historical transactions generated from this rule will NOT be deleted.',
+          style: TextStyle(color: ctx.textMuted),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: ctx.textMuted)),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: ctx.brick),
             child: const Text('Stop Tracking'),
           ),
         ],
@@ -125,11 +144,11 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
     if (confirmed == true && mounted) {
       final messenger = ScaffoldMessenger.of(context);
       try {
-        await context.read<RecurringTransactionProvider>().deleteSource(widget.source.id);
+        await context.read<RecurringTransactionProvider>().deleteSource(widget.source!.id);
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Recurring source removed'),
-            backgroundColor: AppTheme.emerald,
+          SnackBar(
+            content: const Text('Recurring rule removed'),
+            backgroundColor: context.emerald,
           ),
         );
         if (mounted) Navigator.pop(context);
@@ -137,7 +156,7 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
         messenger.showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: AppTheme.brick,
+            backgroundColor: context.brick,
           ),
         );
       }
@@ -146,14 +165,10 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
 
   @override
   Widget build(BuildContext context) {
-    final expenseProvider = context.watch<ExpenseProvider>();
-    final targetType = widget.source.type == 'income' ? CategoryType.income : CategoryType.expense;
-    final categories = expenseProvider.categories
-        .where((c) => c.type == targetType && (targetType != CategoryType.income || c.id != 'other'))
-        .toList();
     final accounts = context.watch<AccountProvider>().accounts;
 
-    final isIncome = widget.source.type == 'income';
+    final isIncome = _type == 'income';
+    final isNew = widget.source == null;
 
     return Container(
       padding: EdgeInsets.only(
@@ -162,9 +177,10 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
         top: 24,
         bottom: MediaQuery.of(context).viewInsets.bottom + 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppTheme.paperCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: context.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: context.line),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -177,22 +193,76 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    isIncome ? 'Edit Recurring Income' : 'Edit Recurring Bill',
-                    style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    isNew
+                        ? (isIncome ? 'Add Recurring Income' : 'Add Recurring Bill')
+                        : (isIncome ? 'Edit Recurring Income' : 'Edit Recurring Bill'),
+                    style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: Icon(Icons.close, color: context.textMuted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
 
-              _buildLabel('Source Name'),
+              if (isNew) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('Expense / Bill')),
+                        selected: _type == 'expense',
+                        selectedColor: context.gold,
+                        labelStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: _type == 'expense' ? Colors.white : context.textMuted,
+                        ),
+                        onSelected: (val) {
+                          HapticsService.selection();
+                          if (val) setState(() {
+                            _type = 'expense';
+                            _selectedCategoryId = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('Income')),
+                        selected: _type == 'income',
+                        selectedColor: context.gold,
+                        labelStyle: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: _type == 'income' ? Colors.white : context.textMuted,
+                        ),
+                        onSelected: (val) {
+                          HapticsService.selection();
+                          if (val) setState(() {
+                            _type = 'income';
+                            _selectedCategoryId = null;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              _buildLabel('Rule Name'),
               TextFormField(
                 controller: _nameController,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: InputDecoration(hintText: isIncome ? 'e.g. Monthly Salary' : 'e.g. Rent, Netflix'),
+                style: GoogleFonts.inter(color: context.textPrimary),
+                decoration: InputDecoration(
+                  hintText: isIncome ? 'e.g. Monthly Salary' : 'e.g. Rent, Netflix',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                ),
                 validator: (val) => val == null || val.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
@@ -200,9 +270,16 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
               _buildLabel('Expected Amount'),
               TextFormField(
                 controller: _amountController,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
+                style: GoogleFonts.spaceGrotesk(color: context.textPrimary),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(hintText: '0.00'),
+                decoration: InputDecoration(
+                  hintText: '0.00',
+                  hintStyle: GoogleFonts.spaceGrotesk(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                ),
                 validator: (val) {
                   if (val == null || val.isEmpty) return 'Required';
                   if (double.tryParse(val) == null) return 'Invalid amount';
@@ -213,14 +290,23 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
 
               _buildLabel('Frequency'),
               DropdownButtonFormField<String>(
-                value: _frequency,
-                dropdownColor: AppTheme.paperCard,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(hintText: 'Select Frequency'),
-                items: const [
-                  DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                  DropdownMenuItem(value: 'biweekly', child: Text('Biweekly')),
-                  DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                initialValue: _frequency,
+                dropdownColor: context.cardBg,
+                style: GoogleFonts.inter(color: context.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Select Frequency',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                ),
+                items: [
+                  DropdownMenuItem(value: 'weekly', child: Text('Weekly', style: TextStyle(color: context.textPrimary))),
+                  DropdownMenuItem(value: 'biweekly', child: Text('Biweekly', style: TextStyle(color: context.textPrimary))),
+                  DropdownMenuItem(value: 'monthly', child: Text('Monthly', style: TextStyle(color: context.textPrimary))),
+                  DropdownMenuItem(value: 'semi_annually', child: Text('Every 6 months', style: TextStyle(color: context.textPrimary))),
+                  DropdownMenuItem(value: 'yearly', child: Text('Yearly', style: TextStyle(color: context.textPrimary))),
                 ],
                 onChanged: (val) {
                   if (val != null) {
@@ -233,41 +319,46 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
               _buildLabel('Next Due Date'),
               OutlinedButton.icon(
                 onPressed: _selectDate,
-                icon: const Icon(Icons.calendar_today, size: 16, color: AppTheme.gold),
+                icon: Icon(Icons.calendar_today, size: 16, color: context.gold),
                 label: Text(
                   '${_nextDueDate.day}/${_nextDueDate.month}/${_nextDueDate.year}',
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  style: GoogleFonts.inter(color: context.textPrimary),
                 ),
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                  side: const BorderSide(color: AppTheme.line),
+                  backgroundColor: context.cardBg,
+                  side: BorderSide(color: context.line),
                 ),
               ),
               const SizedBox(height: 16),
 
-              _buildLabel(isIncome ? 'Income Category' : 'Expense Category'),
-              DropdownButtonFormField<String>(
-                value: _selectedCategoryId,
-                dropdownColor: AppTheme.paperCard,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(hintText: 'Select Category'),
-                items: categories.map((cat) {
-                  return DropdownMenuItem<String>(
-                    value: cat.id,
-                    child: Text(cat.name),
-                  );
-                }).toList(),
-                onChanged: (val) => setState(() => _selectedCategoryId = val),
+              InkLedgerCategorySelector(
+                categoryType: isIncome ? CategoryType.income : CategoryType.expense,
+                selectedCategoryId: _selectedCategoryId,
+                selectedSubCategoryName: null,
+                label: isIncome ? 'INCOME CATEGORY' : 'EXPENSE CATEGORY',
+                onCategorySelected: (catId, subCat) {
+                  setState(() {
+                    _selectedCategoryId = catId;
+                  });
+                },
               ),
               const SizedBox(height: 16),
 
               _buildLabel(isIncome ? 'Deposit Account' : 'Payment Account'),
               DropdownButtonFormField<String>(
-                value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
-                dropdownColor: AppTheme.paperCard,
-                style: GoogleFonts.inter(color: AppTheme.textDark),
-                decoration: const InputDecoration(hintText: 'Select Account'),
+                initialValue: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
+                dropdownColor: context.cardBg,
+                style: GoogleFonts.inter(color: context.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Select Account',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                ),
                 items: accounts.map((acc) {
                   return DropdownMenuItem<String>(
                     value: acc.id,
@@ -279,22 +370,25 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
                           size: 18,
                         ),
                         const SizedBox(width: 8),
-                        Text(acc.name),
+                        Text(acc.name, style: TextStyle(color: context.textPrimary)),
                       ],
                     ),
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _selectedAccountId = val),
-                validator: (val) => val == null ? 'Required' : null,
               ),
               const SizedBox(height: 32),
 
               ElevatedButton(
-                onPressed: _save,
+                onPressed: () {
+                  HapticsService.lightImpact();
+                  _save();
+                },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.ink,
+                  backgroundColor: context.gold,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: _isSaving
                     ? const SizedBox(
@@ -302,14 +396,19 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
                         width: 20,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                       )
-                    : const Text('Save Changes'),
+                    : Text(isNew ? 'Create Rule' : 'Save Changes', style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: _delete,
-                style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
-                child: const Text('Stop Tracking & Delete'),
-              ),
+              if (!isNew) ...[
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () {
+                    HapticsService.lightImpact();
+                    _delete();
+                  },
+                  style: TextButton.styleFrom(foregroundColor: context.brick),
+                  child: const Text('Stop Tracking & Delete'),
+                ),
+              ],
             ],
           ),
         ),
@@ -325,7 +424,7 @@ class _EditRecurringTransactionSheetState extends State<EditRecurringTransaction
         style: GoogleFonts.inter(
           fontSize: 10,
           fontWeight: FontWeight.bold,
-          color: AppTheme.muted,
+          color: context.textMuted,
           letterSpacing: 1.0,
         ),
       ),

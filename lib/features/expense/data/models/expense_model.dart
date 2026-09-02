@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
-
+import 'package:expense_tracker/features/expense/domain/entities/split_details.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 
 class ExpenseModel extends Expense {
@@ -25,6 +25,7 @@ class ExpenseModel extends Expense {
     super.attachmentUrl,
     super.attachmentName,
     super.attachmentType,
+    super.splitDetails,
   });
 
   factory ExpenseModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -35,6 +36,11 @@ class ExpenseModel extends Expense {
       resolvedType = CategoryType.transfer;
     } else {
       resolvedType = CategoryType.expense;
+    }
+
+    SplitDetails? split;
+    if (map['splitDetails'] != null && map['splitDetails'] is Map) {
+      split = SplitDetails.fromMap(Map<String, dynamic>.from(map['splitDetails'] as Map));
     }
 
     return ExpenseModel(
@@ -58,6 +64,7 @@ class ExpenseModel extends Expense {
       attachmentUrl: map['attachmentUrl'] as String?,
       attachmentName: map['attachmentName'] as String?,
       attachmentType: map['attachmentType'] as String?,
+      splitDetails: split,
     );
   }
 
@@ -82,6 +89,7 @@ class ExpenseModel extends Expense {
       if (attachmentUrl != null) 'attachmentUrl': attachmentUrl,
       if (attachmentName != null) 'attachmentName': attachmentName,
       if (attachmentType != null) 'attachmentType': attachmentType,
+      if (splitDetails != null) 'splitDetails': splitDetails!.toMap(),
     };
   }
 
@@ -107,6 +115,8 @@ class ExpenseModel extends Expense {
       attachmentUrl: expense.attachmentUrl,
       attachmentName: expense.attachmentName,
       attachmentType: expense.attachmentType,
+      splitDetails: expense.splitDetails,
     );
   }
 }
+

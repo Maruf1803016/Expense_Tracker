@@ -5,6 +5,7 @@ import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/notifications/domain/entities/app_notification.dart';
 import 'package:expense_tracker/features/notifications/presentation/providers/notification_provider.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class NotificationInboxPage extends StatelessWidget {
   const NotificationInboxPage({super.key});
@@ -15,7 +16,7 @@ class NotificationInboxPage extends StatelessWidget {
     final notifications = notificationProvider.notifications;
 
     return Scaffold(
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.bg,
       appBar: AppBar(
         title: Text(
           'Notifications',
@@ -24,15 +25,47 @@ class NotificationInboxPage extends StatelessWidget {
         actions: [
           if (notificationProvider.hasUnread)
             TextButton(
-              onPressed: () => notificationProvider.markAllAsRead(),
+              onPressed: () {
+                HapticsService.selection();
+                notificationProvider.markAllAsRead();
+              },
               child: Text(
                 'Mark all read',
                 style: GoogleFonts.inter(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.gold,
+                  color: context.gold,
                 ),
               ),
+            ),
+          if (notifications.isNotEmpty)
+            IconButton(
+              tooltip: 'Clear All Notifications',
+              icon: Icon(Icons.delete_sweep_outlined, color: context.textMuted, size: 22),
+              onPressed: () async {
+                HapticsService.mediumImpact();
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: ctx.cardBg,
+                    title: Text('Clear All Notifications?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: ctx.textPrimary)),
+                    content: Text('This will remove all notifications from your inbox.', style: GoogleFonts.inter(fontSize: 13, color: ctx.textMuted)),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: TextStyle(color: ctx.textMuted))),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brick, foregroundColor: Colors.white),
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Clear All'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  for (final n in List.of(notifications)) {
+                    await notificationProvider.delete(n.id);
+                  }
+                }
+              },
             ),
         ],
       ),
@@ -45,22 +78,22 @@ class NotificationInboxPage extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(
-                        color: AppTheme.paper2,
+                      decoration: BoxDecoration(
+                        color: context.cardBg,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.notifications_none_rounded, size: 48, color: AppTheme.gold),
+                      child: Icon(Icons.notifications_none_rounded, size: 48, color: context.gold),
                     ),
                     const SizedBox(height: 20),
                     Text(
                       'Inbox is Empty',
-                      style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                      style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: context.textPrimary),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Daily ledger reminders, budget warnings, and recurring transaction notices will appear here.',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 14),
+                      style: GoogleFonts.inter(color: context.textMuted, fontSize: 14),
                     ),
                   ],
                 ),
@@ -80,24 +113,24 @@ class NotificationInboxPage extends StatelessWidget {
 
   Widget _buildNotificationCard(BuildContext context, AppNotification notification, NotificationProvider provider) {
     IconData icon = Icons.notifications_rounded;
-    Color iconColor = AppTheme.gold;
+    Color iconColor = context.gold;
     if (notification.type == 'budget') {
       icon = Icons.pie_chart_outline_rounded;
-      iconColor = AppTheme.brick;
+      iconColor = context.brick;
     } else if (notification.type == 'reminder') {
       icon = Icons.alarm_rounded;
-      iconColor = AppTheme.gold;
+      iconColor = context.gold;
     } else if (notification.type == 'alert') {
       icon = Icons.warning_amber_rounded;
-      iconColor = AppTheme.brick;
+      iconColor = context.brick;
     }
 
     return Container(
       decoration: BoxDecoration(
-        color: notification.isRead ? AppTheme.paperCard : AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(
-          color: notification.isRead ? AppTheme.line : AppTheme.gold.withOpacity(0.5),
+          color: notification.isRead ? context.line : context.gold.withValues(alpha: 0.5),
           width: notification.isRead ? 1.0 : 1.5,
         ),
       ),
@@ -107,6 +140,7 @@ class NotificationInboxPage extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           onTap: () {
+            HapticsService.selection();
             if (!notification.isRead) {
               provider.markAsRead(notification.id);
             }
@@ -119,7 +153,7 @@ class NotificationInboxPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: iconColor.withOpacity(0.12),
+                    color: iconColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, size: 20, color: iconColor),
@@ -140,7 +174,7 @@ class NotificationInboxPage extends StatelessWidget {
                               style: GoogleFonts.inter(
                                 fontWeight: notification.isRead ? FontWeight.w600 : FontWeight.bold,
                                 fontSize: 14,
-                                color: AppTheme.textDark,
+                                color: context.textPrimary,
                               ),
                             ),
                           ),
@@ -148,9 +182,9 @@ class NotificationInboxPage extends StatelessWidget {
                             Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppTheme.gold,
+                                color: context.gold,
                               ),
                             ),
                         ],
@@ -160,7 +194,7 @@ class NotificationInboxPage extends StatelessWidget {
                         notification.body,
                         style: GoogleFonts.inter(
                           fontSize: 13,
-                          color: AppTheme.muted,
+                          color: context.textMuted,
                           height: 1.3,
                         ),
                       ),
@@ -169,7 +203,7 @@ class NotificationInboxPage extends StatelessWidget {
                         DateFormatter.format(notification.date),
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: AppTheme.muted.withOpacity(0.7),
+                          color: context.textMuted.withValues(alpha: 0.7),
                         ),
                       ),
                     ],

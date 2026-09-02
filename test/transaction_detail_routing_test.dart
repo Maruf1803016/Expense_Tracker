@@ -6,7 +6,16 @@ import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/expense_list_item.dart';
+
+class FakeSettingsRepository implements SettingsRepository {
+  @override
+  Future<String> getCurrency() async => 'USD';
+  @override
+  Future<void> updateCurrency(String currencyCode) async {}
+}
 
 class FakeAccountProvider extends ChangeNotifier implements AccountProvider {
   @override
@@ -39,14 +48,19 @@ class FakeAccountProvider extends ChangeNotifier implements AccountProvider {
 
 void main() {
   late FakeAccountProvider fakeAccountProvider;
+  late SettingsProvider fakeSettingsProvider;
 
   setUp(() {
     fakeAccountProvider = FakeAccountProvider();
+    fakeSettingsProvider = SettingsProvider(repository: FakeSettingsRepository());
   });
 
   Widget buildTestableWidget(Widget child) {
-    return ChangeNotifierProvider<AccountProvider>.value(
-      value: fakeAccountProvider,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AccountProvider>.value(value: fakeAccountProvider),
+        ChangeNotifierProvider<SettingsProvider>.value(value: fakeSettingsProvider),
+      ],
       child: MaterialApp(
         theme: AppTheme.lightTheme,
         home: Scaffold(body: child),

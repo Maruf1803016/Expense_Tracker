@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/settings/domain/repositories/settings_repository.dart';
 import 'package:expense_tracker/shared/presentation/widgets/currency_picker_sheet.dart';
@@ -16,6 +17,12 @@ class MockSettingsRepository implements SettingsRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('Settings & Currency Tests', () {
     test('SettingsProvider updates currency and symbol correctly', () async {
       final repo = MockSettingsRepository();

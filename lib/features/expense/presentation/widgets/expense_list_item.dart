@@ -7,8 +7,8 @@ import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
 import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
-import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/transaction_detail_page.dart';
 
 class ExpenseListItem extends StatelessWidget {
@@ -25,11 +25,14 @@ class ExpenseListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final isHidden = settingsProvider.hideAmounts;
+
     final isIncome = expense.type == CategoryType.income;
     final isTransfer = expense.type == CategoryType.transfer;
     final displayColor = isIncome 
-        ? AppTheme.emerald 
-        : (isTransfer ? AppTheme.gold : AppTheme.brick);
+        ? (context.isDark ? const Color(0xFF4EBA97) : AppTheme.emerald) 
+        : (isTransfer ? (context.isDark ? AppTheme.goldSoft : AppTheme.gold) : (context.isDark ? const Color(0xFFE57373) : AppTheme.brick));
     final prefix = isIncome ? '+' : (isTransfer ? '⇄' : '-');
     final isPlanLinked = expense.planId != null;
 
@@ -39,10 +42,10 @@ class ExpenseListItem extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 0),
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         border: Border.all(
-          color: isPlanLinked ? AppTheme.gold.withOpacity(0.5) : AppTheme.line,
+          color: isPlanLinked ? AppTheme.gold.withOpacity(0.5) : context.line,
           width: isPlanLinked ? 1.5 : 1.0,
         ),
       ),
@@ -93,7 +96,7 @@ class ExpenseListItem extends StatelessWidget {
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
-                          color: AppTheme.textDark,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -109,19 +112,19 @@ class ExpenseListItem extends StatelessWidget {
                               style: GoogleFonts.inter(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
-                                color: AppTheme.muted,
+                                color: context.textMuted,
                               ),
                             ),
                           ),
                           if (expense.subCategory != null && expense.subCategory!.isNotEmpty) ...[
                             const SizedBox(width: 4),
-                            Text('•', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
+                            Text('•', style: GoogleFonts.inter(color: context.textMuted, fontSize: 11)),
                             const SizedBox(width: 4),
                             if (expense.subCategoryIcon != null) ...[
                               Icon(
                                 IconUtils.getIcon(expense.subCategoryIcon, categoryName: expense.subCategory),
                                 size: 11,
-                                color: AppTheme.muted,
+                                color: context.textMuted,
                               ),
                               const SizedBox(width: 2),
                             ],
@@ -132,14 +135,14 @@ class ExpenseListItem extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
-                                  color: AppTheme.muted,
+                                  color: context.textMuted,
                                 ),
                               ),
                             ),
                           ],
                           if (account != null) ...[
                             const SizedBox(width: 4),
-                            Text('•', style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 11)),
+                            Text('•', style: GoogleFonts.inter(color: context.textMuted, fontSize: 11)),
                             const SizedBox(width: 4),
                             Flexible(
                               child: Text(
@@ -148,7 +151,7 @@ class ExpenseListItem extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
-                                  color: AppTheme.muted,
+                                  color: context.textMuted,
                                 ),
                               ),
                             ),
@@ -167,13 +170,95 @@ class ExpenseListItem extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (expense.paymentStatus == PaymentStatus.pending) ...[
+                        if (expense.splitDetails != null && expense.splitDetails!.isSplit) ...[
+                          if (expense.splitDetails!.isPaidByMe) ...[
+                            if (!expense.splitDetails!.isFullySettled) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.gold.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  'PENDING SPLIT',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: AppTheme.gold,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ] else ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.emerald.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: context.emerald.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  'SETTLED SPLIT',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: context.emerald,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                          ] else ...[
+                            if (expense.paymentStatus == PaymentStatus.pending) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.brick.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: context.brick.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  'OWE',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: context.brick,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ] else ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.emerald.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: context.emerald.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  'SETTLED',
+                                  style: GoogleFonts.spaceGrotesk(
+                                    color: context.emerald,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                          ],
+                        ] else if (expense.paymentStatus == PaymentStatus.pending) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
-                              color: AppTheme.gold.withOpacity(0.15),
+                              color: AppTheme.gold.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.gold.withOpacity(0.3)),
+                              border: Border.all(color: AppTheme.gold.withValues(alpha: 0.3)),
                             ),
                             child: Text(
                               'PENDING',
@@ -188,7 +273,7 @@ class ExpenseListItem extends StatelessWidget {
                           const SizedBox(width: 6),
                         ],
                         Text(
-                          '$prefix ${CurrencyFormatter.format(expense.amount)}',
+                          isHidden ? '$prefix ••••••' : '$prefix ${CurrencyFormatter.format(expense.amount)}',
                           style: GoogleFonts.spaceGrotesk(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -202,7 +287,7 @@ class ExpenseListItem extends StatelessWidget {
                       DateFormatter.format(expense.date),
                       style: GoogleFonts.inter(
                         fontSize: 11,
-                        color: AppTheme.muted,
+                        color: context.textMuted,
                       ),
                     ),
                   ],

@@ -30,12 +30,14 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    context.watch<SettingsProvider>(); // Rebuild app on settings change
+    final settingsProvider = context.watch<SettingsProvider>(); // Rebuild app on settings change
     
     return MaterialApp(
       title: 'Expense Tracker',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: settingsProvider.themeMode,
       scaffoldMessengerKey: scaffoldMessengerKey,
       home: const AuthWrapper(),
     );
@@ -156,7 +158,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 .doc(userId)
                 .collection('plans')
                 .where('title', isEqualTo: 'weeding')
-                .get();
+                .get()
+                .timeout(const Duration(seconds: 2));
             for (var doc in plansSnapshot.docs) {
               debugPrint('[System] Auto-deleting corrupted weeding plan: ${doc.id}');
               await doc.reference.delete();

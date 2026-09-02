@@ -44,6 +44,12 @@ class AuthProvider with ChangeNotifier {
     _setLoading(true);
     try {
       await _updateProfile(displayName: displayName, photoUrl: photoUrl);
+      if (_user != null) {
+        _user = _user!.copyWith(
+          displayName: displayName ?? _user!.displayName,
+          photoUrl: photoUrl ?? _user!.photoUrl,
+        );
+      }
       notifyListeners();
     } catch (e) {
       _setError(e.toString());

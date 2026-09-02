@@ -23,6 +23,10 @@ import 'package:expense_tracker/features/account/presentation/providers/account_
 import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/features/account/presentation/pages/accounts_management_page.dart';
 
+import 'package:expense_tracker/features/loan/presentation/providers/loan_provider.dart';
+import 'package:expense_tracker/features/loan/domain/entities/loan.dart';
+import 'package:expense_tracker/features/history/presentation/pages/history_page.dart';
+
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({super.key});
 
@@ -46,16 +50,26 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final provider = context.watch<ExpenseProvider>();
     final settingsProvider = context.watch<SettingsProvider>();
     final accountProvider = context.watch<AccountProvider>();
+    final loanProvider = context.watch<LoanProvider>();
     final expenses = provider.expenses;
+    final selectedMonth = provider.selectedMonth;
+    final bool hasOlderTransactions = expenses.any(
+      (e) => !e.isDeleted && ((e.date.year < selectedMonth.year) || (e.date.year == selectedMonth.year && e.date.month < selectedMonth.month)),
+    );
 
     final filteredExpenses = expenses.where((e) {
+      if (_searchQuery.isEmpty) {
+        if (e.date.year != selectedMonth.year || e.date.month != selectedMonth.month) {
+          return false;
+        }
+      }
       bool matchesTab = true;
       switch (provider.selectedFilter) {
         case ExpenseFilter.all:
           matchesTab = true;
           break;
         case ExpenseFilter.expense:
-          matchesTab = e.type == CategoryType.expense && e.toAccountId == null && e.planId == null;
+          matchesTab = e.type == CategoryType.expense && e.toAccountId == null;
           break;
         case ExpenseFilter.income:
           matchesTab = e.type == CategoryType.income && e.toAccountId == null;
@@ -102,11 +116,36 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     }).toList();
 
     final recurringSources = context.watch<RecurringTransactionProvider>().sources;
-    final incomeSources = recurringSources.where((s) => s.type == 'income').toList();
-    final expenseSources = recurringSources.where((s) => s.type == 'expense').toList();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
-    final showUpcomingIncome = (provider.selectedFilter == ExpenseFilter.income || provider.selectedFilter == ExpenseFilter.all) && incomeSources.isNotEmpty;
-    final showUpcomingBills = (provider.selectedFilter == ExpenseFilter.expense || provider.selectedFilter == ExpenseFilter.all) && expenseSources.isNotEmpty;
+    final dueIncomeSources = recurringSources
+        .where((s) => s.type == 'income')
+        .where((s) {
+          final due = DateTime(s.nextDueDate.year, s.nextDueDate.month, s.nextDueDate.day);
+          return due.difference(today).inDays <= 0;
+        })
+        .toList()
+      ..sort((a, b) {
+        final cmp = a.nextDueDate.compareTo(b.nextDueDate);
+        if (cmp != 0) return cmp;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+
+    final dueExpenseSources = recurringSources
+        .where((s) => s.type == 'expense')
+        .where((s) {
+          final due = DateTime(s.nextDueDate.year, s.nextDueDate.month, s.nextDueDate.day);
+          return due.difference(today).inDays <= 0;
+        })
+        .toList()
+      ..sort((a, b) {
+        final cmp = a.nextDueDate.compareTo(b.nextDueDate);
+        if (cmp != 0) return cmp;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+
+    final hasDueRecurring = dueIncomeSources.isNotEmpty || dueExpenseSources.isNotEmpty;
 
     return RefreshIndicator(
       color: AppTheme.gold,
@@ -116,23 +155,24 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         children: [
           _buildBalanceSummary(context, provider),
           _buildNetWorthCard(context, provider),
+          if (hasDueRecurring) ...[
+            _buildDueRecurringStrip(context, dueIncomeSources, dueExpenseSources),
+            const SizedBox(height: 12),
+          ],
           _buildSearchAndFilters(context, provider),
           const SizedBox(height: 12),
-          if (showUpcomingIncome) ...[
-            _buildUpcomingSection(context, incomeSources, isIncome: true),
-            const SizedBox(height: 12),
-          ],
-          if (showUpcomingBills) ...[
-            _buildUpcomingSection(context, expenseSources, isIncome: false),
-            const SizedBox(height: 12),
-          ],
-          ..._buildTransactionWidgets(context, provider, filteredExpenses),
+          ..._buildTransactionWidgets(context, provider, filteredExpenses, hasOlderTransactions),
         ],
       ),
     );
   }
 
-  List<Widget> _buildTransactionWidgets(BuildContext context, ExpenseProvider provider, List<Expense> filteredExpenses) {
+  List<Widget> _buildTransactionWidgets(
+    BuildContext context,
+    ExpenseProvider provider,
+    List<Expense> filteredExpenses,
+    bool hasOlderTransactions,
+  ) {
     if (provider.isLoading && provider.expenses.isEmpty) {
       return const [
         Padding(
@@ -213,7 +253,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.muted,
+                color: context.textMuted,
                 letterSpacing: 1.2,
               ),
             ),
@@ -228,6 +268,68 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           child: ExpenseListItem(
             expense: expense,
             category: category,
+          ),
+        ),
+      );
+    }
+
+    if (hasOlderTransactions && _searchQuery.isEmpty) {
+      widgets.add(
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+          decoration: BoxDecoration(
+            color: context.cardBg,
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            border: Border.all(color: context.line),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const HistoryPage()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.gold.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.history_edu_rounded, color: AppTheme.gold, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Historical Ledger Archive',
+                          style: GoogleFonts.fraunces(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: context.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'View and filter all previous months & multi-year records',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: context.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_rounded, color: AppTheme.gold, size: 20),
+                ],
+              ),
+            ),
           ),
         ),
       );
@@ -253,15 +355,15 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             const SizedBox(height: 24),
             Text(
               'No Transactions Yet',
-              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(color: context.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40.0),
               child: Text(
                 'Add transactions using the floating action button at the bottom.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppTheme.muted),
+                style: TextStyle(color: context.textMuted),
               ),
             ),
           ],
@@ -276,17 +378,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      backgroundColor: AppTheme.paperCard,
-      builder: (context) {
+      backgroundColor: context.cardBg,
+      builder: (ctx) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
                 leading: const Icon(Icons.edit_outlined, color: AppTheme.gold),
-                title: const Text('Edit Transaction'),
+                title: Text('Edit Transaction', style: TextStyle(color: ctx.textPrimary)),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -297,21 +399,22 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               ),
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: AppTheme.brick),
-                title: const Text('Delete Transaction'),
+                title: Text('Delete Transaction', style: TextStyle(color: ctx.textPrimary)),
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   final confirmed = await showDialog<bool>(
                     context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Delete Transaction'),
-                      content: const Text('Are you sure you want to delete this transaction?'),
+                    builder: (alertCtx) => AlertDialog(
+                      backgroundColor: alertCtx.cardBg,
+                      title: Text('Delete Transaction', style: TextStyle(color: alertCtx.textPrimary)),
+                      content: Text('Are you sure you want to delete this transaction?', style: TextStyle(color: alertCtx.textMuted)),
                       actions: [
                         TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Cancel'),
+                          onPressed: () => Navigator.pop(alertCtx, false),
+                          child: Text('Cancel', style: TextStyle(color: alertCtx.textMuted)),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pop(context, true),
+                          onPressed: () => Navigator.pop(alertCtx, true),
                           style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
                           child: const Text('Delete'),
                         ),
@@ -331,11 +434,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   }
 
   Widget _buildBalanceSummary(BuildContext context, ExpenseProvider provider) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final isHidden = settingsProvider.hideAmounts;
+
     final totalIncome = provider.expenses
-        .where((e) => e.type == CategoryType.income)
+        .where((e) => e.type == CategoryType.income && e.toAccountId == null)
         .fold<double>(0, (sum, e) => sum + e.amount);
     final totalExpenses = provider.expenses
-        .where((e) => e.type == CategoryType.expense)
+        .where((e) => e.type == CategoryType.expense && e.toAccountId == null)
         .fold<double>(0, (sum, e) => sum + e.amount);
     
     final netSavings = totalIncome - totalExpenses;
@@ -360,7 +466,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           Text(
             'Money, in order.',
             style: GoogleFonts.fraunces(
-              color: AppTheme.textDark,
+              color: context.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.3,
@@ -370,7 +476,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           Text(
             'The few signals that matter before the day moves on.',
             style: GoogleFonts.inter(
-              color: AppTheme.muted,
+              color: context.textMuted,
               fontSize: 12,
             ),
           ),
@@ -381,9 +487,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: AppTheme.ink,
+              color: context.isDark ? const Color(0xFF152A20) : AppTheme.ink,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.ink2, width: 1),
+              border: Border.all(color: context.isDark ? const Color(0xFF234433) : AppTheme.ink2, width: 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,7 +505,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  CurrencyFormatter.format(netSavings),
+                  isHidden ? '••••••••' : CurrencyFormatter.format(netSavings),
                   style: GoogleFonts.spaceGrotesk(
                     color: Colors.white,
                     fontSize: 28,
@@ -425,8 +531,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             children: [
               Expanded(
                 child: _buildMiniStatCard(
+                  context,
                   'Inflow',
-                  CurrencyFormatter.format(totalIncome),
+                  isHidden ? '••••••' : CurrencyFormatter.format(totalIncome),
                   'Cash in',
                   Icons.arrow_upward_rounded,
                   AppTheme.emerald,
@@ -435,8 +542,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMiniStatCard(
+                  context,
                   'Outflow',
-                  CurrencyFormatter.format(totalExpenses),
+                  isHidden ? '••••••' : CurrencyFormatter.format(totalExpenses),
                   'Cash out',
                   Icons.arrow_downward_rounded,
                   AppTheme.brick,
@@ -445,8 +553,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: _buildMiniStatCard(
+                  context,
                   'Savings',
-                  '${savingsRate.toStringAsFixed(0)}%',
+                  isHidden ? '••%' : '${savingsRate.toStringAsFixed(0)}%',
                   'Saved rate',
                   Icons.star_rounded,
                   AppTheme.gold,
@@ -459,13 +568,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
-  Widget _buildMiniStatCard(String label, String value, String caption, IconData icon, Color iconColor) {
+  Widget _buildMiniStatCard(BuildContext context, String label, String value, String caption, IconData icon, Color iconColor) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,23 +585,415 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.muted),
+                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: context.textMuted),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: context.textPrimary),
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             caption,
-            style: GoogleFonts.inter(fontSize: 9, color: AppTheme.muted),
+            style: GoogleFonts.inter(fontSize: 9, color: context.textMuted),
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNetWorthCard(BuildContext context, ExpenseProvider expenseProvider) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final accountProvider = context.watch<AccountProvider>();
+    final loanProvider = context.watch<LoanProvider>();
+    final isHidden = settingsProvider.hideAmounts;
+
+    final accounts = accountProvider.accounts;
+    double totalAccountsBalance = 0.0;
+    for (final account in accounts) {
+      totalAccountsBalance += Account.calculateBalance(account, expenseProvider.expenses);
+    }
+
+    final netWorth = totalAccountsBalance + loanProvider.netLoanBalance;
+    final assetFoliosCount = accounts.length;
+    final liabilitiesCount = loanProvider.activeLoans.where((l) => l.type == LoanType.borrowed).length;
+
+    // This month's pulse calculations
+    final now = DateTime.now();
+    final thisMonthExpenses = expenseProvider.expenses.where((e) =>
+        e.date.year == now.year && e.date.month == now.month).toList();
+
+    final thisMonthInflow = thisMonthExpenses
+        .where((e) => e.type == CategoryType.income && e.toAccountId == null)
+        .fold<double>(0, (sum, e) => sum + e.amount);
+
+    final thisMonthOutflow = thisMonthExpenses
+        .where((e) => e.type == CategoryType.expense && e.toAccountId == null)
+        .fold<double>(0, (sum, e) => sum + e.amount);
+
+    final thisMonthNet = thisMonthInflow - thisMonthOutflow;
+    final hasMovement = thisMonthInflow > 0 || thisMonthOutflow > 0;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+      decoration: BoxDecoration(
+        color: context.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: context.line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Title & Privacy Toggle
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Net worth',
+                  style: GoogleFonts.fraunces(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                Semantics(
+                  label: isHidden ? 'Show amounts' : 'Hide amounts',
+                  button: true,
+                  child: Tooltip(
+                    message: isHidden ? 'Show amounts' : 'Hide amounts',
+                    child: InkWell(
+                      onTap: () => settingsProvider.toggleHideAmounts(),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              size: 15,
+                              color: context.textMuted,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isHidden ? 'Show amounts' : 'Hide amounts',
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: context.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Primary Net Worth Value
+            Text(
+              isHidden ? '••••••••' : CurrencyFormatter.format(netWorth),
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: context.textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+
+            // Position Explanation
+            Text(
+              'Accounts plus loan position',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: context.textMuted,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Context Row: Asset Folios & Liabilities
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.emerald,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  '$assetFoliosCount ${assetFoliosCount == 1 ? 'asset folio' : 'asset folios'}',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: context.textPrimary),
+                ),
+                const SizedBox(width: 14),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: liabilitiesCount > 0 ? AppTheme.brick : context.textMuted,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  liabilitiesCount > 0
+                      ? '$liabilitiesCount ${liabilitiesCount == 1 ? 'liability' : 'liabilities'}'
+                      : 'No liabilities',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: liabilitiesCount > 0 ? AppTheme.brick : context.textMuted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Divider(height: 1, color: context.line),
+            const SizedBox(height: 10),
+
+            // This-Month Pulse
+            if (hasMovement)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildPulseCol(context, 'Inflow', isHidden ? '••••••' : CurrencyFormatter.format(thisMonthInflow), AppTheme.emerald),
+                  _buildPulseCol(context, 'Outflow', isHidden ? '••••••' : CurrencyFormatter.format(thisMonthOutflow), AppTheme.brick),
+                  _buildPulseCol(context, 'Net', isHidden ? '••••••' : CurrencyFormatter.format(thisMonthNet), thisMonthNet >= 0 ? AppTheme.emerald : AppTheme.brick),
+                ],
+              )
+            else
+              Text(
+                'No movement recorded this month',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: context.textMuted,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPulseCol(BuildContext context, String label, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: context.textMuted, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: valueColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDueRecurringStrip(
+    BuildContext context,
+    List<RecurringTransactionSource> dueIncomes,
+    List<RecurringTransactionSource> dueExpenses,
+  ) {
+    final settingsProvider = context.watch<SettingsProvider>();
+    final isHidden = settingsProvider.hideAmounts;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (dueIncomes.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                'UPCOMING INCOME',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: context.textMuted,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            ...dueIncomes.map((source) => _buildDueRecurringCard(context, source, isIncome: true, isHidden: isHidden)),
+            const SizedBox(height: 8),
+          ],
+          if (dueExpenses.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                'UPCOMING BILLS',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: context.textMuted,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            ...dueExpenses.map((source) => _buildDueRecurringCard(context, source, isIncome: false, isHidden: isHidden)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDueRecurringCard(
+    BuildContext context,
+    RecurringTransactionSource source, {
+    required bool isIncome,
+    required bool isHidden,
+  }) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final due = DateTime(source.nextDueDate.year, source.nextDueDate.month, source.nextDueDate.day);
+    final daysDiff = due.difference(today).inDays;
+
+    final String badgeText;
+    final Color badgeColor;
+    final Color textColor;
+
+    if (daysDiff < 0) {
+      badgeText = 'OVERDUE';
+      badgeColor = AppTheme.brick.withOpacity(0.15);
+      textColor = AppTheme.brick;
+    } else {
+      badgeText = 'DUE TODAY';
+      badgeColor = AppTheme.gold.withOpacity(0.15);
+      textColor = AppTheme.gold;
+    }
+
+    final formattedAmount = isHidden ? '••••••' : CurrencyFormatter.format(source.expectedAmount);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: context.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.line),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: context.cardBg,
+            builder: (ctx) => EditRecurringTransactionSheet(source: source),
+          );
+        },
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                source.name,
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: context.textPrimary,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                badgeText,
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2.0),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${source.frequency.toUpperCase()} • ',
+                  style: GoogleFonts.inter(color: context.textMuted, fontSize: 11),
+                ),
+                TextSpan(
+                  text: formattedAmount,
+                  style: GoogleFonts.inter(
+                    color: isIncome ? AppTheme.emerald : context.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        trailing: ElevatedButton(
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await context.read<RecurringTransactionProvider>().markAsComplete(source);
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(isIncome ? 'Income marked as received' : 'Bill marked as paid'),
+                  backgroundColor: AppTheme.emerald,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } catch (e) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Failed: $e. Tap to retry.'),
+                  backgroundColor: AppTheme.brick,
+                  action: SnackBarAction(
+                    label: 'Retry',
+                    textColor: Colors.white,
+                    onPressed: () => context.read<RecurringTransactionProvider>().markAsComplete(source),
+                  ),
+                ),
+              );
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: (isIncome ? AppTheme.emerald : (context.isDark ? AppTheme.goldSoft : AppTheme.ink)).withOpacity(0.12),
+            foregroundColor: isIncome ? AppTheme.emerald : (context.isDark ? AppTheme.goldSoft : AppTheme.ink),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            minimumSize: Size.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          child: Text(
+            isIncome ? 'Mark received' : 'Mark paid',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -511,11 +1012,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   _searchQuery = val.trim();
                 });
               },
-              style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 13),
+              style: GoogleFonts.inter(color: context.textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Search transactions...',
-                hintStyle: GoogleFonts.inter(color: AppTheme.muted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, color: AppTheme.muted, size: 18),
+                hintStyle: GoogleFonts.inter(color: context.textMuted, fontSize: 13),
+                prefixIcon: Icon(Icons.search, color: context.textMuted, size: 18),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
@@ -524,19 +1025,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                             _searchController.clear();
                           });
                         },
-                        child: const Icon(Icons.clear, color: AppTheme.muted, size: 18),
+                        child: Icon(Icons.clear, color: context.textMuted, size: 18),
                       )
                     : null,
                 filled: true,
-                fillColor: AppTheme.paperCard,
+                fillColor: context.cardBg,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppTheme.line),
+                  borderSide: BorderSide(color: context.line),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: AppTheme.line),
+                  borderSide: BorderSide(color: context.line),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -551,6 +1052,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             child: Row(
               children: [
                 _buildCategoryPill(
+                  context: context,
                   label: 'All',
                   isSelected: provider.selectedFilter == ExpenseFilter.all,
                   onTap: () {
@@ -562,6 +1064,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.gold,
                 ),
                 _buildCategoryPill(
+                  context: context,
                   label: 'Expense',
                   icon: Icons.arrow_downward_rounded,
                   isSelected: provider.selectedFilter == ExpenseFilter.expense,
@@ -574,6 +1077,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.brick,
                 ),
                 _buildCategoryPill(
+                  context: context,
                   label: 'Income',
                   icon: Icons.arrow_upward_rounded,
                   isSelected: provider.selectedFilter == ExpenseFilter.income,
@@ -586,6 +1090,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   color: AppTheme.emerald,
                 ),
                 _buildCategoryPill(
+                  context: context,
                   label: 'Transfer',
                   icon: Icons.swap_horiz_rounded,
                   isSelected: provider.selectedFilter == ExpenseFilter.transfer,
@@ -595,9 +1100,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                     });
                     provider.setSelectedFilter(ExpenseFilter.transfer);
                   },
-                  color: AppTheme.ink2,
+                  color: context.isDark ? AppTheme.goldSoft : AppTheme.ink2,
                 ),
                 _buildCategoryPill(
+                  context: context,
                   label: 'Pending',
                   icon: Icons.hourglass_empty_rounded,
                   isSelected: provider.selectedFilter == ExpenseFilter.pending,
@@ -618,12 +1124,16 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   }
 
   Widget _buildCategoryPill({
+    required BuildContext context,
     required String label,
     IconData? icon,
     required bool isSelected,
     required VoidCallback onTap,
     required Color color,
   }) {
+    final activeBg = context.isDark ? AppTheme.goldSoft : AppTheme.ink;
+    final activeText = context.isDark ? const Color(0xFF121C15) : AppTheme.goldSoft;
+
     return Padding(
       padding: const EdgeInsets.only(right: 6.0),
       child: InkWell(
@@ -633,10 +1143,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.ink : AppTheme.paperCard,
+            color: isSelected ? activeBg : context.cardBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? AppTheme.ink : AppTheme.line,
+              color: isSelected ? activeBg : context.line,
               width: 1.0,
             ),
           ),
@@ -644,15 +1154,15 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 12, color: isSelected ? AppTheme.goldSoft : AppTheme.muted),
+                Icon(icon, size: 12, color: isSelected ? activeText : context.textMuted),
                 const SizedBox(width: 4),
               ],
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  color: isSelected ? AppTheme.goldSoft : AppTheme.textDark,
+                  color: isSelected ? activeText : context.textPrimary,
                   fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 ),
               ),
             ],
@@ -671,258 +1181,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       return 'TODAY';
     } else if (checkDate == yesterday) {
       return 'YESTERDAY';
+    } else if (checkDate.isAfter(today)) {
+      return 'UPCOMING • ${DateFormat('EEEE, MMM d').format(date).toUpperCase()}';
     } else {
       return DateFormat('EEEE, MMM d').format(date).toUpperCase();
     }
-  }
-
-  Widget _buildUpcomingSection(BuildContext context, List<RecurringTransactionSource> sources, {required bool isIncome}) {
-    if (sources.isEmpty) return const SizedBox.shrink();
-
-    final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12.0),
-            child: Text(
-              isIncome ? 'UPCOMING INCOME' : 'UPCOMING BILLS',
-              style: GoogleFonts.inter(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.muted,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-          ...sources.map((source) => _buildUpcomingCard(context, source, currencySymbol, isIncome: isIncome)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpcomingCard(BuildContext context, RecurringTransactionSource source, String currencySymbol, {required bool isIncome}) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final due = DateTime(source.nextDueDate.year, source.nextDueDate.month, source.nextDueDate.day);
-    final daysDiff = due.difference(today).inDays;
-
-    final String badgeText;
-    final Color badgeColor;
-    final Color textColor;
-
-    if (daysDiff < 0) {
-      badgeText = 'OVERDUE';
-      badgeColor = AppTheme.brick.withOpacity(0.15);
-      textColor = AppTheme.brick;
-    } else if (daysDiff <= 7) {
-      badgeText = daysDiff == 0 ? 'DUE TODAY' : 'DUE IN $daysDiff DAYS';
-      badgeColor = AppTheme.gold.withOpacity(0.15);
-      textColor = AppTheme.gold;
-    } else {
-      badgeText = 'PENDING';
-      badgeColor = AppTheme.muted.withOpacity(0.15);
-      textColor = AppTheme.muted;
-    }
-
-    final formattedAmount = CurrencyFormatter.format(source.expectedAmount);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.paperCard,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.line),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        onTap: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            builder: (context) => EditRecurringTransactionSheet(source: source),
-          );
-        },
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                source.name,
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                badgeText,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: textColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '${source.frequency.toUpperCase()} • ',
-                  style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12),
-                ),
-                TextSpan(
-                  text: formattedAmount,
-                  style: GoogleFonts.inter(
-                    color: isIncome ? AppTheme.emerald : AppTheme.textDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        trailing: ElevatedButton(
-          onPressed: () async {
-            final messenger = ScaffoldMessenger.of(context);
-            try {
-              await context.read<RecurringTransactionProvider>().markAsComplete(source);
-              messenger.showSnackBar(
-                SnackBar(
-                  content: Text(isIncome ? 'Income marked as received successfully' : 'Bill marked as paid successfully'),
-                  backgroundColor: AppTheme.emerald,
-                ),
-              );
-            } catch (e) {
-              messenger.showSnackBar(
-                SnackBar(
-                  content: Text('Error: $e'),
-                  backgroundColor: AppTheme.brick,
-                ),
-              );
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: (isIncome ? AppTheme.emerald : AppTheme.textDark).withOpacity(0.15),
-            foregroundColor: isIncome ? AppTheme.emerald : AppTheme.textDark,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            minimumSize: Size.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text(
-            isIncome ? 'Mark as Received' : 'Mark as Paid',
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNetWorthCard(BuildContext context, ExpenseProvider expenseProvider) {
-    final accountProvider = context.watch<AccountProvider>();
-    final accounts = accountProvider.accounts;
-    
-    // Sum of all accounts balance
-    double netWorth = 0.0;
-    for (final account in accounts) {
-      final balance = Account.calculateBalance(account, expenseProvider.expenses);
-      netWorth += balance;
-    }
-    
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-      decoration: BoxDecoration(
-        color: AppTheme.paperCard,
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
-      ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AccountsManagementPage()),
-          );
-        },
-        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'NET WORTH',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.muted,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        'Accounts & Assets',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.gold,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 14,
-                        color: AppTheme.gold,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                CurrencyFormatter.format(netWorth),
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${accounts.length} ${accounts.length == 1 ? 'account' : 'accounts'} linked',
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: AppTheme.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

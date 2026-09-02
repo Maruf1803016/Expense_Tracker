@@ -8,6 +8,7 @@ import 'package:expense_tracker/core/utils/icon_utils.dart';
 import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class RecycleBinPage extends StatelessWidget {
   const RecycleBinPage({super.key});
@@ -18,20 +19,23 @@ class RecycleBinPage extends StatelessWidget {
     final deletedExpenses = provider.recycleBinExpenses;
 
     return Scaffold(
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.bg,
       appBar: AppBar(
-        backgroundColor: AppTheme.paper,
+        backgroundColor: context.bg,
         title: Text(
           'Recycle Bin',
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         actions: [
           if (deletedExpenses.isNotEmpty)
             TextButton(
-              onPressed: () => _showEmptyBinDialog(context, provider),
+              onPressed: () {
+                HapticsService.selection();
+                _showEmptyBinDialog(context, provider);
+              },
               child: Text(
                 'Empty Bin',
-                style: GoogleFonts.inter(color: AppTheme.brick, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: context.brick, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -54,16 +58,16 @@ class RecycleBinPage extends StatelessWidget {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: AppTheme.paperCard,
+                    color: context.cardBg,
                     borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                    border: Border.all(color: AppTheme.line),
+                    border: Border.all(color: context.line),
                   ),
                   child: ListTile(
                     leading: Container(
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: catColor.withOpacity(0.15),
+                        color: catColor.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -76,11 +80,11 @@ class RecycleBinPage extends StatelessWidget {
                     ),
                     title: Text(
                       expense.title.isNotEmpty ? expense.title : category.name,
-                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textDark, fontSize: 14),
+                      style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: context.textPrimary, fontSize: 14),
                     ),
                     subtitle: Text(
                       'Deleted on ${DateFormatter.format(expense.deletedAt ?? DateTime.now())}',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                      style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -90,32 +94,33 @@ class RecycleBinPage extends StatelessWidget {
                           style: GoogleFonts.spaceGrotesk(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: isIncome ? AppTheme.emerald : AppTheme.brick,
+                            color: isIncome ? context.emerald : context.brick,
                           ),
                         ),
                         const SizedBox(width: 4),
                         PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert, color: AppTheme.muted, size: 20),
-                          color: AppTheme.paperCard,
+                          icon: Icon(Icons.more_vert, color: context.textMuted, size: 20),
+                          color: context.cardBg,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(color: AppTheme.line),
+                            side: BorderSide(color: context.line),
                           ),
                           onSelected: (val) {
+                            HapticsService.selection();
                             if (val == 'restore') {
                               provider.restoreExpense(expense.id);
                             } else {
                               _showDeleteForeverDialog(context, provider, expense.id);
                             }
                           },
-                          itemBuilder: (context) => [
+                          itemBuilder: (ctx) => [
                             PopupMenuItem(
                               value: 'restore',
                               child: Row(
                                 children: [
-                                  const Icon(Icons.restore, size: 18, color: AppTheme.emerald),
+                                  Icon(Icons.restore, size: 18, color: ctx.emerald),
                                   const SizedBox(width: 8),
-                                  Text('Restore', style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 13)),
+                                  Text('Restore', style: GoogleFonts.inter(color: ctx.textPrimary, fontSize: 13)),
                                 ],
                               ),
                             ),
@@ -123,9 +128,9 @@ class RecycleBinPage extends StatelessWidget {
                               value: 'delete',
                               child: Row(
                                 children: [
-                                  const Icon(Icons.delete_forever, size: 18, color: AppTheme.brick),
+                                  Icon(Icons.delete_forever, size: 18, color: ctx.brick),
                                   const SizedBox(width: 8),
-                                  Text('Delete Forever', style: GoogleFonts.inter(color: AppTheme.brick, fontSize: 13)),
+                                  Text('Delete Forever', style: GoogleFonts.inter(color: ctx.brick, fontSize: 13)),
                                 ],
                               ),
                             ),
@@ -144,31 +149,32 @@ class RecycleBinPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
+        backgroundColor: context.cardBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.line),
+          side: BorderSide(color: context.line),
         ),
         title: Text(
           'Empty Recycle Bin?',
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         content: Text(
           'This will permanently delete all items in the bin. This action cannot be undone.',
-          style: GoogleFonts.inter(color: AppTheme.textDark),
+          style: GoogleFonts.inter(color: context.textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+            child: Text('Cancel', style: GoogleFonts.inter(color: context.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brick,
+              backgroundColor: context.brick,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
+              HapticsService.lightImpact();
               provider.emptyRecycleBin();
               Navigator.pop(context);
             },
@@ -183,31 +189,32 @@ class RecycleBinPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
+        backgroundColor: context.cardBg,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.line),
+          side: BorderSide(color: context.line),
         ),
         title: Text(
           'Delete Permanently?',
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         content: Text(
           'This item will be removed forever.',
-          style: GoogleFonts.inter(color: AppTheme.textDark),
+          style: GoogleFonts.inter(color: context.textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+            child: Text('Cancel', style: GoogleFonts.inter(color: context.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.brick,
+              backgroundColor: context.brick,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
+              HapticsService.lightImpact();
               provider.deleteForever(id);
               Navigator.pop(context);
             },

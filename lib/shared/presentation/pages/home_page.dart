@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -52,31 +53,37 @@ class _HomePageState extends State<HomePage> {
   }
 
 
-  Widget _buildNavItem(int index, IconData outlineIcon, IconData solidIcon, String label) {
+  Widget _buildNavItem(BuildContext context, int index, IconData outlineIcon, IconData solidIcon, String label) {
     final isSelected = _currentIndex == index;
-    final color = isSelected ? AppTheme.ink : AppTheme.muted;
+    final color = isSelected
+        ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink)
+        : context.textMuted;
     
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => _onTabTapped(index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? solidIcon : outlineIcon,
-              color: color,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.inter(
+        child: SizedBox(
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? solidIcon : outlineIcon,
                 color: color,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                size: 22,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -90,7 +97,10 @@ class _HomePageState extends State<HomePage> {
     final isDashboard = _currentIndex == 0;
 
     return Scaffold(
+      backgroundColor: context.bg,
       appBar: AppBar(
+        backgroundColor: context.bg,
+        elevation: 0,
         toolbarHeight: kToolbarHeight,
         centerTitle: !isDashboard,
         title: isDashboard
@@ -99,14 +109,20 @@ class _HomePageState extends State<HomePage> {
                   Text(
                     'Expense Tracker',
                     style: GoogleFonts.fraunces(
-                      color: AppTheme.textDark,
+                      color: context.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               )
-            : Text(titles[_currentIndex]),
+            : Text(
+                titles[_currentIndex],
+                style: GoogleFonts.fraunces(
+                  color: context.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
         actions: [
           Consumer<NotificationProvider>(
             builder: (context, notifProvider, _) {
@@ -117,7 +133,7 @@ class _HomePageState extends State<HomePage> {
                     tooltip: 'Notifications',
                     icon: Icon(
                       notifProvider.hasUnread ? Icons.notifications_rounded : Icons.notifications_none_rounded,
-                      color: notifProvider.hasUnread ? AppTheme.gold : AppTheme.textDark,
+                      color: notifProvider.hasUnread ? AppTheme.gold : context.textPrimary,
                     ),
                     onPressed: () {
                       Navigator.of(context).push(
@@ -168,20 +184,32 @@ class _HomePageState extends State<HomePage> {
                   ),
                 );
               },
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: AppTheme.ink,
-                foregroundImage: user?.photoUrl?.isNotEmpty == true
-                    ? NetworkImage(user!.photoUrl!)
-                    : null,
-                child: Text(
-                  _initialsFor(displayName),
-                  style: GoogleFonts.spaceGrotesk(
-                    color: AppTheme.goldSoft,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              child: Builder(
+                builder: (context) {
+                  ImageProvider? avatarImg;
+                  if (user?.photoUrl != null && user!.photoUrl!.isNotEmpty) {
+                    if (user.photoUrl!.startsWith('http')) {
+                      avatarImg = NetworkImage(user.photoUrl!);
+                    } else if (File(user.photoUrl!).existsSync()) {
+                      avatarImg = FileImage(File(user.photoUrl!));
+                    }
+                  }
+                  return CircleAvatar(
+                    radius: 16,
+                    backgroundColor: context.isDark ? AppTheme.darkSurface2 : AppTheme.ink,
+                    backgroundImage: avatarImg,
+                    child: avatarImg == null
+                        ? Text(
+                            _initialsFor(displayName),
+                            style: GoogleFonts.spaceGrotesk(
+                              color: AppTheme.goldSoft,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  );
+                },
               ),
             ),
           ),
@@ -191,19 +219,20 @@ class _HomePageState extends State<HomePage> {
 
       bottomNavigationBar: Container(
         height: 64 + MediaQuery.of(context).padding.bottom,
-        decoration: const BoxDecoration(
-          color: AppTheme.paperCard,
+        decoration: BoxDecoration(
+          color: context.cardBg,
           border: Border(
-            top: BorderSide(color: AppTheme.line, width: 1.0),
+            top: BorderSide(color: context.line, width: 1.0),
           ),
         ),
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
         child: Row(
           children: [
-            _buildNavItem(0, Icons.receipt_long_outlined, Icons.receipt_long, 'Expenses'),
-            _buildNavItem(1, Icons.insights_outlined, Icons.insights, 'Stats'),
+            _buildNavItem(context, 0, Icons.receipt_long_outlined, Icons.receipt_long, 'Expenses'),
+            _buildNavItem(context, 1, Icons.insights_outlined, Icons.insights, 'Stats'),
             Expanded(
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: _openAddExpense,
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
@@ -228,8 +257,8 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            _buildNavItem(2, Icons.track_changes_outlined, Icons.track_changes, 'Horizon'),
-            _buildNavItem(3, Icons.settings_outlined, Icons.settings, 'Settings'),
+            _buildNavItem(context, 2, Icons.track_changes_outlined, Icons.track_changes, 'Horizon'),
+            _buildNavItem(context, 3, Icons.settings_outlined, Icons.settings, 'Settings'),
           ],
         ),
       ),

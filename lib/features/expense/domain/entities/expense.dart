@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
+import 'package:expense_tracker/features/expense/domain/entities/split_details.dart';
 
 enum PaymentStatus {
   settled,
@@ -28,6 +29,7 @@ class Expense extends Equatable {
   final String? attachmentUrl;
   final String? attachmentName;
   final String? attachmentType;
+  final SplitDetails? splitDetails;
 
   const Expense({
     required this.id,
@@ -50,6 +52,7 @@ class Expense extends Equatable {
     this.attachmentUrl,
     this.attachmentName,
     this.attachmentType,
+    this.splitDetails,
   });
 
   Expense copyWith({
@@ -73,6 +76,7 @@ class Expense extends Equatable {
     String? attachmentUrl,
     String? attachmentName,
     String? attachmentType,
+    SplitDetails? splitDetails,
   }) {
     return Expense(
       id: id ?? this.id,
@@ -95,6 +99,7 @@ class Expense extends Equatable {
       attachmentUrl: attachmentUrl ?? this.attachmentUrl,
       attachmentName: attachmentName ?? this.attachmentName,
       attachmentType: attachmentType ?? this.attachmentType,
+      splitDetails: splitDetails ?? this.splitDetails,
     );
   }
 
@@ -120,5 +125,6 @@ class Expense extends Equatable {
         attachmentUrl,
         attachmentName,
         attachmentType,
+        splitDetails,
       ];
 }

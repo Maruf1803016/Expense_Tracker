@@ -106,10 +106,35 @@ class MarkRecurringTransactionCompleteUseCase {
           nextDay = daysInNextMonth;
         }
         return DateTime(nextYear, nextMonth, nextDay, date.hour, date.minute, date.second);
+      case 'semi_annually':
+      case 'six_months':
+      case 'every_6_months':
+        int nextYear = date.year;
+        int nextMonth = date.month + 6;
+        if (nextMonth > 12) {
+          nextMonth -= 12;
+          nextYear += 1;
+        }
+        int nextDay = date.day;
+        int daysInNextMonth = _getDaysInMonth(nextYear, nextMonth);
+        if (nextDay > daysInNextMonth) {
+          nextDay = daysInNextMonth;
+        }
+        return DateTime(nextYear, nextMonth, nextDay, date.hour, date.minute, date.second);
+      case 'yearly':
+      case 'annually':
+        int nextYear = date.year + 1;
+        int nextMonth = date.month;
+        int nextDay = date.day;
+        int daysInNextMonth = _getDaysInMonth(nextYear, nextMonth);
+        if (nextDay > daysInNextMonth) {
+          nextDay = daysInNextMonth;
+        }
+        return DateTime(nextYear, nextMonth, nextDay, date.hour, date.minute, date.second);
       default:
         return date;
-      }
     }
+  }
 
   int _getDaysInMonth(int year, int month) {
     if (month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12) {

@@ -10,7 +10,9 @@ import 'package:expense_tracker/features/plan/presentation/providers/trip_plan_p
 import 'package:expense_tracker/features/plan/domain/entities/trip_plan.dart';
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
-import 'package:expense_tracker/features/expense/presentation/pages/add_expense_page.dart';
+import 'package:expense_tracker/features/plan/presentation/pages/trip_plan_detail_page.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_add_card.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class TripPlansTabView extends StatefulWidget {
   const TripPlansTabView({super.key});
@@ -30,161 +32,151 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: tripPlanProvider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.gold))
-          : Column(
+      body: tripPlanProvider.isLoading && plans.isEmpty
+          ? Center(child: CircularProgressIndicator(color: context.gold))
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                if (plans.isNotEmpty) _buildSummaryHeader(plans, expenses),
-                Expanded(
-                  child: plans.isEmpty
-                      ? _buildEmptyState(context)
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          itemCount: plans.length,
-                          itemBuilder: (context, index) {
-                            final plan = plans[index];
-                            final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
-                            
-                            // spent is sum of expenses
-                            final double amountSpent = planExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
-                            final remaining = plan.budgetAmount - amountSpent;
-                            final double percentUsed = plan.budgetAmount > 0 ? (amountSpent / plan.budgetAmount) : 0.0;
-                            final isOverBudget = remaining < 0;
+                // 1. Main Summary Header Card
+                _buildSummaryHeader(plans, expenses),
 
-                            final Color progressColor = isOverBudget ? AppTheme.brick : AppTheme.emerald;
-                            final Color remainingColor = isOverBudget ? AppTheme.brick : AppTheme.emerald;
+                // 2. Dedicated Add a Trip Plan Card (Under Main Card)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: InkLedgerAddCard(
+                    title: 'Add a trip & event plan',
+                    subtitle: 'Set budget for trips, vacations, and special events',
+                    icon: Icons.flight_takeoff_rounded,
+                    buttonText: 'Add',
+                    onTap: () {
+                      HapticsService.selection();
+                      _showAddEditTripPlanSheet(context);
+                    },
+                  ),
+                ),
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: AppTheme.paperCard,
-                                borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                                border: Border.all(color: AppTheme.line),
-                              ),
-                              child: Column(
+                // Section Header
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0, left: 2.0),
+                  child: Text(
+                    'TRIP & EVENT PLANS (${plans.length})',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: context.textMuted,
+                    ),
+                  ),
+                ),
+
+                if (plans.isEmpty)
+                  _buildEmptyState(context)
+                else
+                  ...plans.map((plan) {
+                    final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
+                    final double amountSpent = planExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+                    final remaining = plan.budgetAmount - amountSpent;
+                    final double percentUsed = plan.budgetAmount > 0 ? (amountSpent / plan.budgetAmount) : 0.0;
+                    final isOverBudget = remaining < 0;
+
+                    final Color progressColor = isOverBudget ? context.brick : context.emerald;
+                    final Color remainingColor = isOverBudget ? context.brick : context.emerald;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: context.cardBg,
+                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                        border: Border.all(color: context.line),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+                        onTap: () {
+                          HapticsService.selection();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TripPlanDetailPage(plan: plan),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                plan.title,
-                                                style: GoogleFonts.fraunces(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.textDark,
-                                                ),
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.brick, size: 20),
-                                              onPressed: () => _showDeletePlanDialog(context, plan),
-                                              constraints: const BoxConstraints(),
-                                              padding: EdgeInsets.zero,
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          plan.endDate != null
-                                              ? '${DateFormatter.format(plan.startDate)} - ${DateFormatter.format(plan.endDate!)}'
-                                              : 'Started ${DateFormatter.format(plan.startDate)}',
-                                          style: GoogleFonts.inter(
-                                            color: AppTheme.muted,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(10),
-                                          child: LinearProgressIndicator(
-                                            value: percentUsed.clamp(0.0, 1.0),
-                                            minHeight: 6,
-                                            backgroundColor: AppTheme.paper2,
-                                            color: progressColor,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
-                                              'Spent: ${CurrencyFormatter.format(amountSpent)} of ${CurrencyFormatter.format(plan.budgetAmount)}',
-                                              style: GoogleFonts.inter(
-                                                color: AppTheme.muted,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            Text(
-                                              isOverBudget
-                                                  ? 'Over Budget: ${CurrencyFormatter.format(-remaining)}'
-                                                  : 'Remaining: ${CurrencyFormatter.format(remaining)}',
-                                              style: GoogleFonts.spaceGrotesk(
-                                                color: remainingColor,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 14),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: OutlinedButton.icon(
-                                            onPressed: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) => AddExpensePage(preselectedPlanId: plan.id),
-                                                ),
-                                              );
-                                            },
-                                            style: OutlinedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(vertical: 8),
-                                              side: const BorderSide(color: AppTheme.line),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            ),
-                                            icon: const Icon(Icons.add_rounded, size: 14, color: AppTheme.gold),
-                                            label: Text(
-                                              'Add Plan Expense',
-                                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textDark),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  Expanded(
+                                    child: Text(
+                                      plan.title,
+                                      style: GoogleFonts.fraunces(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: context.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline_rounded, color: context.brick, size: 18),
+                                    onPressed: () => _showDeletePlanDialog(context, plan),
+                                    constraints: const BoxConstraints(),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                plan.endDate != null
+                                    ? '${DateFormatter.format(plan.startDate)} - ${DateFormatter.format(plan.endDate!)}'
+                                    : 'Started ${DateFormatter.format(plan.startDate)}',
+                                style: GoogleFonts.inter(
+                                  color: context.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: percentUsed.clamp(0.0, 1.0),
+                                  minHeight: 6,
+                                  backgroundColor: context.surface2,
+                                  color: progressColor,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Spent: ${CurrencyFormatter.format(amountSpent)} of ${CurrencyFormatter.format(plan.budgetAmount)}',
+                                    style: GoogleFonts.inter(
+                                      color: context.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                  Text(
+                                    isOverBudget
+                                        ? 'Over: ${CurrencyFormatter.format(-remaining)}'
+                                        : 'Remaining: ${CurrencyFormatter.format(remaining)}',
+                                    style: GoogleFonts.spaceGrotesk(
+                                      color: remainingColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
-                ),
+                      ),
+                    );
+                  }),
               ],
             ),
-      bottomNavigationBar: plans.isEmpty ? null : Padding(
-        padding: const EdgeInsets.all(24),
-        child: ElevatedButton(
-          onPressed: () => _showAddEditTripPlanSheet(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.ink,
-            foregroundColor: AppTheme.paper,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-            ),
-          ),
-          child: Text(
-            'New Trip Plan',
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ),
-      ),
     );
   }
 
@@ -196,27 +188,57 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
       final planExpenses = expenses.where((e) => e.planId == plan.id && !e.isDeleted).toList();
       totalSpent += planExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
     }
+    final remaining = totalBudget - totalSpent;
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: AppTheme.paperCard,
-        border: Border(bottom: BorderSide(color: AppTheme.line)),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: context.line),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ACTIVE TRIP PLANS BUDGET',
-            style: GoogleFonts.inter(
-              color: AppTheme.muted,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.5,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.flight_takeoff_rounded, color: context.gold, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Trip & Event Plans Budget',
+                    style: GoogleFonts.fraunces(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: context.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: context.surface2,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${plans.length} Active Plans',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: context.gold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          Divider(height: 1, color: context.line),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -224,38 +246,48 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total Budgeted',
-                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 13),
+                      'TOTAL BUDGET',
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: context.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       CurrencyFormatter.format(totalBudget),
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 22,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
+                        color: context.textPrimary,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(width: 1, height: 40, color: AppTheme.line),
-              const SizedBox(width: 24),
+              Container(width: 1, height: 32, color: context.line),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Total Spent',
-                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 13),
+                      'TOTAL SPENT',
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.1,
+                        color: context.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       CurrencyFormatter.format(totalSpent),
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 22,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.brick,
+                        color: remaining < 0 ? context.brick : context.gold,
                       ),
                     ),
                   ],
@@ -278,12 +310,12 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.paper2,
+                color: context.gold.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.card_travel_rounded,
-                color: AppTheme.gold,
+                color: context.gold,
                 size: 48,
               ),
             ),
@@ -293,7 +325,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
               style: GoogleFonts.fraunces(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textDark,
+                color: context.textPrimary,
               ),
             ),
             const SizedBox(height: 12),
@@ -301,17 +333,20 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
               'Create a trip budget upfront and link expenses to track Cox\'s Bazar, Weekend getaway, or Tour budgets.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                color: AppTheme.muted,
+                color: context.textMuted,
                 fontSize: 14,
                 height: 1.5,
               ),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () => _showAddEditTripPlanSheet(context),
+              onPressed: () {
+                HapticsService.selection();
+                _showAddEditTripPlanSheet(context);
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.ink,
-                foregroundColor: AppTheme.paper,
+                backgroundColor: context.gold,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTheme.cardRadius),
@@ -329,20 +364,24 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
-        title: Text('Remove Trip Plan?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
-        content: Text('Remove plan "${plan.title}"?\n\nAll transactions linked to this plan will remain untouched in your ledger.'),
+        backgroundColor: context.cardBg,
+        title: Text('Remove Trip Plan?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
+        content: Text(
+          'Remove plan "${plan.title}"?\n\nAll transactions linked to this plan will remain untouched in your ledger.',
+          style: TextStyle(color: context.textMuted),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: context.textMuted)),
           ),
           ElevatedButton(
             onPressed: () {
+              HapticsService.lightImpact();
               Navigator.pop(context);
               context.read<TripPlanProvider>().delete(plan.id);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brick, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: context.brick, foregroundColor: Colors.white),
             child: const Text('Remove Plan & Retain Transactions'),
           ),
         ],
@@ -365,19 +404,21 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.paper,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Padding(
+          builder: (ctx, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: ctx.bg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border.all(color: ctx.line),
+              ),
               padding: EdgeInsets.only(
                 top: 24,
                 left: 24,
                 right: 24,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
               child: Form(
                 key: formKey,
@@ -391,7 +432,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppTheme.line,
+                            color: ctx.line,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -402,14 +443,14 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                         style: GoogleFonts.fraunces(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textDark,
+                          color: ctx.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 24),
                       Text(
                         'PLAN TITLE',
                         style: GoogleFonts.inter(
-                          color: AppTheme.muted,
+                          color: ctx.textMuted,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -418,9 +459,14 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: titleController,
-                        style: GoogleFonts.inter(color: AppTheme.textDark),
-                        decoration: const InputDecoration(
+                        style: GoogleFonts.inter(color: ctx.textPrimary),
+                        decoration: InputDecoration(
                           hintText: 'e.g. Cox\'s Bazar Tour',
+                          hintStyle: GoogleFonts.inter(color: ctx.textMuted),
+                          filled: true,
+                          fillColor: ctx.cardBg,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
                         ),
                         validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
@@ -428,7 +474,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                       Text(
                         'BUDGET LIMIT',
                         style: GoogleFonts.inter(
-                          color: AppTheme.muted,
+                          color: ctx.textMuted,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -437,10 +483,15 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: budgetController,
-                        style: GoogleFonts.inter(color: AppTheme.textDark),
+                        style: GoogleFonts.spaceGrotesk(color: ctx.textPrimary),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'e.g. 500.00',
+                          hintStyle: GoogleFonts.spaceGrotesk(color: ctx.textMuted),
+                          filled: true,
+                          fillColor: ctx.cardBg,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) return 'Required';
@@ -452,7 +503,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                       Text(
                         'CATEGORY LINK (OPTIONAL)',
                         style: GoogleFonts.inter(
-                          color: AppTheme.muted,
+                          color: ctx.textMuted,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -460,20 +511,25 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
-                        dropdownColor: AppTheme.paperCard,
-                        value: selectedCategoryId,
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        dropdownColor: ctx.cardBg,
+                        initialValue: selectedCategoryId,
+                        style: GoogleFonts.inter(color: ctx.textPrimary),
+                        decoration: InputDecoration(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          filled: true,
+                          fillColor: ctx.cardBg,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
                         ),
                         items: [
-                          const DropdownMenuItem<String>(
+                          DropdownMenuItem<String>(
                             value: null,
-                            child: Text('None (General)'),
+                            child: Text('None (General)', style: TextStyle(color: ctx.textPrimary)),
                           ),
                           ...categories.map((c) {
                             return DropdownMenuItem<String>(
                               value: c.id,
-                              child: Text(c.name),
+                              child: Text(c.name, style: TextStyle(color: ctx.textPrimary)),
                             );
                           }),
                         ],
@@ -493,7 +549,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                 Text(
                                   'START DATE',
                                   style: GoogleFonts.inter(
-                                    color: AppTheme.muted,
+                                    color: ctx.textMuted,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.5,
@@ -503,7 +559,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                 InkWell(
                                   onTap: () async {
                                     final date = await showDatePicker(
-                                      context: context,
+                                      context: ctx,
                                       initialDate: startDate,
                                       firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
@@ -517,12 +573,13 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.line),
+                                      color: ctx.cardBg,
+                                      border: Border.all(color: ctx.line),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       DateFormatter.format(startDate),
-                                      style: GoogleFonts.inter(color: AppTheme.textDark),
+                                      style: GoogleFonts.inter(color: ctx.textPrimary),
                                     ),
                                   ),
                                 ),
@@ -537,7 +594,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                 Text(
                                   'END DATE (OPTIONAL)',
                                   style: GoogleFonts.inter(
-                                    color: AppTheme.muted,
+                                    color: ctx.textMuted,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.5,
@@ -547,7 +604,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                 InkWell(
                                   onTap: () async {
                                     final date = await showDatePicker(
-                                      context: context,
+                                      context: ctx,
                                       initialDate: endDate ?? DateTime.now(),
                                       firstDate: DateTime(2000),
                                       lastDate: DateTime(2100),
@@ -559,7 +616,8 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: AppTheme.line),
+                                      color: ctx.cardBg,
+                                      border: Border.all(color: ctx.line),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Row(
@@ -567,7 +625,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                       children: [
                                         Text(
                                           endDate != null ? DateFormatter.format(endDate!) : 'None',
-                                          style: GoogleFonts.inter(color: AppTheme.textDark),
+                                          style: GoogleFonts.inter(color: ctx.textPrimary),
                                         ),
                                         if (endDate != null)
                                           GestureDetector(
@@ -576,7 +634,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                                 endDate = null;
                                               });
                                             },
-                                            child: const Icon(Icons.clear, size: 16, color: AppTheme.brick),
+                                            child: Icon(Icons.clear, size: 16, color: ctx.brick),
                                           ),
                                       ],
                                     ),
@@ -592,6 +650,7 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () async {
+                            HapticsService.lightImpact();
                             if (formKey.currentState!.validate()) {
                               final newPlan = TripPlan(
                                 id: planToEdit?.id ?? const Uuid().v4(),
@@ -610,13 +669,13 @@ class _TripPlansTabViewState extends State<TripPlansTabView> {
                                 await provider.update(newPlan);
                               }
                               
-                              if (context.mounted) {
-                                Navigator.pop(context);
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
                               }
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.gold,
+                            backgroundColor: ctx.gold,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(

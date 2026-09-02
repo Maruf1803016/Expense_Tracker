@@ -40,16 +40,14 @@ class CategoryProvider with ChangeNotifier {
       // Subscribe to categories stream
       getCategoriesStream().listen(
         (list) async {
-          if (list.isEmpty) {
-            _categories = List<Category>.from(Category.defaultCategories);
-            // Write them to Firestore so they are persisted permanently
-            await seedCategories(const NoParams());
-          } else {
-            _categories = List<Category>.from(list);
-          }
+          final consolidated = _consolidateCategories(list);
+          _categories = consolidated;
           _isLoading = false;
-          debugPrint('[CategoryProvider] loaded ${_categories.length} categories');
+          debugPrint('[CategoryProvider] loaded and consolidated ${_categories.length} categories');
           notifyListeners();
+
+          // If there are obsolete categories in firestore, clean them in background
+          _cleanupObsoleteCategories(list);
         },
         onError: (e) {
           debugPrint('[CategoryProvider] Error loading categories: $e');
@@ -71,6 +69,122 @@ class CategoryProvider with ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  List<Category> _consolidateCategories(List<Category> rawList) {
+    if (rawList.isEmpty) return List<Category>.from(Category.defaultCategories);
+
+    final Map<String, Category> map = {};
+
+    // 1. First populate with standard defaults
+    for (final def in Category.defaultCategories) {
+      map[def.id] = def;
+    }
+
+    // 2. Merge incoming categories
+    for (final cat in rawList) {
+      final normName = cat.name.trim().toLowerCase();
+      
+      // Check if this matches a default category by ID or Name
+      String? targetCanonicalId;
+      if (map.containsKey(cat.id)) {
+        targetCanonicalId = cat.id;
+      } else if (normName == 'food & dining' || normName == 'food and dining' || normName == 'food') {
+        targetCanonicalId = 'food_dining';
+      } else if (normName == 'home') {
+        targetCanonicalId = 'home';
+      } else if (normName == 'bills & utilities' || normName == 'bills' || normName == 'utilities' || normName == 'bills and utilities') {
+        targetCanonicalId = 'bills_utilities';
+      } else if (normName == 'transport & travel' || normName == 'transport' || normName == 'travel') {
+        targetCanonicalId = 'transport_travel';
+      } else if (normName == 'shopping') {
+        targetCanonicalId = 'shopping';
+      } else if (normName == 'health & personal care' || normName == 'health') {
+        targetCanonicalId = 'health_personal_care';
+      } else if (normName == 'entertainment') {
+        targetCanonicalId = 'entertainment';
+      } else if (normName == 'finance & other' || normName == 'finance' || normName == 'other expense') {
+        targetCanonicalId = 'finance_other';
+      } else if (normName == 'salary') {
+        targetCanonicalId = 'salary';
+      } else if (normName == 'freelance' || normName == 'freelance income') {
+        targetCanonicalId = 'freelance';
+      } else if (normName == 'investment' || normName == 'interest & dividends') {
+        targetCanonicalId = 'investment';
+      } else if (normName == 'gift' || normName == 'gifts & support') {
+        targetCanonicalId = 'gift';
+      } else if (normName == 'other income') {
+        targetCanonicalId = 'other_income';
+      }
+
+      if (targetCanonicalId != null && map.containsKey(targetCanonicalId)) {
+        final existing = map[targetCanonicalId]!;
+        // Merge subcategories
+        final existingSubNames = existing.subCategories.map((s) => s.name.toLowerCase()).toSet();
+        final List<SubCategory> mergedSubs = List.from(existing.subCategories);
+        for (final sub in cat.subCategories) {
+          if (!existingSubNames.contains(sub.name.toLowerCase())) {
+            mergedSubs.add(sub);
+            existingSubNames.add(sub.name.toLowerCase());
+          }
+        }
+        map[targetCanonicalId] = Category(
+          id: existing.id,
+          name: existing.name,
+          type: existing.type,
+          icon: existing.icon,
+          subCategories: mergedSubs,
+        );
+      } else {
+        // Check if this is one of the obsolete top-level categories that should NOT exist as top-level
+        final obsoleteNames = [
+          'fees & taxes', 'insurance & protection', 'finance & other (dup)', 'other expense',
+          'gifts & giving', 'delivery & takeaway', 'groceries', 'home cooking', 'restaurants & cafes',
+          'home & bills', 'phone & internet', 'repairs & maintenance', 'rent & mortgage',
+          'rent bills & internet', 'household supplies', 'home & utilities',
+          'personal', 'personal care', 'fitness & wellbeing', 'health & pharmacy',
+          'personal & lifestyle', 'shopping & personal care', 'entertainment & subscriptions',
+          'fuel transit & rides', 'trips & stays', 'flights & tickets', 'transport & stays',
+          'business sales', 'rental income'
+        ];
+
+        if (!obsoleteNames.contains(normName)) {
+          // Custom category created by user
+          map[cat.id] = cat;
+        }
+      }
+    }
+
+    return map.values.toList();
+  }
+
+  Future<void> _cleanupObsoleteCategories(List<Category> rawList) async {
+    final obsoleteNames = [
+      'fees & taxes', 'insurance & protection', 'finance & other (dup)', 'other expense',
+      'gifts & giving', 'delivery & takeaway', 'groceries', 'home cooking', 'restaurants & cafes',
+      'home & bills', 'phone & internet', 'repairs & maintenance', 'rent & mortgage',
+      'rent bills & internet', 'household supplies', 'home & utilities',
+      'personal', 'personal care', 'fitness & wellbeing', 'health & pharmacy',
+      'personal & lifestyle', 'shopping & personal care', 'entertainment & subscriptions',
+      'fuel transit & rides', 'trips & stays', 'flights & tickets', 'transport & stays',
+      'business sales', 'rental income', 'freelance income', 'gifts & support'
+    ];
+
+    for (final cat in rawList) {
+      final normName = cat.name.trim().toLowerCase();
+      // If it is a duplicate custom category of a default, delete the extra doc
+      final isCanonical = Category.defaultCategories.any((d) => d.id == cat.id);
+      if (!isCanonical) {
+        if (obsoleteNames.contains(normName) ||
+            normName == 'food & dining' ||
+            normName == 'salary' ||
+            normName == 'bills & utilities') {
+          try {
+            await deleteCategory(cat.id);
+          } catch (_) {}
+        }
+      }
     }
   }
 

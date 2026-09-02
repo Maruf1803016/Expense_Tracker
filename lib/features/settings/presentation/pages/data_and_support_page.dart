@@ -19,6 +19,11 @@ import 'package:expense_tracker/features/plan/data/models/goal_model.dart';
 import 'package:expense_tracker/features/plan/data/models/trip_plan_model.dart';
 import 'package:expense_tracker/features/loan/data/models/loan_model.dart';
 
+import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
+import 'package:expense_tracker/features/work_routine/presentation/providers/work_routine_provider.dart';
+import 'package:expense_tracker/core/services/demo_data_generator_service.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
+
 class DataAndSupportPage extends StatefulWidget {
   const DataAndSupportPage({super.key});
 
@@ -32,47 +37,53 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.bg,
       appBar: AppBar(
+        backgroundColor: context.bg,
         title: Text(
-          'Data & Support',
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.w500),
+          'Backup & Sync',
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.w500, color: context.textPrimary),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20.0),
         children: [
-          _buildSectionHeader('Private Data Backup'),
+
+          _buildSectionHeader(context, 'Private Data Backup'),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Column(
               children: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: const Icon(Icons.code_rounded, color: AppTheme.gold),
-                  title: Text('Export JSON Archive', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark)),
-                  subtitle: Text('Download complete private backup file containing transactions, accounts, and goals.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
+                  leading: Icon(Icons.code_rounded, color: context.gold),
+                  title: Text('Export JSON Archive', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.textPrimary)),
+                  subtitle: Text('Download complete private backup file containing transactions, accounts, and goals.', style: GoogleFonts.inter(fontSize: 12, color: context.textMuted)),
                   trailing: _isExportingJson
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.gold))
-                      : const Icon(Icons.download_rounded),
-                  onTap: _isExportingJson ? null : () => _exportJsonArchive(),
+                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: context.gold))
+                      : Icon(Icons.download_rounded, color: context.textMuted),
+                  onTap: _isExportingJson ? null : () {
+                    HapticsService.selection();
+                    _exportJsonArchive();
+                  },
                 ),
-                const Divider(height: 1, color: AppTheme.line),
+                Divider(height: 1, color: context.line),
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: const Icon(Icons.cloud_sync_outlined, color: AppTheme.gold),
-                  title: Text('Google Drive Backup', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark)),
-                  subtitle: Text('Encrypted cloud snapshot synced to your personal Google Drive storage.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
-                  trailing: const Icon(Icons.chevron_right),
+                  leading: Icon(Icons.cloud_sync_outlined, color: context.gold),
+                  title: Text('Google Drive Backup', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.textPrimary)),
+                  subtitle: Text('Encrypted cloud snapshot synced to your personal Google Drive storage.', style: GoogleFonts.inter(fontSize: 12, color: context.textMuted)),
+                  trailing: Icon(Icons.chevron_right, color: context.textMuted),
                   onTap: () {
+                    HapticsService.selection();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Firebase cloud replication is active for your account.'),
-                        backgroundColor: AppTheme.emerald,
+                      SnackBar(
+                        content: const Text('Firebase cloud replication is active for your account.'),
+                        backgroundColor: context.emerald,
                       ),
                     );
                   },
@@ -82,41 +93,47 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
           ),
           const SizedBox(height: 24),
 
-          _buildSectionHeader('Support & Feedback'),
+          _buildSectionHeader(context, 'Support & Feedback'),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Column(
               children: [
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: const Icon(Icons.mail_outline_rounded, color: AppTheme.gold),
-                  title: Text('Contact Developer', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark)),
-                  subtitle: Text('marufmia1612@gmail.com', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
-                  trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-                  onTap: () => _launchMailto(),
+                  leading: Icon(Icons.mail_outline_rounded, color: context.gold),
+                  title: Text('Contact Developer', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.textPrimary)),
+                  subtitle: Text('marufmia1612@gmail.com', style: GoogleFonts.inter(fontSize: 12, color: context.textMuted)),
+                  trailing: Icon(Icons.open_in_new_rounded, size: 18, color: context.textMuted),
+                  onTap: () {
+                    HapticsService.selection();
+                    _launchMailto();
+                  },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
-          _buildSectionHeader('Danger Zone'),
+          _buildSectionHeader(context, 'Danger Zone'),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.brick.withOpacity(0.3)),
+              border: Border.all(color: context.brick.withValues(alpha: 0.3)),
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              leading: const Icon(Icons.delete_forever_rounded, color: AppTheme.brick),
-              title: Text('Clear All Financial Data', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.brick)),
-              subtitle: Text('Permanently wipes all expenses, goals, and debt records while preserving your user account.', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
-              onTap: () => _showGuardedClearDataDialog(context),
+              leading: Icon(Icons.delete_forever_rounded, color: context.brick),
+              title: Text('Clear All Financial Data', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.brick)),
+              subtitle: Text('Permanently wipes all expenses, goals, and debt records while preserving your user account.', style: GoogleFonts.inter(fontSize: 12, color: context.textMuted)),
+              onTap: () {
+                HapticsService.selection();
+                _showGuardedClearDataDialog(context);
+              },
             ),
           ),
         ],
@@ -124,7 +141,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0, left: 4.0),
       child: Text(
@@ -132,7 +149,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
         style: GoogleFonts.inter(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: AppTheme.muted,
+          color: context.textMuted,
           letterSpacing: 1.5,
         ),
       ),
@@ -172,7 +189,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to export JSON: $e'), backgroundColor: AppTheme.brick),
+          SnackBar(content: Text('Failed to export JSON: $e'), backgroundColor: context.brick),
         );
       }
     } finally {
@@ -199,25 +216,34 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Clear All Financial Records?', style: GoogleFonts.fraunces(color: AppTheme.brick)),
+        backgroundColor: context.cardBg,
+        title: Text('Clear All Financial Records?', style: GoogleFonts.fraunces(color: context.brick)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'This action is irreversible. All transactions, goals, trip plans, and loans will be deleted permanently.\n\nType "CONFIRM" below to proceed:',
+              style: TextStyle(color: context.textPrimary),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: confirmController,
-              decoration: const InputDecoration(hintText: 'CONFIRM'),
+              style: TextStyle(color: context.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'CONFIRM',
+                hintStyle: TextStyle(color: context.textMuted),
+                filled: true,
+                fillColor: context.surface2,
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: context.textMuted))),
           TextButton(
             onPressed: () async {
+              HapticsService.lightImpact();
               if (confirmController.text.trim() == 'CONFIRM') {
                 Navigator.pop(ctx);
                 final expenseProv = context.read<ExpenseProvider>();
@@ -226,7 +252,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
                 }
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Financial data cleared'), backgroundColor: AppTheme.emerald),
+                    SnackBar(content: const Text('Financial data cleared'), backgroundColor: context.emerald),
                   );
                 }
               } else {
@@ -235,7 +261,7 @@ class _DataAndSupportPageState extends State<DataAndSupportPage> {
                 );
               }
             },
-            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+            style: TextButton.styleFrom(foregroundColor: context.brick),
             child: const Text('Clear Everything'),
           ),
         ],

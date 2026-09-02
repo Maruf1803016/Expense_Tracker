@@ -10,8 +10,10 @@ import 'package:expense_tracker/features/category/domain/entities/category.dart'
 import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
 import 'package:expense_tracker/features/expense/domain/entities/expense.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/shared/presentation/widgets/empty_state.dart';
 import 'package:expense_tracker/features/expense/presentation/pages/transaction_detail_page.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class CategoryDetailPage extends StatefulWidget {
   final Category category;
@@ -49,24 +51,27 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Set Budget for ${category.name}'),
+        backgroundColor: context.cardBg,
+        title: Text('Set Budget for ${category.name}', style: TextStyle(color: context.textPrimary)),
         content: TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          decoration: const InputDecoration(
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: context.textPrimary),
+          decoration: InputDecoration(
             hintText: '0.00',
-            border: UnderlineInputBorder(),
+            hintStyle: TextStyle(color: context.textMuted),
+            border: const UnderlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: context.textMuted)),
           ),
           TextButton(
             onPressed: () async {
+              HapticsService.lightImpact();
               final amount = double.tryParse(controller.text.trim()) ?? 0.0;
               try {
                 await provider.setBudget(category.id, amount);
@@ -75,7 +80,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Budget for ${category.name} updated successfully'),
-                      backgroundColor: AppTheme.emeraldGreen,
+                      backgroundColor: context.emerald,
                     ),
                   );
                 }
@@ -84,13 +89,13 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Failed to save budget: $e'),
-                      backgroundColor: AppTheme.expenseColor,
+                      backgroundColor: context.brick,
                     ),
                   );
                 }
               }
             },
-            child: const Text('Save'),
+            child: Text('Save', style: TextStyle(color: context.gold, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -109,16 +114,17 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Sub-category'),
-        content: Text('Are you sure you want to delete "${sub.name}"? This won\'t affect past transactions.'),
+        backgroundColor: context.cardBg,
+        title: Text('Delete Sub-category', style: TextStyle(color: context.textPrimary)),
+        content: Text('Are you sure you want to delete "${sub.name}"? This won\'t affect past transactions.', style: TextStyle(color: context.textPrimary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text('Cancel', style: TextStyle(color: context.textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.expenseColor),
+            style: TextButton.styleFrom(foregroundColor: context.brick),
             child: const Text('Delete'),
           ),
         ],
@@ -126,6 +132,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     );
 
     if (confirmed == true && context.mounted) {
+      HapticsService.lightImpact();
       final updatedSubs = List<SubCategory>.from(category.subCategories)
         ..removeWhere((s) => s.name == sub.name);
       final updatedCategory = Category(
@@ -196,7 +203,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     }
 
     final totalAmount = allExpenses.fold(0.0, (sum, e) => sum + e.amount);
-    final color = liveCategory.type == CategoryType.income ? AppTheme.incomeColor : AppTheme.expenseColor;
+    final color = liveCategory.type == CategoryType.income ? context.emerald : context.brick;
     final budgetStatus = provider.rolledUpBudgetStatuses.firstWhere(
       (b) => b.categoryId == liveCategory.id,
       orElse: () => CategoryBudgetStatus.fromAmounts(
@@ -210,8 +217,10 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
     );
 
     return Scaffold(
+      backgroundColor: context.bg,
       appBar: AppBar(
-        title: Text(liveCategory.name),
+        backgroundColor: context.bg,
+        title: Text(liveCategory.name, style: TextStyle(color: context.textPrimary)),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -219,14 +228,15 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.secondaryBackground,
+                color: context.cardBg,
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+                border: Border(bottom: BorderSide(color: context.line)),
               ),
               child: Column(
                 children: [
                   CircleAvatar(
                     radius: 40,
-                    backgroundColor: AppTheme.getCategoryColor(liveCategory.id, liveCategory.name).withOpacity(0.15),
+                    backgroundColor: AppTheme.getCategoryColor(liveCategory.id, liveCategory.name).withValues(alpha: 0.15),
                     child: Icon(
                       liveCategory.icon,
                       size: 40,
@@ -235,8 +245,8 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    formatCurrency(totalAmount),
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    CurrencyFormatter.format(totalAmount),
+                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
                   Text(
                     'Total ${liveCategory.type.name.toUpperCase()}',
@@ -249,21 +259,24 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                       children: [
                         Text(
                           budgetStatus.limit > 0 
-                              ? 'Budget: ${formatCurrency(budgetStatus.limit)}' 
+                              ? 'Budget: ${CurrencyFormatter.format(budgetStatus.limit)}' 
                               : 'No budget set',
                           style: TextStyle(
                             fontSize: 14, 
-                            color: budgetStatus.isExceeded ? AppTheme.expenseColor : Colors.white70,
+                            color: budgetStatus.isExceeded ? context.brick : context.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: () => _showSetCategoryBudgetDialog(context, provider, liveCategory, budgetStatus.limit),
-                          child: const Icon(
+                          onTap: () {
+                            HapticsService.selection();
+                            _showSetCategoryBudgetDialog(context, provider, liveCategory, budgetStatus.limit);
+                          },
+                          child: Icon(
                             Icons.edit_outlined,
                             size: 16,
-                            color: AppTheme.emeraldGreen,
+                            color: context.gold,
                           ),
                         ),
                       ],
@@ -277,19 +290,19 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                           child: LinearProgressIndicator(
                             value: (budgetStatus.spent / budgetStatus.limit).clamp(0.0, 1.0),
                             minHeight: 6,
-                            backgroundColor: Colors.white.withOpacity(0.05),
-                            color: budgetStatus.isExceeded ? AppTheme.expenseColor : AppTheme.emeraldGreen,
+                            backgroundColor: context.surface2,
+                            color: budgetStatus.isExceeded ? context.brick : context.emerald,
                           ),
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         budgetStatus.isExceeded 
-                            ? 'Over by ${formatCurrency(budgetStatus.spent - budgetStatus.limit)}' 
+                            ? 'Over by ${CurrencyFormatter.format(budgetStatus.spent - budgetStatus.limit)}' 
                             : '${((budgetStatus.spent / budgetStatus.limit) * 100).toStringAsFixed(0)}% used',
                         style: TextStyle(
                           fontSize: 11, 
-                          color: budgetStatus.isExceeded ? AppTheme.expenseColor : Colors.white54,
+                          color: budgetStatus.isExceeded ? context.brick : context.textMuted,
                         ),
                       ),
                     ],
@@ -304,12 +317,12 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'SUB-CATEGORIES',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white54,
+                      color: context.textMuted,
                       letterSpacing: 1.5,
                     ),
                   ),
@@ -321,28 +334,31 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                       ...liveCategory.subCategories.map((sub) {
                         final isDefault = _isDefaultSubCategory(liveCategory, sub.name);
                         return Chip(
-                          avatar: Icon(sub.icon, size: 14, color: Colors.white54),
-                          label: Text(sub.name, style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                          backgroundColor: Colors.white.withOpacity(0.04),
+                          avatar: Icon(sub.icon, size: 14, color: context.textMuted),
+                          label: Text(sub.name, style: TextStyle(fontSize: 12, color: context.textPrimary)),
+                          backgroundColor: context.surface2,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: Colors.white.withOpacity(0.05)),
+                            side: BorderSide(color: context.line),
                           ),
                           onDeleted: isDefault
                               ? null
                               : () => _deleteSubCategory(context, liveCategory, sub),
-                          deleteIcon: const Icon(Icons.cancel, size: 14, color: Colors.white60),
+                          deleteIcon: Icon(Icons.cancel, size: 14, color: context.textMuted),
                         );
                       }).toList(),
                       ActionChip(
-                        avatar: const Icon(Icons.add, size: 14, color: AppTheme.emeraldGreen),
-                        label: const Text('Add Custom', style: TextStyle(fontSize: 12, color: AppTheme.emeraldGreen)),
-                        backgroundColor: Colors.white.withOpacity(0.04),
+                        avatar: Icon(Icons.add, size: 14, color: context.gold),
+                        label: Text('Add Custom', style: TextStyle(fontSize: 12, color: context.gold)),
+                        backgroundColor: context.surface2,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: const BorderSide(color: AppTheme.emeraldGreen, width: 0.5),
+                          side: BorderSide(color: context.gold, width: 0.5),
                         ),
-                        onPressed: () => _showAddCustomSubCategoryDialog(context, liveCategory),
+                        onPressed: () {
+                          HapticsService.selection();
+                          _showAddCustomSubCategoryDialog(context, liveCategory);
+                        },
                       ),
                     ],
                   ),
@@ -376,7 +392,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                               Icon(
                                 isGeneral ? Icons.category : Icons.label_outline,
                                 size: 16,
-                                color: isGeneral ? Colors.white38 : const Color(0xFF00C896),
+                                color: isGeneral ? context.textMuted : context.gold,
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -385,7 +401,7 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                                   fontSize: isGeneral ? 12 : 13,
                                   fontWeight: isGeneral ? FontWeight.bold : FontWeight.w500,
                                   fontStyle: isGeneral ? FontStyle.normal : FontStyle.italic,
-                                  color: isGeneral ? Colors.white38 : const Color(0xFF00C896),
+                                  color: isGeneral ? context.textMuted : context.gold,
                                   letterSpacing: 1.2,
                                 ),
                               ),
@@ -394,55 +410,49 @@ class _CategoryDetailPageState extends State<CategoryDetailPage> {
                         ),
                         ...entry.value.map((expense) {
                           return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            decoration: isGeneral ? null : const BoxDecoration(
-                              border: Border(
-                                left: BorderSide(color: Color(0xFF00C896), width: 3),
-                              ),
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              color: context.cardBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: context.line),
                             ),
-                            child: Card(
-                              margin: EdgeInsets.zero,
-                              color: isGeneral ? null : const Color(0xFF1A2C42),
-                              child: ListTile(
-                                contentPadding: EdgeInsets.only(
-                                  left: isGeneral ? 16 : 40,
-                                  right: 16,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                leading: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: color.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    expense.subCategoryIcon != null
-                                        ? IconUtils.getIcon(expense.subCategoryIcon, categoryName: expense.subCategory)
-                                        : liveCategory.icon, 
-                                    color: color, 
-                                    size: 18
-                                  ),
+                                child: Icon(
+                                  expense.subCategoryIcon != null
+                                      ? IconUtils.getIcon(expense.subCategoryIcon, categoryName: expense.subCategory)
+                                      : liveCategory.icon, 
+                                  color: color, 
+                                  size: 18,
                                 ),
-                                title: Text(
-                                  expense.title.isEmpty ? liveCategory.name : expense.title,
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                subtitle: Text(DateFormatter.format(expense.date), style: const TextStyle(fontSize: 12, color: Colors.white38)),
-                                trailing: Text(
-                                  CurrencyFormatter.format(expense.amount),
-                                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => TransactionDetailPage(expenseId: expense.id),
-                                    ),
-                                  );
-                                },
                               ),
+                              title: Text(
+                                expense.title.isEmpty ? liveCategory.name : expense.title,
+                                style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.textPrimary, fontSize: 13),
+                              ),
+                              subtitle: Text(DateFormatter.format(expense.date), style: GoogleFonts.inter(fontSize: 11, color: context.textMuted)),
+                              trailing: Text(
+                                CurrencyFormatter.format(expense.amount),
+                                style: GoogleFonts.spaceGrotesk(color: color, fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                              onTap: () {
+                                HapticsService.selection();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => TransactionDetailPage(expenseId: expense.id),
+                                  ),
+                                );
+                              },
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     );
                   }).toList(),
@@ -488,9 +498,10 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: AppTheme.secondaryBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: context.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border.all(color: context.line),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -498,20 +509,23 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
         children: [
           Text(
             'New Sub-category under ${widget.category.name}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.line),
             ),
             child: TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              style: GoogleFonts.inter(color: context.textPrimary),
+              decoration: InputDecoration(
                 hintText: 'Sub-category name',
-                prefixIcon: Icon(Icons.label_outline),
+                hintStyle: GoogleFonts.inter(color: context.textMuted),
+                prefixIcon: Icon(Icons.label_outline, color: context.textMuted),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -520,9 +534,9 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Choose Icon',
-            style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(color: context.textMuted, fontSize: 13, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -538,20 +552,23 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
                 final icon = widget.curatedIcons[index];
                 final isSelected = _selectedIcon == icon;
                 return InkWell(
-                  onTap: () => setState(() => _selectedIcon = icon),
+                  onTap: () {
+                    HapticsService.selection();
+                    setState(() => _selectedIcon = icon);
+                  },
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.emeraldGreen : Colors.white.withOpacity(0.05),
+                      color: isSelected ? context.gold : context.surface2,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppTheme.emeraldGreen : Colors.transparent,
+                        color: isSelected ? context.gold : Colors.transparent,
                         width: 2,
                       ),
                     ),
                     child: Icon(
                       icon,
-                      color: isSelected ? Colors.white : Colors.white70,
+                      color: isSelected ? Colors.white : context.textPrimary,
                       size: 20,
                     ),
                   ),
@@ -562,7 +579,7 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
           const SizedBox(height: 24),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.emeraldGreen,
+              backgroundColor: context.gold,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -570,6 +587,7 @@ class _AddSubCategorySheetState extends State<_AddSubCategorySheet> {
             onPressed: (_nameController.text.trim().isEmpty || _selectedIcon == null || _isSaving)
                 ? null
                 : () async {
+                    HapticsService.lightImpact();
                     setState(() => _isSaving = true);
                     await widget.onSave(_nameController.text.trim(), _selectedIcon!);
                     if (context.mounted) {

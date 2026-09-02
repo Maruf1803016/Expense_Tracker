@@ -23,28 +23,6 @@ class LoanProvider with ChangeNotifier {
     _loansSubscription?.cancel();
     _loansSubscription = repository.getLoansStream().listen(
       (list) {
-        if (list.isEmpty) {
-          final sampleLoan = Loan(
-            id: 'loan_1',
-            title: 'Equipment Loan',
-            counterparty: 'Tech Supplies Co',
-            type: LoanType.borrowed,
-            originalAmount: 5000.0,
-            paidAmount: 2000.0,
-            dueDate: DateTime(2026, 12, 31),
-            notes: '0% interest 12-month installment',
-            createdAt: DateTime(2026, 6, 1),
-            repayments: [
-              LoanRepayment(
-                id: 'rep_1',
-                amount: 2000.0,
-                date: DateTime(2026, 7, 15),
-                note: 'Initial installment',
-              ),
-            ],
-          );
-          repository.addLoan(sampleLoan);
-        }
         _loans = list;
         _isLoading = false;
         notifyListeners();

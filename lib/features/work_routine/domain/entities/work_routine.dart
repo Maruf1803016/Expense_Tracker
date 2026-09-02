@@ -39,6 +39,9 @@ class WorkRoutine extends Equatable {
   final double? monthlySalary;
   final double? hourlyRate;
   final int expectedDaysPerWeek;
+  final List<int> workingDays; // 1 = Monday ... 7 = Sunday
+  final String? shiftStartTime;
+  final String? shiftEndTime;
   final Color color;
   final IconData icon;
   final bool isAttendanceOnly;
@@ -52,6 +55,9 @@ class WorkRoutine extends Equatable {
     this.monthlySalary,
     this.hourlyRate,
     this.expectedDaysPerWeek = 5,
+    this.workingDays = const [1, 2, 3, 4, 5],
+    this.shiftStartTime,
+    this.shiftEndTime,
     this.color = const Color(0xFFB08D3F),
     this.icon = Icons.work_outline_rounded,
     this.isAttendanceOnly = false,
@@ -61,6 +67,48 @@ class WorkRoutine extends Equatable {
 
   int getMonthlyDays(int year, int month) {
     return entries.where((e) => e.date.year == year && e.date.month == month).length;
+  }
+
+  int getPlannedDays(int year, int month) {
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    int planned = 0;
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(year, month, day);
+      if (workingDays.contains(date.weekday)) {
+        planned++;
+      }
+    }
+    return planned;
+  }
+
+  int getAttendedDays(int year, int month) {
+    return getMonthlyDays(year, month);
+  }
+
+  int getMissedDays(int year, int month) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    int missed = 0;
+    for (int day = 1; day <= daysInMonth; day++) {
+      final date = DateTime(year, month, day);
+      if (date.isBefore(today)) {
+        if (workingDays.contains(date.weekday)) {
+          if (getEntryForDate(date) == null) {
+            missed++;
+          }
+        }
+      }
+    }
+    return missed;
+  }
+
+  int getUnscheduledDays(int year, int month) {
+    return entries.where((e) =>
+      e.date.year == year &&
+      e.date.month == month &&
+      !workingDays.contains(e.date.weekday)
+    ).length;
   }
 
   double getMonthlyHours(int year, int month) {
@@ -83,6 +131,9 @@ class WorkRoutine extends Equatable {
     double? monthlySalary,
     double? hourlyRate,
     int? expectedDaysPerWeek,
+    List<int>? workingDays,
+    String? shiftStartTime,
+    String? shiftEndTime,
     Color? color,
     IconData? icon,
     bool? isAttendanceOnly,
@@ -96,6 +147,9 @@ class WorkRoutine extends Equatable {
       monthlySalary: monthlySalary ?? this.monthlySalary,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       expectedDaysPerWeek: expectedDaysPerWeek ?? this.expectedDaysPerWeek,
+      workingDays: workingDays ?? this.workingDays,
+      shiftStartTime: shiftStartTime ?? this.shiftStartTime,
+      shiftEndTime: shiftEndTime ?? this.shiftEndTime,
       color: color ?? this.color,
       icon: icon ?? this.icon,
       isAttendanceOnly: isAttendanceOnly ?? this.isAttendanceOnly,
@@ -112,6 +166,9 @@ class WorkRoutine extends Equatable {
         monthlySalary,
         hourlyRate,
         expectedDaysPerWeek,
+        workingDays,
+        shiftStartTime,
+        shiftEndTime,
         color,
         icon,
         isAttendanceOnly,

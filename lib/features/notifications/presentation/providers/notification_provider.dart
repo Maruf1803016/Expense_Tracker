@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:expense_tracker/features/notifications/domain/entities/app_notification.dart';
 import 'package:expense_tracker/features/notifications/domain/repositories/notification_repository.dart';
 
@@ -23,93 +24,6 @@ class NotificationProvider with ChangeNotifier {
     _subscription?.cancel();
     _subscription = repository.getNotificationsStream().listen(
       (list) {
-        if (list.length < 10) {
-          final samples = [
-            AppNotification(
-              id: 'notif_1',
-              title: 'Budget Alert: Food & Dining',
-              body: 'You have reached 85% of your monthly dining allocation.',
-              date: DateTime.now().subtract(const Duration(minutes: 15)),
-              type: 'budget',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_2',
-              title: 'Recurring Rent Due Tomorrow',
-              body: 'Monthly Apartment Rent (\$1,850.00) is scheduled for clearance tomorrow.',
-              date: DateTime.now().subtract(const Duration(hours: 1)),
-              type: 'reminder',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_3',
-              title: 'Salary Deposit Confirmed',
-              body: 'Monthly Salary of \$4,500.00 has cleared into Checking Account.',
-              date: DateTime.now().subtract(const Duration(hours: 3)),
-              type: 'alert',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_4',
-              title: 'Goal Milestone Reached',
-              body: 'You have funded 50% of your Wedding Savings Goal.',
-              date: DateTime.now().subtract(const Duration(hours: 6)),
-              type: 'budget',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_5',
-              title: 'Trip Budget Reminder: Cox’s Bazar',
-              body: '3 expenses logged toward your retreat budget.',
-              date: DateTime.now().subtract(const Duration(hours: 12)),
-              type: 'reminder',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_6',
-              title: 'Debt Payment Due in 3 Days',
-              body: 'Equipment Loan monthly installment (\$500.00) is due soon.',
-              date: DateTime.now().subtract(const Duration(hours: 18)),
-              type: 'alert',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_7',
-              title: 'Weekly Financial Field Note',
-              body: 'Your savings rate was 83% this week. Strong discipline!',
-              date: DateTime.now().subtract(const Duration(days: 1)),
-              type: 'budget',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_8',
-              title: 'Work Routine Schedule',
-              body: 'Clinical Shift logged for 5 days (33.5 hrs) this month.',
-              date: DateTime.now().subtract(const Duration(days: 1, hours: 4)),
-              type: 'reminder',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_9',
-              title: 'Subscription Renewal Alert',
-              body: 'Cloud Storage subscription (\$9.99) will renew next week.',
-              date: DateTime.now().subtract(const Duration(days: 2)),
-              type: 'reminder',
-              isRead: false,
-            ),
-            AppNotification(
-              id: 'notif_10',
-              title: 'Monthly Ledger Summary Ready',
-              body: 'Your July report is prepared for export to PDF / CSV.',
-              date: DateTime.now().subtract(const Duration(days: 3)),
-              type: 'alert',
-              isRead: false,
-            ),
-          ];
-          for (final s in samples) {
-            repository.addNotification(s);
-          }
-        }
         _notifications = list;
         _isLoading = false;
         notifyListeners();
@@ -129,6 +43,9 @@ class NotificationProvider with ChangeNotifier {
   Future<void> add(AppNotification notification) async {
     try {
       await repository.addNotification(notification);
+      // Play audible alert sound and trigger haptic pulse
+      SystemSound.play(SystemSoundType.alert);
+      HapticFeedback.mediumImpact();
     } catch (e) {
       debugPrint('[NotificationProvider] Error adding notification: $e');
       rethrow;
@@ -159,6 +76,56 @@ class NotificationProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('[NotificationProvider] Error deleting notification: $e');
       rethrow;
+    }
+  }
+
+  Future<void> evaluateDebtReminders(dynamic loans) async {
+    try {
+      final now = DateTime.now();
+      for (final loan in loans) {
+        if (loan.isCompleted == true) continue;
+        if (loan.dueDate == null) continue;
+
+        final DateTime due = loan.dueDate as DateTime;
+        final differenceDays = due.difference(DateTime(now.year, now.month, now.day)).inDays;
+
+        if (differenceDays <= 7 && differenceDays >= -30) {
+          final isLent = loan.type.toString().contains('lent');
+          final String title;
+          final String body;
+
+          if (differenceDays < 0) {
+            title = isLent ? 'Overdue Collection: ${loan.title}' : 'Overdue Debt: ${loan.title}';
+            body = '${loan.counterparty} – \$${loan.remainingAmount.toStringAsFixed(2)} was due on ${due.day}/${due.month}/${due.year}.';
+          } else if (differenceDays == 0) {
+            title = isLent ? 'Collection Due Today: ${loan.title}' : 'Debt Payment Due Today: ${loan.title}';
+            body = '${loan.counterparty} – \$${loan.remainingAmount.toStringAsFixed(2)} is due today.';
+          } else if (differenceDays == 1) {
+            title = isLent ? 'Collect Tomorrow: ${loan.title}' : 'Debt Payment Due Tomorrow: ${loan.title}';
+            body = '${loan.counterparty} – \$${loan.remainingAmount.toStringAsFixed(2)} is due tomorrow.';
+          } else {
+            title = isLent ? 'Upcoming Collection: ${loan.title}' : 'Debt Due in $differenceDays Days: ${loan.title}';
+            body = '${loan.counterparty} – \$${loan.remainingAmount.toStringAsFixed(2)} due on ${due.day}/${due.month}/${due.year}.';
+          }
+
+          final notifId = 'debt_remind_${loan.id}_$differenceDays';
+          final alreadyExists = _notifications.any((n) => n.id == notifId);
+          if (!alreadyExists) {
+            await repository.addNotification(
+              AppNotification(
+                id: notifId,
+                title: title,
+                body: body,
+                date: now,
+                type: 'alert',
+                isRead: false,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[NotificationProvider] Error generating debt reminders: $e');
     }
   }
 

@@ -1,8 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/features/settings/presentation/providers/settings_provider.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_time_picker.dart';
 
 class TransactionReminderPage extends StatelessWidget {
   const TransactionReminderPage({super.key});
@@ -26,12 +28,14 @@ class TransactionReminderPage extends StatelessWidget {
     }
 
     return Scaffold(
+      backgroundColor: context.bg,
       appBar: AppBar(
+        backgroundColor: context.bg,
         title: Text(
           'Transaction Reminder',
           style: GoogleFonts.fraunces(
             fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+            color: context.textPrimary,
           ),
         ),
       ),
@@ -44,7 +48,7 @@ class TransactionReminderPage extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: AppTheme.gold,
+              color: context.gold,
               letterSpacing: 1.2,
             ),
           ),
@@ -54,7 +58,7 @@ class TransactionReminderPage extends StatelessWidget {
             style: GoogleFonts.fraunces(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: AppTheme.textDark,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -62,7 +66,7 @@ class TransactionReminderPage extends StatelessWidget {
             'Receive a quiet daily prompt to record unlogged expenses and keep your cash flow ledger accurate.',
             style: GoogleFonts.inter(
               fontSize: 13,
-              color: AppTheme.muted,
+              color: context.textMuted,
               height: 1.4,
             ),
           ),
@@ -72,9 +76,9 @@ class TransactionReminderPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -91,7 +95,7 @@ class TransactionReminderPage extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textDark,
+                              color: context.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -100,7 +104,7 @@ class TransactionReminderPage extends StatelessWidget {
                             style: GoogleFonts.inter(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: settings.isDailyReminderEnabled ? AppTheme.emerald : AppTheme.muted,
+                              color: settings.isDailyReminderEnabled ? context.emerald : context.textMuted,
                             ),
                           ),
                         ],
@@ -108,60 +112,50 @@ class TransactionReminderPage extends StatelessWidget {
                     ),
                     Switch.adaptive(
                       value: settings.isDailyReminderEnabled,
-                      activeColor: AppTheme.gold,
-                      activeTrackColor: AppTheme.gold.withValues(alpha: 0.3),
+                      activeColor: context.gold,
+                      activeTrackColor: context.gold.withValues(alpha: 0.3),
                       onChanged: (val) {
+                        HapticsService.selection();
                         settings.toggleDailyReminder(val);
                       },
                     ),
                   ],
                 ),
                 if (settings.isDailyReminderEnabled) ...[
-                  const Divider(height: 24, color: AppTheme.line),
+                  Divider(height: 24, color: context.line),
                   InkWell(
+                    borderRadius: BorderRadius.circular(10),
                     onTap: () async {
-                      final picked = await showTimePicker(
+                      HapticsService.selection();
+                      final picked = await showInkLedgerTimePicker(
                         context: context,
                         initialTime: reminderTime,
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              timePickerTheme: const TimePickerThemeData(
-                                backgroundColor: AppTheme.paperCard,
-                                hourMinuteTextColor: AppTheme.textDark,
-                                dialHandColor: AppTheme.gold,
-                                dialBackgroundColor: AppTheme.paper2,
-                              ),
-                            ),
-                            child: child!,
-                          );
-                        },
+                        is24HourMode: is24Hour,
                       );
                       if (picked != null) {
                         settings.setReminderTime(picked);
                       }
                     },
-                    borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: AppTheme.paper2,
+                        color: context.surface2,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.line),
+                        border: Border.all(color: context.line),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.access_time_rounded, size: 18, color: AppTheme.gold),
+                              Icon(Icons.access_time_rounded, size: 18, color: context.gold),
                               const SizedBox(width: 10),
                               Text(
                                 'Reminder Time',
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: AppTheme.textDark,
+                                  color: context.textPrimary,
                                 ),
                               ),
                             ],
@@ -173,11 +167,11 @@ class TransactionReminderPage extends StatelessWidget {
                                 style: GoogleFonts.spaceGrotesk(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.textDark,
+                                  color: context.textPrimary,
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.chevron_right_rounded, size: 16, color: AppTheme.muted),
+                              Icon(Icons.chevron_right_rounded, size: 16, color: context.textMuted),
                             ],
                           ),
                         ],
@@ -194,21 +188,21 @@ class TransactionReminderPage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.paper2,
+              color: context.surface2,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded, size: 18, color: AppTheme.muted),
+                Icon(Icons.info_outline_rounded, size: 18, color: context.textMuted),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     settings.isDailyReminderEnabled
                         ? 'You will receive a notification every day at $formattedTime.'
                         : 'Enable reminders to get daily alerts at your preferred review hour.',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted, height: 1.35),
+                    style: GoogleFonts.inter(fontSize: 12, color: context.textMuted, height: 1.35),
                   ),
                 ),
               ],

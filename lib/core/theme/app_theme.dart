@@ -20,6 +20,14 @@ class AppTheme {
   static const Color emerald = Color(0xFF1E6F55);   // income / positive
   static const Color brick = Color(0xFFA23B3B);     // expense / negative / over-budget
 
+  // Dark Theme Palette Constants
+  static const Color darkScaffold = Color(0xFF131A15);
+  static const Color darkCard = Color(0xFF1B241E);
+  static const Color darkSurface2 = Color(0xFF222E26);
+  static const Color darkLine = Color(0xFF2E3D33);
+  static const Color darkText = Color(0xFFEDE9DE);
+  static const Color darkMuted = Color(0xFF9EABA1);
+
   // Aliases for backward compatibility
   static const Color primaryBackground = paper;
   static const Color secondaryBackground = paperCard;
@@ -76,48 +84,48 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       fontFamily: GoogleFonts.inter().fontFamily,
-      scaffoldBackgroundColor: paper,
+      scaffoldBackgroundColor: const Color(0xFFF8F4EC),
       colorScheme: const ColorScheme.light(
         primary: gold,
         secondary: gold,
-        surface: paperCard,
-        error: brick,
+        surface: Color(0xFFFFFFFF),
+        error: Color(0xFFA23B3B),
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onSurface: textDark,
+        onSurface: Color(0xFF1C221D),
         onError: Colors.white,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: paper,
+        backgroundColor: const Color(0xFFF8F4EC),
         centerTitle: true,
         elevation: 0,
         titleTextStyle: GoogleFonts.fraunces(
-          color: textDark,
+          color: const Color(0xFF1C221D),
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
-        iconTheme: const IconThemeData(color: textDark),
+        iconTheme: const IconThemeData(color: Color(0xFF1C221D)),
       ),
       cardTheme: CardThemeData(
-        color: paperCard,
+        color: const Color(0xFFFFFFFF),
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(cardRadius),
-          side: const BorderSide(color: line, width: 1),
+          side: const BorderSide(color: Color(0xFFE2DDD1), width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: paper2,
-        hintStyle: const TextStyle(color: muted),
-        labelStyle: const TextStyle(color: muted),
+        fillColor: const Color(0xFFF1EDE4),
+        hintStyle: const TextStyle(color: Color(0xFF5C635B)),
+        labelStyle: const TextStyle(color: Color(0xFF5C635B)),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(cardRadius),
-          borderSide: const BorderSide(color: line),
+          borderSide: const BorderSide(color: Color(0xFFE2DDD1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(cardRadius),
-          borderSide: const BorderSide(color: line),
+          borderSide: const BorderSide(color: Color(0xFFE2DDD1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(cardRadius),
@@ -129,15 +137,15 @@ class AppTheme {
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: ink,
+        backgroundColor: Color(0xFF1B3A2B),
         foregroundColor: goldSoft,
         elevation: 1,
         shape: CircleBorder(),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: paperCard,
-        selectedItemColor: ink,
-        unselectedItemColor: muted,
+        backgroundColor: Color(0xFFFFFFFF),
+        selectedItemColor: Color(0xFF1B3A2B),
+        unselectedItemColor: Color(0xFF5C635B),
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
@@ -163,19 +171,183 @@ class AppTheme {
         ),
       ),
       textTheme: interTextTheme.copyWith(
-        headlineLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
-        headlineMedium: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
-        titleLarge: GoogleFonts.fraunces(color: textDark, fontWeight: FontWeight.w600),
-        bodyLarge: const TextStyle(color: textDark),
-        bodyMedium: const TextStyle(color: muted),
+        headlineLarge: GoogleFonts.fraunces(color: const Color(0xFF1C221D), fontWeight: FontWeight.w600),
+        headlineMedium: GoogleFonts.fraunces(color: const Color(0xFF1C221D), fontWeight: FontWeight.w600),
+        titleLarge: GoogleFonts.fraunces(color: const Color(0xFF1C221D), fontWeight: FontWeight.w600),
+        bodyLarge: const TextStyle(color: Color(0xFF1C221D)),
+        bodyMedium: const TextStyle(color: Color(0xFF5C635B)),
       ),
       dividerTheme: const DividerThemeData(
-        color: line,
+        color: Color(0xFFE2DDD1),
         thickness: 1,
       ),
     );
   }
 
-  // Alias for compatibility
-  static ThemeData get darkTheme => lightTheme;
+  static ThemeData get darkTheme {
+    final baseTextTheme = ThemeData.dark().textTheme;
+    final interTextTheme = GoogleFonts.interTextTheme(baseTextTheme);
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      fontFamily: GoogleFonts.inter().fontFamily,
+      scaffoldBackgroundColor: const Color(0xFF131A15),
+      colorScheme: const ColorScheme.dark(
+        primary: goldSoft,
+        secondary: gold,
+        surface: Color(0xFF1B241E),
+        error: Color(0xFFE05656),
+        onPrimary: Color(0xFF121C15),
+        onSecondary: Color(0xFF121C15),
+        onSurface: Color(0xFFEDE9DE),
+        onError: Colors.white,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: const Color(0xFF131A15),
+        centerTitle: true,
+        elevation: 0,
+        titleTextStyle: GoogleFonts.fraunces(
+          color: const Color(0xFFEDE9DE),
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFFEDE9DE)),
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF1B241E),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          side: const BorderSide(color: Color(0xFF2E3D33), width: 1),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF222E26),
+        hintStyle: const TextStyle(color: Color(0xFF9EABA1)),
+        labelStyle: const TextStyle(color: Color(0xFF9EABA1)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          borderSide: const BorderSide(color: Color(0xFF2E3D33)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          borderSide: const BorderSide(color: Color(0xFF2E3D33)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(cardRadius),
+          borderSide: const BorderSide(color: goldSoft, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Color(0xFF14291E),
+        foregroundColor: goldSoft,
+        elevation: 1,
+        shape: CircleBorder(),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Color(0xFF1B241E),
+        selectedItemColor: goldSoft,
+        unselectedItemColor: Color(0xFF9EABA1),
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: goldSoft,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: gold,
+          foregroundColor: const Color(0xFF121C15),
+          minimumSize: const Size.fromHeight(50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(cardRadius),
+          ),
+          elevation: 0,
+          textStyle: GoogleFonts.inter(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+      ),
+      textTheme: interTextTheme.copyWith(
+        headlineLarge: GoogleFonts.fraunces(color: const Color(0xFFEDE9DE), fontWeight: FontWeight.w600),
+        headlineMedium: GoogleFonts.fraunces(color: const Color(0xFFEDE9DE), fontWeight: FontWeight.w600),
+        titleLarge: GoogleFonts.fraunces(color: const Color(0xFFEDE9DE), fontWeight: FontWeight.w600),
+        bodyLarge: const TextStyle(color: Color(0xFFEDE9DE)),
+        bodyMedium: const TextStyle(color: Color(0xFF9EABA1)),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF2E3D33),
+        thickness: 1,
+      ),
+    );
+  }
+
+  // Dynamic context-aware color helpers
+  static bool isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  static Color bg(BuildContext context) =>
+      isDark(context) ? darkScaffold : paper;
+
+  static Color cardBg(BuildContext context) =>
+      isDark(context) ? darkCard : paperCard;
+
+  static Color surface2(BuildContext context) =>
+      isDark(context) ? darkSurface2 : paper2;
+
+  static Color borderColor(BuildContext context) =>
+      isDark(context) ? darkLine : line;
+
+  static Color text(BuildContext context) =>
+      isDark(context) ? darkText : textDark;
+
+  static Color textMuted(BuildContext context) =>
+      isDark(context) ? darkMuted : muted;
+
+  static Color inkColor(BuildContext context) =>
+      isDark(context) ? goldSoft : ink;
+
+  static Color goldColor(BuildContext context) =>
+      isDark(context) ? goldSoft : gold;
+
+  static Color emeraldColor(BuildContext context) =>
+      isDark(context) ? const Color(0xFF4EBA97) : emerald;
+
+  static Color brickColor(BuildContext context) =>
+      isDark(context) ? const Color(0xFFE57373) : brick;
 }
+
+/// Convenience extension on BuildContext for effortless, clean dark-mode reactive styling
+extension AppThemeContext on BuildContext {
+  bool get isDark => Theme.of(this).brightness == Brightness.dark;
+
+  // Surfaces & Backgrounds
+  Color get bg => isDark ? AppTheme.darkScaffold : AppTheme.paper;
+  Color get cardBg => isDark ? AppTheme.darkCard : AppTheme.paperCard;
+  Color get surface2 => isDark ? AppTheme.darkSurface2 : AppTheme.paper2;
+
+  // Lines & Borders
+  Color get line => isDark ? AppTheme.darkLine : AppTheme.line;
+  Color get goldLine => isDark ? const Color(0x55C5A880) : AppTheme.goldLine;
+
+  // Typography
+  Color get textPrimary => isDark ? AppTheme.darkText : AppTheme.textDark;
+  Color get textMuted => isDark ? AppTheme.darkMuted : AppTheme.muted;
+  Color get ink => isDark ? AppTheme.goldSoft : AppTheme.ink;
+  Color get gold => isDark ? AppTheme.goldSoft : AppTheme.gold;
+
+  // Category & Status
+  Color get emerald => isDark ? const Color(0xFF4EBA97) : AppTheme.emerald;
+  Color get brick => isDark ? const Color(0xFFE57373) : AppTheme.brick;
+}
+

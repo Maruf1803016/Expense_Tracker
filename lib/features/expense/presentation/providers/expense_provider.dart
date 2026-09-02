@@ -24,6 +24,8 @@ import 'package:expense_tracker/features/expense/domain/usecases/restore_expense
 import 'package:expense_tracker/features/expense/domain/usecases/delete_forever.dart';
 import 'package:expense_tracker/features/expense/domain/usecases/empty_recycle_bin.dart';
 import 'package:expense_tracker/features/account/domain/usecases/run_migration.dart';
+import 'package:expense_tracker/features/expense/domain/services/frequency_suggestion_service.dart';
+import 'package:expense_tracker/features/expense/domain/entities/split_details.dart';
 
 enum ExpenseFilter {
   all,
@@ -250,8 +252,8 @@ class ExpenseProvider with ChangeNotifier {
     final Map<String, double> rolledUp = {};
     for (var entry in _summary.categoryBreakdown.entries) {
       final category = getCategoryById(entry.key);
-      final parentId = category.id;
-      rolledUp[parentId] = (rolledUp[parentId] ?? 0.0) + entry.value;
+      final resolvedId = category.id;
+      rolledUp[resolvedId] = (rolledUp[resolvedId] ?? 0.0) + entry.value;
     }
     
     final incomeEntries = rolledUp.entries
@@ -276,28 +278,26 @@ class ExpenseProvider with ChangeNotifier {
   }
 
   double get savingsPoints {
-    if (_summary.totalIncome == 0) return 0.0;
-    double savingsRate = (_summary.totalIncome - _summary.totalExpense) / _summary.totalIncome;
-    return (savingsRate.clamp(0.0, 1.0) * 40);
-  }
-
-  double get budgetPoints {
-    final double totalBudget = rolledUpBudgetStatuses.fold(0.0, (sum, item) => sum + item.limit);
-    if (totalBudget == 0) return 0.0;
-    double budgetAdherence = 1 - (_summary.totalExpense / totalBudget);
-    return (budgetAdherence.clamp(0.0, 1.0) * 30);
+    if (_summary.totalIncome == 0) {
+      return _summary.totalExpense > 0 ? 35.0 : 50.0;
+    }
+    if (_summary.totalExpense <= _summary.totalIncome) {
+      double savingsRate = (_summary.totalIncome - _summary.totalExpense) / _summary.totalIncome;
+      return (savingsRate.clamp(0.0, 1.0) * 50);
+    }
+    double ratio = (_summary.totalIncome / _summary.totalExpense).clamp(0.3, 1.0);
+    return ratio * 25.0;
   }
 
   double get consistencyPoints {
     final uniqueDays = _expenses.where((e) => e.date.month == _selectedMonth.month && e.date.year == _selectedMonth.year)
                                 .map((e) => e.date.day).toSet().length;
-    return (uniqueDays / 15).clamp(0.0, 1.0) * 30; // 15 days for max points
+    return (uniqueDays / 12).clamp(0.0, 1.0) * 50; // 12 active logging days for full consistency points
   }
 
   double get healthScore {
-    return savingsPoints + budgetPoints + consistencyPoints;
+    return (savingsPoints + consistencyPoints).clamp(0.0, 100.0);
   }
-
 
   String get healthStatus {
     final score = healthScore;
@@ -305,7 +305,6 @@ class ExpenseProvider with ChangeNotifier {
     if (score >= 60) return 'Good';
     return 'Needs Work';
   }
-
 
   bool _isInitializing = false;
 
@@ -476,6 +475,55 @@ class ExpenseProvider with ChangeNotifier {
     await _setBudget(budget);
   }
 
+  List<ExpenseSuggestion> getTopFrequentSuggestions({int maxResults = 5}) {
+    return FrequencySuggestionService.generateTopSuggestions(_expenses, maxResults: maxResults);
+  }
+
+  List<ExpenseSuggestion> getFilteredTitleSuggestions(String query, {int maxResults = 5}) {
+    return FrequencySuggestionService.filterSuggestionsByQuery(_expenses, query, maxResults: maxResults);
+  }
+
+  Future<void> settleSplitParticipant(String expenseId, String participantName) async {
+    final expense = _expenses.firstWhereOrNull((e) => e.id == expenseId);
+    if (expense == null || expense.splitDetails == null) return;
+
+    final updatedSplits = expense.splitDetails!.splits.map((s) {
+      if (s.name.trim().toLowerCase() == participantName.trim().toLowerCase()) {
+        return s.copyWith(isSettled: true, settledAt: DateTime.now());
+      }
+      return s;
+    }).toList();
+
+    final updatedSplitDetails = expense.splitDetails!.copyWith(splits: updatedSplits);
+    final allSettled = updatedSplitDetails.isFullySettled;
+
+    final updatedExpense = expense.copyWith(
+      splitDetails: updatedSplitDetails,
+      paymentStatus: allSettled ? PaymentStatus.settled : expense.paymentStatus,
+    );
+
+    await updateExpense(updatedExpense);
+  }
+
+  Future<void> settleFullSplitBill(String expenseId, {String? accountId}) async {
+    final expense = _expenses.firstWhereOrNull((e) => e.id == expenseId);
+    if (expense == null || expense.splitDetails == null) return;
+
+    final updatedSplits = expense.splitDetails!.splits.map((s) {
+      return s.copyWith(isSettled: true, settledAt: DateTime.now());
+    }).toList();
+
+    final updatedSplitDetails = expense.splitDetails!.copyWith(splits: updatedSplits);
+
+    final updatedExpense = expense.copyWith(
+      splitDetails: updatedSplitDetails,
+      paymentStatus: PaymentStatus.settled,
+      accountId: accountId ?? expense.accountId,
+    );
+
+    await updateExpense(updatedExpense);
+  }
+
   void _updateSummarySubscription() {
     _summarySubscription?.cancel();
     _summarySubscription = _getMonthlySummary(_selectedMonth.month, _selectedMonth.year).listen((data) {
@@ -504,12 +552,12 @@ class ExpenseProvider with ChangeNotifier {
   Category getCategoryById(String id) {
     return _categories.firstWhere(
       (c) => c.id == id,
-      orElse: () => Category(
-        id: id,
+      orElse: () => const Category(
+        id: 'uncategorized',
         name: 'Uncategorized',
         type: CategoryType.expense,
-        icon: Icons.category,
-        subCategories: const [],
+        icon: Icons.category_rounded,
+        subCategories: [],
       ),
     );
   }

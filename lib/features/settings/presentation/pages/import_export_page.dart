@@ -27,6 +27,10 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
   bool _isProcessing = false;
   String? _statusMessage;
 
+  // Export Scope State
+  DateTime _exportStartDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _exportEndDate = DateTime.now();
+
   // Import Preview State
   List<Map<String, dynamic>> _parsedImportRows = [];
   String _duplicatePolicy = 'Skip duplicates';
@@ -55,7 +59,14 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
       final categoryProvider = context.read<CategoryProvider>();
       final accountProvider = context.read<AccountProvider>();
 
-      final expenses = expenseProvider.expenses;
+      final startInclusive = DateTime(_exportStartDate.year, _exportStartDate.month, _exportStartDate.day, 0, 0, 0);
+      final endInclusive = DateTime(_exportEndDate.year, _exportEndDate.month, _exportEndDate.day, 23, 59, 59);
+
+      final expenses = expenseProvider.expenses.where((e) {
+        if (e.isDeleted) return false;
+        return !e.date.isBefore(startInclusive) && !e.date.isAfter(endInclusive);
+      }).toList();
+
       final tempDir = await getTemporaryDirectory();
       final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
       File exportFile;
@@ -84,6 +95,8 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
           'version': '1.0',
           'exportedAt': DateTime.now().toIso8601String(),
           'recordCount': jsonData.length,
+          'fromDate': DateFormatter.format(_exportStartDate),
+          'toDate': DateFormatter.format(_exportEndDate),
           'expenses': jsonData,
         });
 
@@ -133,7 +146,8 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
             '"${e.note}"',
           ].join(','));
         }
-        exportFile = File('${tempDir.path}/expenses_export_$timestamp.csv');
+        final ext = format == 'PDF' ? 'pdf' : (format == 'XLSX' ? 'xlsx' : 'csv');
+        exportFile = File('${tempDir.path}/expenses_export_$timestamp.$ext');
         await exportFile.writeAsString(buffer.toString());
       }
 
@@ -144,7 +158,7 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
         });
         await Share.shareXFiles(
           [XFile(exportFile.path)],
-          subject: 'Expense Tracker Export ($format)',
+          subject: 'Expense Tracker Export ($format: ${DateFormatter.format(_exportStartDate)} - ${DateFormatter.format(_exportEndDate)})',
         );
       }
     } catch (e) {
@@ -317,19 +331,21 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: context.bg,
       appBar: AppBar(
+        backgroundColor: context.bg,
         title: Text(
           'Import & Export',
           style: GoogleFonts.fraunces(
             fontWeight: FontWeight.bold,
-            color: AppTheme.textDark,
+            color: context.textPrimary,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppTheme.gold,
-          unselectedLabelColor: AppTheme.muted,
-          indicatorColor: AppTheme.gold,
+          labelColor: context.gold,
+          unselectedLabelColor: context.textMuted,
+          indicatorColor: context.gold,
           tabs: const [
             Tab(text: 'Export'),
             Tab(text: 'Import'),
@@ -341,9 +357,9 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(color: AppTheme.gold),
+                  CircularProgressIndicator(color: context.gold),
                   const SizedBox(height: 16),
-                  Text(_statusMessage ?? 'Processing...', style: GoogleFonts.inter(color: AppTheme.muted)),
+                  Text(_statusMessage ?? 'Processing...', style: GoogleFonts.inter(color: context.textMuted)),
                 ],
               ),
             )
@@ -358,6 +374,23 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
   }
 
   Widget _buildExportTab() {
+    final expenseProvider = context.watch<ExpenseProvider>();
+    final startInclusive = DateTime(_exportStartDate.year, _exportStartDate.month, _exportStartDate.day, 0, 0, 0);
+    final endInclusive = DateTime(_exportEndDate.year, _exportEndDate.month, _exportEndDate.day, 23, 59, 59);
+
+    final matchingExpenses = expenseProvider.expenses.where((e) {
+      if (e.isDeleted) return false;
+      return !e.date.isBefore(startInclusive) && !e.date.isAfter(endInclusive);
+    }).toList();
+
+    final matchingInflow = matchingExpenses
+        .where((e) => e.type == CategoryType.income)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
+    final matchingOutflow = matchingExpenses
+        .where((e) => e.type == CategoryType.expense)
+        .fold(0.0, (sum, e) => sum + e.amount);
+
     final formats = [
       {'title': 'CSV Document', 'sub': 'Standard comma-separated format for spreadsheets', 'format': 'CSV', 'icon': Icons.table_chart_outlined},
       {'title': 'TSV Document', 'sub': 'Tab-separated format for clean data pipelines', 'format': 'TSV', 'icon': Icons.data_array_rounded},
@@ -371,37 +404,223 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
       children: [
         Text(
           'PORTABILITY & BACKUPS',
-          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold, letterSpacing: 1.2),
+          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.gold, letterSpacing: 1.2),
         ),
         const SizedBox(height: 4),
         Text(
           'Export Your Financial Register',
-          style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         const SizedBox(height: 6),
         Text(
-          'Download and share your full transaction history in open, structured formats.',
-          style: GoogleFonts.inter(fontSize: 13, color: AppTheme.muted),
+          'Scope your date window and download your transaction history in open, structured formats.',
+          style: GoogleFonts.inter(fontSize: 13, color: context.textMuted),
         ),
         const SizedBox(height: 20),
+
+        // Date Scope Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: context.cardBg,
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            border: Border.all(color: context.line),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'EXPORT DATE SCOPE',
+                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.gold, letterSpacing: 1.2),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _exportStartDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2035),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _exportStartDate = picked;
+                            if (_exportStartDate.isAfter(_exportEndDate)) {
+                              _exportEndDate = _exportStartDate;
+                            }
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: context.surface2,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: context.line),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('From Date', style: GoogleFonts.inter(fontSize: 10, color: context.textMuted)),
+                            const SizedBox(height: 2),
+                            Text(DateFormatter.format(_exportStartDate), style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: context.textPrimary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _exportEndDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2035),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            _exportEndDate = picked;
+                            if (_exportEndDate.isBefore(_exportStartDate)) {
+                              _exportStartDate = _exportEndDate;
+                            }
+                          });
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: context.surface2,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: context.line),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('To Date', style: GoogleFonts.inter(fontSize: 10, color: context.textMuted)),
+                            const SizedBox(height: 2),
+                            Text(DateFormatter.format(_exportEndDate), style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: context.textPrimary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Preset chips
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildScopePreset('This Month', () {
+                      final now = DateTime.now();
+                      setState(() {
+                        _exportStartDate = DateTime(now.year, now.month, 1);
+                        _exportEndDate = DateTime(now.year, now.month + 1, 0);
+                      });
+                    }),
+                    _buildScopePreset('Last 3M', () {
+                      final now = DateTime.now();
+                      setState(() {
+                        _exportStartDate = DateTime(now.year, now.month - 2, 1);
+                        _exportEndDate = DateTime(now.year, now.month + 1, 0);
+                      });
+                    }),
+                    _buildScopePreset('Last 6M', () {
+                      final now = DateTime.now();
+                      setState(() {
+                        _exportStartDate = DateTime(now.year, now.month - 5, 1);
+                        _exportEndDate = DateTime(now.year, now.month + 1, 0);
+                      });
+                    }),
+                    _buildScopePreset('This Year', () {
+                      final now = DateTime.now();
+                      setState(() {
+                        _exportStartDate = DateTime(now.year, 1, 1);
+                        _exportEndDate = DateTime(now.year, 12, 31);
+                      });
+                    }),
+                    _buildScopePreset('All Time', () {
+                      setState(() {
+                        _exportStartDate = DateTime(2020, 1, 1);
+                        _exportEndDate = DateTime(2035, 12, 31);
+                      });
+                    }),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // Live Preview Stats
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: context.surface2,
+            borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+            border: Border.all(color: context.goldLine),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('EXPORT SCOPE PREVIEW', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.gold, letterSpacing: 1.1)),
+                  const SizedBox(height: 4),
+                  Text('${matchingExpenses.length} Records Matching', style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary)),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('+${CurrencyFormatter.format(matchingInflow)}', style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: context.emerald)),
+                  const SizedBox(height: 2),
+                  Text('-${CurrencyFormatter.format(matchingOutflow)}', style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: context.textMuted)),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
         ...formats.map((f) {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: ListTile(
-              leading: Icon(f['icon'] as IconData, color: AppTheme.gold),
-              title: Text(f['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textDark)),
-              subtitle: Text(f['sub'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted)),
-              trailing: const Icon(Icons.download_rounded, color: AppTheme.gold),
+              leading: Icon(f['icon'] as IconData, color: context.gold),
+              title: Text(f['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: context.textPrimary)),
+              subtitle: Text(f['sub'] as String, style: GoogleFonts.inter(fontSize: 12, color: context.textMuted)),
+              trailing: Icon(Icons.download_rounded, color: context.gold),
               onTap: () => _exportData(f['format'] as String),
             ),
           );
         }),
       ],
+    );
+  }
+
+  Widget _buildScopePreset(String label, VoidCallback onSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6.0),
+      child: ActionChip(
+        backgroundColor: context.surface2,
+        side: BorderSide(color: context.line),
+        label: Text(label, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: context.textPrimary)),
+        onPressed: onSelected,
+      ),
     );
   }
 
@@ -411,17 +630,17 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
       children: [
         Text(
           'DATA INGESTION',
-          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.gold, letterSpacing: 1.2),
+          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.bold, color: context.gold, letterSpacing: 1.2),
         ),
         const SizedBox(height: 4),
         Text(
           'Preview-First Import',
-          style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontSize: 22, fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         const SizedBox(height: 6),
         Text(
           'Select a CSV, TSV, XLSX, or JSON file to inspect columns and validate entries before committing.',
-          style: GoogleFonts.inter(fontSize: 13, color: AppTheme.muted),
+          style: GoogleFonts.inter(fontSize: 13, color: context.textMuted),
         ),
         const SizedBox(height: 20),
 
@@ -430,13 +649,13 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
           onPressed: _pickAndParseImportFile,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: AppTheme.gold),
+            side: BorderSide(color: context.gold),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
-          icon: const Icon(Icons.file_open_outlined, color: AppTheme.gold),
+          icon: Icon(Icons.file_open_outlined, color: context.gold),
           label: Text(
             _selectedImportFileName != null ? 'Selected: $_selectedImportFileName' : 'Select File to Preview',
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.gold),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: context.gold),
           ),
         ),
         const SizedBox(height: 16),
@@ -446,21 +665,22 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   'Duplicate Policy:',
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark),
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: context.textPrimary),
                 ),
                 DropdownButton<String>(
                   value: _duplicatePolicy,
                   underline: const SizedBox(),
-                  dropdownColor: AppTheme.paperCard,
+                  dropdownColor: context.cardBg,
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   items: const [
                     DropdownMenuItem(value: 'Skip duplicates', child: Text('Skip duplicates')),
                     DropdownMenuItem(value: 'Append all', child: Text('Append all')),
@@ -480,11 +700,11 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
             children: [
               Text(
                 'Found ${_parsedImportRows.length} records to import',
-                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: context.textPrimary),
               ),
               Text(
                 'Previewing first 5',
-                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
               ),
             ],
           ),
@@ -496,9 +716,9 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.paper2,
+                color: context.surface2,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.line),
+                border: Border.all(color: context.line),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -506,8 +726,8 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(row['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textDark)),
-                      Text('${row['category']} • ${row['type']}', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted)),
+                      Text(row['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: context.textPrimary)),
+                      Text('${row['category']} • ${row['type']}', style: GoogleFonts.inter(fontSize: 11, color: context.textMuted)),
                     ],
                   ),
                   Text(
@@ -515,7 +735,7 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
                     style: GoogleFonts.spaceGrotesk(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: row['type'] == 'income' ? AppTheme.emerald : AppTheme.brick,
+                      color: row['type'] == 'income' ? context.emerald : context.brick,
                     ),
                   ),
                 ],
@@ -528,8 +748,8 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
           ElevatedButton(
             onPressed: _commitImport,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.ink,
-              foregroundColor: AppTheme.goldSoft,
+              backgroundColor: context.gold,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -543,3 +763,4 @@ class _ImportExportPageState extends State<ImportExportPage> with SingleTickerPr
     );
   }
 }
+

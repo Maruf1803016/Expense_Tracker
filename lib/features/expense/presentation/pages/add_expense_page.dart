@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,6 +24,10 @@ import 'package:expense_tracker/features/recurring_transactions/domain/entities/
 import 'package:expense_tracker/features/recurring_transactions/presentation/providers/recurring_transaction_provider.dart';
 import 'package:expense_tracker/features/category/presentation/pages/category_management_page.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_category_selector.dart';
+import 'package:expense_tracker/features/expense/domain/entities/split_details.dart';
+import 'package:expense_tracker/features/expense/domain/services/frequency_suggestion_service.dart';
 
 enum TransactionMode {
   expense,
@@ -79,6 +84,84 @@ class _AddExpensePageState extends State<AddExpensePage> {
   bool _isRecurring = false;
   String _recurringFrequency = 'monthly';
   DateTime _recurringNextDueDate = DateTime.now().add(const Duration(days: 30));
+  // Payment Method state
+  late TextEditingController _customPaymentMethodController;
+
+  // FocusNode for Title autocomplete
+  final FocusNode _titleFocusNode = FocusNode();
+
+  // In-Transaction Split Bill fields
+  bool _isSplit = false;
+  String _splitType = 'equally'; // 'equally' or 'contribute'
+  String _splitPaidBy = 'me'; // 'me' or 'other'
+  int _splitPeopleCount = 2;
+  late TextEditingController _splitPeopleCountController;
+  late TextEditingController _splitPaidByOtherController;
+  late TextEditingController _totalBillAmountController;
+  late TextEditingController _userShareManualController;
+  final List<TextEditingController> _participantNameControllers = [];
+  final List<TextEditingController> _participantAmountControllers = [];
+  final List<bool> _participantSettledList = [];
+
+  void _addSplitParticipant([String name = '', double amount = 0.0, bool isSettled = false]) {
+    _participantNameControllers.add(TextEditingController(text: name));
+    _participantAmountControllers.add(TextEditingController(text: amount > 0 ? amount.toStringAsFixed(2) : ''));
+    _participantSettledList.add(isSettled);
+  }
+
+  void _removeSplitParticipant(int index) {
+    if (index >= 0 && index < _participantNameControllers.length) {
+      _participantNameControllers[index].dispose();
+      _participantAmountControllers[index].dispose();
+      _participantNameControllers.removeAt(index);
+      _participantAmountControllers.removeAt(index);
+      _participantSettledList.removeAt(index);
+    }
+  }
+
+  String _formatNumeric(double val) {
+    if (val <= 0) return '';
+    return val % 1 == 0 ? val.toInt().toString() : val.toStringAsFixed(2);
+  }
+
+  void _updateQuickSplit() {
+    final totalBill = double.tryParse(_totalBillAmountController.text.trim()) ?? 0.0;
+    if (totalBill <= 0 || _splitPeopleCount < 1) return;
+    if (_splitType == 'equally') {
+      final share = totalBill / _splitPeopleCount;
+      final text = _formatNumeric(share);
+      _amountController.text = text;
+      _userShareManualController.text = text;
+    } else {
+      if (_userShareManualController.text.trim().isEmpty) {
+        final defaultShare = totalBill / _splitPeopleCount;
+        final text = _formatNumeric(defaultShare);
+        _userShareManualController.text = text;
+        _amountController.text = text;
+      } else {
+        final contrib = double.tryParse(_userShareManualController.text.trim()) ?? (totalBill / _splitPeopleCount);
+        _amountController.text = _formatNumeric(contrib);
+      }
+    }
+  }
+
+  void _recalculateSplitShares({bool splitEqually = false}) {
+    _updateQuickSplit();
+  }
+
+  void _applySuggestion(ExpenseSuggestion suggestion) {
+    setState(() {
+      _titleController.text = suggestion.title;
+      _selectedCategoryId = suggestion.categoryId;
+      _selectedSubCategoryName = suggestion.subCategory;
+      _selectedSubCategoryIconName = suggestion.subCategoryIcon;
+      _selectedAccountId = suggestion.accountId;
+      _mode = suggestion.type == CategoryType.income ? TransactionMode.income : TransactionMode.expense;
+      if (_amountController.text.isEmpty || _amountController.text == '0.00' || _amountController.text == '0') {
+        _amountController.text = suggestion.typicalAmount.toStringAsFixed(2);
+      }
+    });
+  }
 
   void _updateDefaultNextDueDate() {
     final now = DateTime.now();
@@ -171,21 +254,25 @@ class _AddExpensePageState extends State<AddExpensePage> {
   Future<void> _confirmRemoveAttachment() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
-        title: Text('Remove Proof Attachment?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
-        content: const Text(
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: dialogCtx.bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          side: BorderSide(color: dialogCtx.line),
+        ),
+        title: Text('Remove Proof Attachment?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: dialogCtx.textPrimary)),
+        content: Text(
           'Removing this attachment will detach the file link. The transaction itself will NOT be deleted.',
-          style: TextStyle(color: AppTheme.textDark),
+          style: TextStyle(color: dialogCtx.textMuted),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text('Cancel', style: TextStyle(color: dialogCtx.textMuted)),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: TextButton.styleFrom(foregroundColor: dialogCtx.brick),
             child: const Text('Remove'),
           ),
         ],
@@ -242,6 +329,36 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _attachmentName = widget.expenseToEdit?.attachmentName;
     _attachmentType = widget.expenseToEdit?.attachmentType;
 
+    _splitPaidByOtherController = TextEditingController();
+    _totalBillAmountController = TextEditingController();
+    _splitPeopleCountController = TextEditingController(text: '2');
+    _userShareManualController = TextEditingController(
+      text: widget.expenseToEdit?.amount.toString() ?? '',
+    );
+
+    _customPaymentMethodController = TextEditingController();
+    if (_selectedPaymentMethod != null &&
+        !['Cash', 'Credit Card', 'Debit Card', 'Bank Transfer'].contains(_selectedPaymentMethod)) {
+      _customPaymentMethodController.text = _selectedPaymentMethod!;
+    }
+
+    if (widget.expenseToEdit?.splitDetails != null) {
+      final split = widget.expenseToEdit!.splitDetails!;
+      _isSplit = split.isSplit;
+      _splitPaidBy = split.isPaidByMe ? 'me' : 'other';
+      if (!split.isPaidByMe) {
+        _splitPaidByOtherController.text = split.paidBy;
+      }
+      _totalBillAmountController.text = split.totalBillAmount.toStringAsFixed(2);
+      if (split.splits.isNotEmpty) {
+        _splitPeopleCount = split.splits.length + 1;
+        _splitPeopleCountController.text = _splitPeopleCount.toString();
+        for (final s in split.splits) {
+          _addSplitParticipant(s.name, s.amount, s.isSettled);
+        }
+      }
+    }
+
     if (widget.preselectedPlanMode) {
       _mode = TransactionMode.plan;
     } else if (widget.expenseToEdit != null) {
@@ -288,6 +405,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
     _noteController.dispose();
     _financedAmountController.dispose();
     _payerPayeeController.dispose();
+    _titleFocusNode.dispose();
+    _customPaymentMethodController.dispose();
+    _splitPeopleCountController.dispose();
+    _splitPaidByOtherController.dispose();
+    _totalBillAmountController.dispose();
+    _userShareManualController.dispose();
+    for (final c in _participantNameControllers) {
+      c.dispose();
+    }
+    for (final c in _participantAmountControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -305,10 +434,120 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
   }
 
+  void _showMissingFieldsDialog(List<String> missingFields) {
+    HapticsService.mediumImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.cardBg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          side: BorderSide(color: ctx.line),
+        ),
+        icon: Icon(Icons.warning_amber_rounded, color: ctx.brick, size: 38),
+        title: Text(
+          'Missing Required Fields',
+          style: GoogleFonts.fraunces(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: ctx.textPrimary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Please complete the following required fields before saving:',
+              style: GoogleFonts.inter(fontSize: 12, color: ctx.textMuted),
+            ),
+            const SizedBox(height: 12),
+            ...missingFields.map(
+              (f) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline_rounded, size: 15, color: ctx.brick),
+                    const SizedBox(width: 8),
+                    Text(
+                      f,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: ctx.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ctx.gold,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text('Got It', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveExpense() async {
     debugPrint('[AddExpensePage] _saveExpense() called');
     if (_isSaving) {
       debugPrint('[AddExpensePage] _isSaving is true, aborting duplicate save');
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Collect all missing mandatory fields for explicit popup warning
+    final missingFields = <String>[];
+
+    final amt = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    if (amt <= 0) {
+      missingFields.add('Amount');
+    }
+
+    if (_titleController.text.trim().isEmpty) {
+      missingFields.add('Title / Merchant');
+    }
+
+    if (_mode != TransactionMode.plan && _mode != TransactionMode.transfer) {
+      if (_selectedCategoryId == null || _selectedCategoryId!.isEmpty) {
+        missingFields.add('Category');
+      }
+      if (_selectedAccountId == null || _selectedAccountId!.isEmpty) {
+        missingFields.add('Account');
+      }
+      final resolvedMethod = _selectedPaymentMethod == 'Custom'
+          ? _customPaymentMethodController.text.trim()
+          : _selectedPaymentMethod;
+      if (resolvedMethod == null || resolvedMethod.isEmpty) {
+        missingFields.add('Payment Method');
+      }
+    } else if (_mode == TransactionMode.transfer) {
+      if (_selectedAccountId == null || _selectedAccountId!.isEmpty) {
+        missingFields.add('From Account');
+      }
+      if (_selectedToAccountId == null || _selectedToAccountId!.isEmpty) {
+        missingFields.add('To Account');
+      }
+    }
+
+    if (missingFields.isNotEmpty) {
+      _showMissingFieldsDialog(missingFields);
       return;
     }
 
@@ -318,19 +557,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
     }
     debugPrint('[AddExpensePage] Form validation succeeded');
 
-    if (_mode != TransactionMode.plan && _mode != TransactionMode.transfer && _selectedCategoryId == null) {
-      debugPrint('[AddExpensePage] Category not selected in standard mode');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
-      return;
-    }
-
     setState(() {
       _isSaving = true;
     });
-
-    final messenger = ScaffoldMessenger.of(context);
 
     try {
       debugPrint('[AddExpensePage] Saving with mode: $_mode');
@@ -387,7 +616,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
           toAccountId: _selectedToAccountId,
           type: CategoryType.transfer,
           paymentStatus: _paymentStatus,
-          paymentMethod: _selectedPaymentMethod,
+          paymentMethod: _selectedPaymentMethod == 'Custom'
+              ? _customPaymentMethodController.text.trim()
+              : _selectedPaymentMethod,
           payerPayee: _payerPayeeController.text.trim().isNotEmpty ? _payerPayeeController.text.trim() : null,
         );
 
@@ -410,6 +641,52 @@ class _AddExpensePageState extends State<AddExpensePage> {
           );
         }
       } else {
+        SplitDetails? splitDetails;
+        PaymentStatus effectivePaymentStatus = _paymentStatus;
+
+        if (_mode == TransactionMode.expense && _isSplit) {
+          final totalBill = double.tryParse(_totalBillAmountController.text.trim()) ?? double.parse(_amountController.text.trim());
+          final myShare = double.tryParse(_amountController.text.trim()) ?? (totalBill / (_splitPeopleCount > 0 ? _splitPeopleCount : 2));
+          final splits = <SplitItem>[];
+
+          final othersCount = _splitPeopleCount > 1 ? _splitPeopleCount - 1 : 1;
+          final remainingForOthers = (totalBill - myShare).clamp(0.0, totalBill);
+          final eachOtherShare = remainingForOthers / othersCount;
+
+          for (int i = 0; i < othersCount; i++) {
+            String name = 'Person ${i + 1}';
+            if (i < _participantNameControllers.length && _participantNameControllers[i].text.trim().isNotEmpty) {
+              name = _participantNameControllers[i].text.trim();
+            }
+            final isSettled = (i < _participantSettledList.length) ? _participantSettledList[i] : false;
+            splits.add(SplitItem(
+              name: name,
+              amount: eachOtherShare,
+              isSettled: isSettled,
+            ));
+          }
+
+          final paidBy = _splitPaidBy == 'me'
+              ? 'me'
+              : (_splitPaidByOtherController.text.trim().isNotEmpty ? _splitPaidByOtherController.text.trim() : 'Friend');
+
+          splitDetails = SplitDetails(
+            isSplit: true,
+            paidBy: paidBy,
+            totalBillAmount: totalBill,
+            amountOwedToPayer: _splitPaidBy == 'me' ? 0.0 : myShare,
+            splits: splits,
+          );
+
+          if (_splitPaidBy != 'me' && widget.expenseToEdit == null) {
+            effectivePaymentStatus = PaymentStatus.pending;
+          }
+        }
+
+        final finalPaymentMethod = _selectedPaymentMethod == 'Custom'
+            ? _customPaymentMethodController.text.trim()
+            : _selectedPaymentMethod;
+
         final expense = Expense(
           id: widget.expenseToEdit?.id ?? const Uuid().v4(),
           title: _titleController.text.trim(),
@@ -418,16 +695,17 @@ class _AddExpensePageState extends State<AddExpensePage> {
           date: _selectedDate,
           note: _noteController.text.trim(),
           accountId: _selectedAccountId!,
-          subCategory: _mode == TransactionMode.income ? null : _selectedSubCategoryName,
-          subCategoryIcon: _mode == TransactionMode.income ? null : _selectedSubCategoryIconName,
+          subCategory: _selectedSubCategoryName,
+          subCategoryIcon: _selectedSubCategoryIconName,
           type: _mode == TransactionMode.income ? CategoryType.income : CategoryType.expense,
           planId: _selectedPlanId,
-          paymentStatus: _paymentStatus,
-          paymentMethod: _selectedPaymentMethod,
+          paymentStatus: effectivePaymentStatus,
+          paymentMethod: finalPaymentMethod,
           payerPayee: _payerPayeeController.text.trim().isNotEmpty ? _payerPayeeController.text.trim() : null,
           attachmentUrl: _attachmentPath,
           attachmentName: _attachmentName,
           attachmentType: _attachmentType,
+          splitDetails: splitDetails,
         );
 
         final provider = context.read<ExpenseProvider>();
@@ -503,17 +781,22 @@ class _AddExpensePageState extends State<AddExpensePage> {
     
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: dialogCtx.bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          side: BorderSide(color: dialogCtx.line),
+        ),
+        title: Text('Delete Transaction', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: dialogCtx.textPrimary)),
+        content: Text('Are you sure you want to delete this transaction?', style: TextStyle(color: dialogCtx.textMuted)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text('Cancel', style: TextStyle(color: dialogCtx.textMuted)),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: TextButton.styleFrom(foregroundColor: dialogCtx.brick),
             child: const Text('Delete'),
           ),
         ],
@@ -553,6 +836,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     final tripPlans = tripPlanProvider.tripPlans;
     final accountProvider = context.watch<AccountProvider>();
     final accounts = accountProvider.accounts;
+    final expenseProvider = context.watch<ExpenseProvider>();
 
     final isIncomeMode = _mode == TransactionMode.income;
     final currentCategoryType = isIncomeMode ? CategoryType.income : CategoryType.expense;
@@ -571,15 +855,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
     final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
     final displayColor = _mode == TransactionMode.expense 
-        ? AppTheme.brick 
-        : (_mode == TransactionMode.income ? AppTheme.emerald : AppTheme.gold);
+        ? context.brick 
+        : (_mode == TransactionMode.income ? context.emerald : context.gold);
 
     return Scaffold(
-      backgroundColor: AppTheme.paper,
+      backgroundColor: context.bg,
       appBar: AppBar(
+        backgroundColor: context.bg,
+        foregroundColor: context.textPrimary,
+        elevation: 0,
         title: Text(
           widget.expenseToEdit != null ? 'Edit Transaction' : (_mode == TransactionMode.plan ? 'New Goal' : 'New Transaction'),
-          style: GoogleFonts.fraunces(fontWeight: FontWeight.w500),
+          style: GoogleFonts.fraunces(fontWeight: FontWeight.w500, color: context.textPrimary),
         ),
       ),
       body: SingleChildScrollView(
@@ -593,18 +880,22 @@ class _AddExpensePageState extends State<AddExpensePage> {
               if (widget.expenseToEdit == null && !widget.preselectedPlanMode)
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.paper2,
+                    color: context.surface2,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      _buildToggleButton('Expense', TransactionMode.expense),
-                      _buildToggleButton('Income', TransactionMode.income),
-                      _buildToggleButton('Transfer', TransactionMode.transfer),
+                      _buildToggleButton(context, 'Expense', TransactionMode.expense),
+                      _buildToggleButton(context, 'Income', TransactionMode.income),
+                      _buildToggleButton(context, 'Transfer', TransactionMode.transfer),
                     ],
                   ),
                 ),
               const SizedBox(height: 12),
+
+              // Smart Frequent Suggestions Pill Chips
+              if (widget.expenseToEdit == null && _mode != TransactionMode.plan && _mode != TransactionMode.transfer)
+                _buildFrequentSuggestions(context, expenseProvider),
 
               // Balanced Space Grotesk amount display
               Center(
@@ -625,14 +916,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       child: TextFormField(
                         controller: _amountController,
                         style: GoogleFonts.spaceGrotesk(
-                          fontSize: 30,
+                           fontSize: 30,
                           fontWeight: FontWeight.bold,
                           color: displayColor,
                         ),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           hintText: '0.00',
-                          hintStyle: GoogleFonts.spaceGrotesk(color: AppTheme.muted.withValues(alpha: 0.3)),
+                          hintStyle: GoogleFonts.spaceGrotesk(color: context.textMuted.withValues(alpha: 0.3)),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -653,46 +944,48 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
               if (_mode == TransactionMode.plan) ...[
                 // Plan form
-                _buildSectionLabel('Goal Title'),
+                _buildSectionLabel(context, 'Goal Title'),
                 TextFormField(
                   controller: _titleController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.inter(color: context.textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'e.g. Summer Vacation',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                   validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
-                _buildSectionLabel('Start Date'),
-                _buildDateTile(_planStartDate, (date) {
+                _buildSectionLabel(context, 'Start Date'),
+                _buildDateTile(context, _planStartDate, (date) {
                   setState(() {
                     _planStartDate = date;
                   });
                 }),
                 const SizedBox(height: 16),
-                _buildSectionLabel('Financed Amount (Optional)'),
+                _buildSectionLabel(context, 'Financed Amount (Optional)'),
                 TextFormField(
                   controller: _financedAmountController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'e.g. 5000.00',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildSectionLabel('End Date'),
-                _buildDateTile(_planEndDate, (date) {
+                _buildSectionLabel(context, 'End Date'),
+                _buildDateTile(context, _planEndDate, (date) {
                   setState(() {
                     _planEndDate = date;
                   });
                 }),
               ] else if (_mode == TransactionMode.transfer) ...[
                 // Transfer form
-                _buildSectionLabel('From Account'),
+                _buildSectionLabel(context, 'From Account'),
                 DropdownButtonFormField<String>(
                   value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
-                  dropdownColor: AppTheme.paperCard,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  dropdownColor: context.cardBg,
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   decoration: const InputDecoration(
                     hintText: 'Select source account',
                   ),
@@ -707,7 +1000,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             size: 18,
                           ),
                           const SizedBox(width: 8),
-                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                          Text(acc.name, style: GoogleFonts.inter(color: context.textPrimary)),
                         ],
                       ),
                     );
@@ -721,11 +1014,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('To Account'),
+                _buildSectionLabel(context, 'To Account'),
                 DropdownButtonFormField<String>(
                   value: accounts.any((a) => a.id == _selectedToAccountId) ? _selectedToAccountId : null,
-                  dropdownColor: AppTheme.paperCard,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  dropdownColor: context.cardBg,
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   decoration: const InputDecoration(
                     hintText: 'Select destination account',
                   ),
@@ -740,7 +1033,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             size: 18,
                           ),
                           const SizedBox(width: 8),
-                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                          Text(acc.name, style: GoogleFonts.inter(color: context.textPrimary)),
                         ],
                       ),
                     );
@@ -754,44 +1047,60 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Description (Optional)'),
+                _buildSectionLabel(context, 'Description (Optional)'),
                 TextFormField(
                   controller: _titleController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.inter(color: context.textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'e.g. Transfer to Savings',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Date'),
-                _buildDateTile(_selectedDate, (date) {
+                _buildSectionLabel(context, 'Date'),
+                _buildDateTile(context, _selectedDate, (date) {
                   setState(() {
                     _selectedDate = date;
                   });
                 }),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Notes (Optional)'),
+                _buildSectionLabel(context, 'Notes (Optional)'),
                 TextFormField(
                   controller: _noteController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.inter(color: context.textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'Add a note...',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                 ),
               ] else ...[
                 // Transaction Form (Expense/Income)
-                ...[
-                  _buildCompactCategorySection(context, filteredCategories, currentCategoryType, selectedCategory),
-                  const SizedBox(height: 16),
-                ],
+                InkLedgerCategorySelector(
+                  categoryType: currentCategoryType,
+                  selectedCategoryId: _selectedCategoryId,
+                  selectedSubCategoryName: _selectedSubCategoryName,
+                  onCategorySelected: (catId, subCat) {
+                    setState(() {
+                      _selectedCategoryId = catId;
+                      _selectedSubCategoryName = subCat;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    _buildSectionLabel('Account'),
+                    Row(
+                      children: [
+                        _buildSectionLabel(context, 'Account'),
+                        const SizedBox(width: 4),
+                        Text('*', style: GoogleFonts.inter(color: context.brick, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
                       child: GestureDetector(
@@ -828,21 +1137,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppTheme.paper,
-                            border: Border.all(color: AppTheme.line),
+                            color: context.surface2,
+                            border: Border.all(color: context.line),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(IconUtils.getIcon('cash'), size: 12, color: AppTheme.muted),
+                              Icon(IconUtils.getIcon('cash'), size: 12, color: context.textMuted),
                               const SizedBox(width: 4),
                               Text(
                                 'Cash',
                                 style: GoogleFonts.inter(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.muted,
+                                  color: context.textMuted,
                                 ),
                               ),
                             ],
@@ -854,8 +1163,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 DropdownButtonFormField<String>(
                   value: accounts.any((a) => a.id == _selectedAccountId) ? _selectedAccountId : null,
-                  dropdownColor: AppTheme.paperCard,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  dropdownColor: context.cardBg,
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   decoration: const InputDecoration(
                     hintText: 'Select Account',
                   ),
@@ -870,7 +1179,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             size: 18,
                           ),
                           const SizedBox(width: 8),
-                          Text(acc.name, style: GoogleFonts.inter(color: AppTheme.textDark)),
+                          Text(acc.name, style: GoogleFonts.inter(color: context.textPrimary)),
                         ],
                       ),
                     );
@@ -884,41 +1193,41 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Title / Merchant'),
-                TextFormField(
-                  controller: _titleController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Starbucks',
-                  ),
-                  validator: (v) => v == null || v.isEmpty ? 'Required' : null,
-                ),
+                _buildSectionLabel(context, 'Title / Merchant'),
+                _buildTitleAutocompleteField(context, expenseProvider),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Date'),
-                _buildDateTile(_selectedDate, (date) {
+                _buildSectionLabel(context, 'Date'),
+                _buildDateTile(context, _selectedDate, (date) {
                   setState(() {
                     _selectedDate = date;
                   });
                 }),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Notes (Optional)'),
+                _buildSectionLabel(context, 'Notes (Optional)'),
                 TextFormField(
                   controller: _noteController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.inter(color: context.textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'Add a note...',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                _buildReceiptProofSection(),
+                _buildReceiptProofSection(context),
+                const SizedBox(height: 12),
 
-                _buildSectionLabel('Payment Status'),
+                if (_mode == TransactionMode.expense) ...[
+                  _buildSplitBillSection(context),
+                  const SizedBox(height: 16),
+                ],
+
+                _buildSectionLabel(context, 'Payment Status'),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.paper2,
+                    color: context.surface2,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -929,7 +1238,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: _paymentStatus == PaymentStatus.settled ? AppTheme.ink : Colors.transparent,
+                              color: _paymentStatus == PaymentStatus.settled ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             alignment: Alignment.center,
@@ -938,7 +1247,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: _paymentStatus == PaymentStatus.settled ? AppTheme.goldSoft : AppTheme.muted,
+                                color: _paymentStatus == PaymentStatus.settled ? (context.isDark ? const Color(0xFF121C15) : AppTheme.goldSoft) : context.textMuted,
                               ),
                             ),
                           ),
@@ -950,7 +1259,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: _paymentStatus == PaymentStatus.pending ? AppTheme.gold : Colors.transparent,
+                              color: _paymentStatus == PaymentStatus.pending ? context.gold : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             alignment: Alignment.center,
@@ -959,7 +1268,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: _paymentStatus == PaymentStatus.pending ? Colors.white : AppTheme.muted,
+                                color: _paymentStatus == PaymentStatus.pending ? Colors.white : context.textMuted,
                               ),
                             ),
                           ),
@@ -970,90 +1279,74 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 ),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel('Payment Method (Optional)'),
-                DropdownButtonFormField<String>(
-                  value: _selectedPaymentMethod,
-                  dropdownColor: AppTheme.paperCard,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
-                  decoration: const InputDecoration(
-                    hintText: 'Select payment method',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('None (Default)')),
-                    DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'Credit Card', child: Text('Credit Card')),
-                    DropdownMenuItem(value: 'Debit Card', child: Text('Debit Card')),
-                    DropdownMenuItem(value: 'Bank Transfer', child: Text('Bank Transfer')),
-                    DropdownMenuItem(value: 'bKash', child: Text('bKash')),
-                    DropdownMenuItem(value: 'Nagad', child: Text('Nagad')),
-                    DropdownMenuItem(value: 'Other', child: Text('Other')),
-                  ],
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedPaymentMethod = val;
-                    });
-                  },
-                ),
+                _buildPaymentMethodSelector(context),
                 const SizedBox(height: 16),
 
-                _buildSectionLabel(_mode == TransactionMode.income ? 'Payer / Source (Optional)' : 'Payee / Recipient (Optional)'),
+                _buildSectionLabel(context, _mode == TransactionMode.income ? 'Payer / Source (Optional)' : 'Payee / Recipient (Optional)'),
                 TextFormField(
                   controller: _payerPayeeController,
-                  style: GoogleFonts.inter(color: AppTheme.textDark),
+                  style: GoogleFonts.inter(color: context.textPrimary),
                   decoration: InputDecoration(
                     hintText: _mode == TransactionMode.income ? 'e.g. Client or Employer' : 'e.g. Restaurant or Merchant',
+                    hintStyle: GoogleFonts.inter(color: context.textMuted),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                if (tripPlans.isNotEmpty) ...[
-                  _buildSectionLabel('Link to Trip Plan (Optional)'),
+                if (tripPlans.isNotEmpty || goals.isNotEmpty) ...[
+                  _buildSectionLabel(context, 'Link to Plan / Goal (Optional)'),
                   DropdownButtonFormField<String>(
-                    value: (tripPlans.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
-                    dropdownColor: AppTheme.paperCard,
-                    style: GoogleFonts.inter(color: AppTheme.textDark),
+                    value: (tripPlans.any((p) => p.id == _selectedPlanId) ||
+                            goals.any((g) => g.id == _selectedPlanId) ||
+                            _selectedPlanId == null)
+                        ? _selectedPlanId
+                        : null,
+                    dropdownColor: context.cardBg,
+                    style: GoogleFonts.inter(color: context.textPrimary),
                     decoration: const InputDecoration(
-                      hintText: 'No trip plan linked',
+                      hintText: 'None (Unlinked transaction)',
                     ),
                     items: [
                       const DropdownMenuItem<String>(
                         value: null,
-                        child: Text('No trip plan linked'),
+                        child: Text('None (Unlinked transaction)'),
                       ),
                       ...tripPlans.map((p) {
                         return DropdownMenuItem<String>(
                           value: p.id,
-                          child: Text(p.title),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.gold.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text('TRIP', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.gold)),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(p.title, style: GoogleFonts.inter(fontSize: 13, color: context.textPrimary)),
+                            ],
+                          ),
                         );
                       }),
-                    ],
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedPlanId = val;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                if (goals.isNotEmpty) ...[
-                  _buildSectionLabel('Link to Goal (Optional)'),
-                  DropdownButtonFormField<String>(
-                    value: (goals.any((p) => p.id == _selectedPlanId) || _selectedPlanId == null) ? _selectedPlanId : null,
-                    dropdownColor: AppTheme.paperCard,
-                    style: GoogleFonts.inter(color: AppTheme.textDark),
-                    decoration: const InputDecoration(
-                      hintText: 'No goal linked',
-                    ),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('No goal linked'),
-                      ),
-                      ...goals.map((p) {
+                      ...goals.map((g) {
                         return DropdownMenuItem<String>(
-                          value: p.id,
-                          child: Text(p.title),
+                          value: g.id,
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: context.emerald.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text('GOAL', style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: context.emerald)),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(g.title, style: GoogleFonts.inter(fontSize: 13, color: context.textPrimary)),
+                            ],
+                          ),
                         );
                       }),
                     ],
@@ -1072,15 +1365,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       'Make this recurring',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
+                        color: context.textPrimary,
                       ),
                     ),
                     subtitle: Text(
                       'Automatically track this transaction schedule',
-                      style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 12),
+                      style: GoogleFonts.inter(color: context.textMuted, fontSize: 12),
                     ),
                     value: _isRecurring,
-                    activeColor: _mode == TransactionMode.income ? AppTheme.emerald : AppTheme.gold,
+                    activeTrackColor: _mode == TransactionMode.income ? context.emerald : context.gold,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) {
                       setState(() {
@@ -1093,11 +1386,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                   if (_isRecurring) ...[
                     const SizedBox(height: 16),
-                    _buildSectionLabel('Frequency'),
+                    _buildSectionLabel(context, 'Frequency'),
                     DropdownButtonFormField<String>(
                       value: _recurringFrequency,
-                      dropdownColor: AppTheme.paperCard,
-                      style: GoogleFonts.inter(color: AppTheme.textDark),
+                      dropdownColor: context.cardBg,
+                      style: GoogleFonts.inter(color: context.textPrimary),
                       decoration: const InputDecoration(
                         hintText: 'Select Frequency',
                       ),
@@ -1118,8 +1411,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    _buildSectionLabel('Next Due Date'),
-                    _buildDateTile(_recurringNextDueDate, (date) {
+                    _buildSectionLabel(context, 'Next Due Date'),
+                    _buildDateTile(context, _recurringNextDueDate, (date) {
                       setState(() {
                         _recurringNextDueDate = date;
                       });
@@ -1132,7 +1425,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
               ElevatedButton(
                 onPressed: _saveExpense,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
+                  backgroundColor: context.gold,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(50),
                   shape: RoundedRectangleBorder(
@@ -1163,7 +1456,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: _deleteExpense,
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.brick),
+                  style: TextButton.styleFrom(foregroundColor: context.brick),
                   child: const Text('Delete Transaction'),
                 ),
               ],
@@ -1173,8 +1466,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
       ),
     );
   }
-
-  Widget _buildToggleButton(String label, TransactionMode mode) {
+  Widget _buildToggleButton(BuildContext context, String label, TransactionMode mode) {
     final isActive = _mode == mode;
     return Expanded(
       child: GestureDetector(
@@ -1189,14 +1481,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isActive ? AppTheme.ink : Colors.transparent,
+            color: isActive ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: GoogleFonts.inter(
-              color: isActive ? AppTheme.goldSoft : AppTheme.muted,
+              color: isActive ? (context.isDark ? const Color(0xFF121C15) : AppTheme.goldSoft) : context.textMuted,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               fontSize: 13,
             ),
@@ -1206,13 +1498,13 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
   }
 
-  Widget _buildSectionLabel(String label) {
+  Widget _buildSectionLabel(BuildContext context, String label) {
     return Padding(
       padding: const EdgeInsets.only(top: 18, bottom: 8),
       child: Text(
         label,
         style: GoogleFonts.inter(
-          color: AppTheme.muted,
+          color: context.textMuted,
           fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
@@ -1221,7 +1513,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
     );
   }
 
-  Widget _buildDateTile(DateTime date, Function(DateTime) onDatePicked) {
+  Widget _buildDateTile(BuildContext context, DateTime date, Function(DateTime) onDatePicked) {
     return InkWell(
       onTap: () async {
         final picked = await showDatePicker(
@@ -1237,36 +1529,36 @@ class _AddExpensePageState extends State<AddExpensePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.paperCard,
+          color: context.cardBg,
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-          border: Border.all(color: AppTheme.line),
+          border: Border.all(color: context.line),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               DateFormatter.format(date),
-              style: GoogleFonts.inter(color: AppTheme.textDark),
+              style: GoogleFonts.inter(color: context.textPrimary),
             ),
-            const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.muted),
+            Icon(Icons.calendar_today_rounded, size: 18, color: context.textMuted),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildReceiptProofSection() {
+  Widget _buildReceiptProofSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel('Receipt or Proof (Optional)'),
+        _buildSectionLabel(context, 'Receipt or Proof (Optional)'),
         if (_attachmentPath != null) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.paper2,
+              color: context.surface2,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             child: Row(
               children: [
@@ -1274,9 +1566,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppTheme.paperCard,
+                    color: context.cardBg,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.line),
+                    border: Border.all(color: context.line),
                   ),
                   child: _attachmentType == 'image' && File(_attachmentPath!).existsSync()
                       ? ClipRRect(
@@ -1286,7 +1578,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             fit: BoxFit.cover,
                           ),
                         )
-                      : const Icon(Icons.description_outlined, color: AppTheme.gold, size: 24),
+                      : Icon(Icons.description_outlined, color: context.gold, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1298,7 +1590,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textDark,
+                          color: context.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1308,15 +1600,15 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         _attachmentType?.toUpperCase() ?? 'FILE',
                         style: GoogleFonts.inter(
                           fontSize: 11,
-                          color: AppTheme.muted,
+                          color: context.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded, color: AppTheme.muted),
-                  color: AppTheme.paperCard,
+                  icon: Icon(Icons.more_vert_rounded, color: context.textMuted),
+                  color: context.cardBg,
                   onSelected: (val) {
                     if (val == 'replace_gallery') _pickAttachment('gallery');
                     if (val == 'replace_camera') _pickAttachment('camera');
@@ -1324,21 +1616,21 @@ class _AddExpensePageState extends State<AddExpensePage> {
                     if (val == 'remove') _confirmRemoveAttachment();
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'replace_gallery',
-                      child: Text('Replace from Gallery'),
+                      child: Text('Replace from Gallery', style: TextStyle(color: context.textPrimary)),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'replace_camera',
-                      child: Text('Replace from Camera'),
+                      child: Text('Replace from Camera', style: TextStyle(color: context.textPrimary)),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'replace_file',
-                      child: Text('Replace with File'),
+                      child: Text('Replace with File', style: TextStyle(color: context.textPrimary)),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'remove',
-                      child: Text('Remove Proof', style: TextStyle(color: AppTheme.brick)),
+                      child: Text('Remove Proof', style: TextStyle(color: context.brick)),
                     ),
                   ],
                 ),
@@ -1353,11 +1645,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   onPressed: () => _pickAttachment('gallery'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    side: const BorderSide(color: AppTheme.line),
+                    side: BorderSide(color: context.line),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.photo_library_outlined, size: 16, color: AppTheme.gold),
-                  label: Text('Gallery', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                  icon: Icon(Icons.photo_library_outlined, size: 16, color: context.gold),
+                  label: Text('Gallery', style: GoogleFonts.inter(fontSize: 12, color: context.textPrimary)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1366,11 +1658,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   onPressed: () => _pickAttachment('camera'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    side: const BorderSide(color: AppTheme.line),
+                    side: BorderSide(color: context.line),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.camera_alt_outlined, size: 16, color: AppTheme.gold),
-                  label: Text('Camera', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                  icon: Icon(Icons.camera_alt_outlined, size: 16, color: context.gold),
+                  label: Text('Camera', style: GoogleFonts.inter(fontSize: 12, color: context.textPrimary)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1379,11 +1671,11 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   onPressed: () => _pickAttachment('file'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    side: const BorderSide(color: AppTheme.line),
+                    side: BorderSide(color: context.line),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  icon: const Icon(Icons.attach_file_rounded, size: 16, color: AppTheme.gold),
-                  label: Text('File', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark)),
+                  icon: Icon(Icons.attach_file_rounded, size: 16, color: context.gold),
+                  label: Text('File', style: GoogleFonts.inter(fontSize: 12, color: context.textPrimary)),
                 ),
               ),
             ],
@@ -1401,100 +1693,40 @@ class _AddExpensePageState extends State<AddExpensePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildSectionLabel('Category'),
+            _buildSectionLabel(context, 'Category'),
             InkWell(
-              onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CategoryManagementPage()),
+                );
+              },
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Row(
                   children: [
                     Text(
-                      'All Categories (${filteredCategories.length})',
+                      'Manage categories',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.gold,
+                        color: context.gold,
                       ),
                     ),
                     const SizedBox(width: 2),
-                    const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: AppTheme.gold),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 10, color: context.gold),
                   ],
                 ),
               ),
             ),
           ],
         ),
-        // Active Category Card or Selector Row
-        if (selectedCategory != null)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppTheme.paperCard,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppTheme.line),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppTheme.getCategoryColor(selectedCategory.id, selectedCategory.name).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      IconUtils.getIcon(IconUtils.getIconName(selectedCategory.icon), categoryName: selectedCategory.name),
-                      size: 14,
-                      color: AppTheme.getCategoryColor(selectedCategory.id, selectedCategory.name),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        selectedCategory.name,
-                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                      ),
-                      if (_selectedSubCategoryName != null)
-                        Text(
-                          'Subcategory: $_selectedSubCategoryName',
-                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
-                        ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.paper2,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.line),
-                    ),
-                    child: Row(
-                      children: [
-                        Text('Change', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.ink)),
-                        const Icon(Icons.arrow_drop_down_rounded, size: 16, color: AppTheme.ink),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        // Quick Picks Horizontal Chips
+        // Step 1: Parent Categories Short Scrollable Selector
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              ...filteredCategories.take(6).map((category) {
+              ...filteredCategories.map((category) {
                 final isSelected = _selectedCategoryId == category.id;
                 final catColor = AppTheme.getCategoryColor(category.id, category.name);
                 return GestureDetector(
@@ -1507,12 +1739,12 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   },
                   child: Container(
                     margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.ink : AppTheme.paper2,
+                      color: isSelected ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : context.surface2,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSelected ? AppTheme.ink : AppTheme.line,
+                        color: isSelected ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : context.line,
                         width: 1,
                       ),
                     ),
@@ -1521,16 +1753,16 @@ class _AddExpensePageState extends State<AddExpensePage> {
                       children: [
                         Icon(
                           IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
-                          color: isSelected ? AppTheme.goldSoft : catColor,
-                          size: 13,
+                          color: isSelected ? (context.isDark ? const Color(0xFF121C15) : AppTheme.goldSoft) : catColor,
+                          size: 14,
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                         Text(
                           category.name,
                           style: GoogleFonts.inter(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? Colors.white : AppTheme.textDark,
+                            color: isSelected ? (context.isDark ? const Color(0xFF121C15) : Colors.white) : context.textPrimary,
                           ),
                         ),
                       ],
@@ -1538,21 +1770,39 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   ),
                 );
               }),
+              // Inline Add Category option
               GestureDetector(
-                onTap: () => _showAllCategoriesSheet(context, filteredCategories, currentCategoryType),
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (context) => CreateCategorySheet(
+                      categoryProvider: context.read<CategoryProvider>(),
+                      type: currentCategoryType,
+                      onSave: (newCategoryId) {
+                        setState(() {
+                          _selectedCategoryId = newCategoryId;
+                          _selectedSubCategoryName = null;
+                          _selectedSubCategoryIconName = null;
+                        });
+                      },
+                    ),
+                  );
+                },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
                   decoration: BoxDecoration(
-                    color: AppTheme.paper2,
+                    color: context.surface2,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.line),
+                    border: Border.all(color: context.line),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.more_horiz_rounded, size: 14, color: AppTheme.muted),
+                      Icon(Icons.add_rounded, size: 14, color: context.gold),
                       const SizedBox(width: 3),
-                      Text('More', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                      Text('New', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: context.gold)),
                     ],
                   ),
                 ),
@@ -1561,170 +1811,68 @@ class _AddExpensePageState extends State<AddExpensePage> {
           ),
         ),
         const SizedBox(height: 10),
-        if (_mode == TransactionMode.expense && selectedCategory != null)
+
+        // Step 2: Selected Parent's Subcategories (Appears only after selecting parent)
+        if (selectedCategory != null)
           _buildSubCategorySection(context, selectedCategory),
       ],
     );
   }
 
-  void _showAllCategoriesSheet(BuildContext context, List<Category> categories, CategoryType type) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: AppTheme.paper,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Select ${type == CategoryType.expense ? 'Expense' : 'Income'} Category',
-                    style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.muted, size: 20),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppTheme.line),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: categories.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, idx) {
-                  if (idx == categories.length) {
-                    return InkWell(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => CreateCategorySheet(
-                            categoryProvider: context.read<CategoryProvider>(),
-                            type: type,
-                            onSave: (newCategoryId) {
-                              setState(() {
-                                _selectedCategoryId = newCategoryId;
-                                _selectedSubCategoryName = null;
-                                _selectedSubCategoryIconName = null;
-                              });
-                            },
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.paperCard,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppTheme.line, strokeAlign: BorderSide.strokeAlignCenter),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add_circle_outline_rounded, color: AppTheme.gold, size: 18),
-                            const SizedBox(width: 8),
-                            Text('Create Custom Category', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  final cat = categories[idx];
-                  final isSelected = _selectedCategoryId == cat.id;
-                  final catColor = AppTheme.getCategoryColor(cat.id, cat.name);
-
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedCategoryId = cat.id;
-                        _selectedSubCategoryName = null;
-                        _selectedSubCategoryIconName = null;
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.ink : AppTheme.paperCard,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: isSelected ? AppTheme.ink : AppTheme.line),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppTheme.goldSoft.withValues(alpha: 0.2) : catColor.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Icon(
-                                IconUtils.getIcon(IconUtils.getIconName(cat.icon), categoryName: cat.name),
-                                size: 16,
-                                color: isSelected ? AppTheme.goldSoft : catColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              cat.name,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: isSelected ? Colors.white : AppTheme.textDark,
-                              ),
-                            ),
-                          ),
-                          if (isSelected)
-                            const Icon(Icons.check_rounded, color: AppTheme.goldSoft, size: 18),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSubCategorySection(BuildContext context, Category category) {
     final catColor = AppTheme.getCategoryColor(category.id, category.name);
+    final noSubSelected = _selectedSubCategoryName == null;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionLabel('Sub-category (Optional)'),
-        const SizedBox(height: 8),
+        _buildSectionLabel(context, '${category.name} Subcategories'),
+        const SizedBox(height: 6),
         SizedBox(
-          height: 44,
+          height: 38,
           child: ListView(
             scrollDirection: Axis.horizontal,
             children: [
+              // No subcategory chip
+              Padding(
+                padding: const EdgeInsets.only(right: 6.0),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedSubCategoryName = null;
+                      _selectedSubCategoryIconName = null;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: noSubSelected ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : context.surface2,
+                      border: Border.all(
+                        color: noSubSelected ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink) : context.line,
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'No subcategory',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: noSubSelected ? FontWeight.bold : FontWeight.w500,
+                          color: noSubSelected ? (context.isDark ? const Color(0xFF121C15) : Colors.white) : context.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Existing Subcategories
               ...category.subCategories.map((sub) {
                 final isSelected = _selectedSubCategoryName == sub.name;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
+                  padding: const EdgeInsets.only(right: 6.0),
                   child: InkWell(
                     onTap: () {
                       setState(() {
@@ -1737,32 +1885,32 @@ class _AddExpensePageState extends State<AddExpensePage> {
                         }
                       });
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: isSelected ? catColor.withOpacity(0.15) : AppTheme.paper2,
+                        color: isSelected ? catColor.withValues(alpha: 0.15) : context.surface2,
                         border: Border.all(
-                          color: isSelected ? catColor : AppTheme.line,
-                          width: isSelected ? 2 : 1,
+                          color: isSelected ? catColor : context.line,
+                          width: isSelected ? 1.5 : 1,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             IconUtils.getIcon(IconUtils.getIconName(sub.icon), categoryName: sub.name),
-                            size: 14,
-                            color: isSelected ? catColor : AppTheme.muted,
+                            size: 13,
+                            color: isSelected ? catColor : context.textMuted,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 5),
                           Text(
                             sub.name,
                             style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppTheme.textDark : AppTheme.muted,
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? context.textPrimary : context.textPrimary.withValues(alpha: 0.8),
                             ),
                           ),
                         ],
@@ -1772,33 +1920,35 @@ class _AddExpensePageState extends State<AddExpensePage> {
                 );
               }),
               
-              // Trailing "+" chip
-              InkWell(
-                onTap: () => _showAddSubCategoryDialog(context, category),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.paper2,
-                    border: Border.all(color: AppTheme.line, width: 1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add, size: 14, color: AppTheme.muted),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Add',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppTheme.muted,
+              // "+ Add subcategory" action chip (Expense only)
+              if (category.type != CategoryType.income)
+                InkWell(
+                  onTap: () => _showAddSubCategoryDialog(context, category),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: context.surface2,
+                      border: Border.all(color: context.line, width: 1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, size: 13, color: context.gold),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Add subcategory',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: context.gold,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -1829,9 +1979,9 @@ class _AddExpensePageState extends State<AddExpensePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         decoration: BoxDecoration(
-          color: AppTheme.paper2,
+          color: context.surface2,
           border: Border.all(
-            color: AppTheme.line,
+            color: context.line,
             width: 1,
           ),
           borderRadius: BorderRadius.circular(10),
@@ -1839,7 +1989,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add, color: AppTheme.muted, size: 18),
+            Icon(Icons.add, color: context.textMuted, size: 18),
             const SizedBox(height: 4),
             Text(
               'Add Category',
@@ -1848,7 +1998,7 @@ class _AddExpensePageState extends State<AddExpensePage> {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.inter(
                 fontSize: 10,
-                color: AppTheme.muted,
+                color: context.textMuted,
               ),
             ),
           ],
@@ -1863,15 +2013,18 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: AppTheme.paperCard,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: dialogCtx.bg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(color: dialogCtx.line),
+              ),
               title: Text(
                 'New Sub-category',
-                style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: dialogCtx.textPrimary),
               ),
               content: SingleChildScrollView(
                 child: Column(
@@ -1880,21 +2033,22 @@ class _AddExpensePageState extends State<AddExpensePage> {
                   children: [
                     Text(
                       'Sub-category Name',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(fontSize: 12, color: dialogCtx.textMuted, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: nameController,
-                      style: GoogleFonts.inter(color: AppTheme.textDark),
-                      decoration: const InputDecoration(
+                      style: GoogleFonts.inter(color: dialogCtx.textPrimary),
+                      decoration: InputDecoration(
                         hintText: 'e.g. Coffee, Uber',
+                        hintStyle: GoogleFonts.inter(color: dialogCtx.textMuted),
                       ),
                       onChanged: (_) => setDialogState(() {}),
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Select Icon',
-                      style: GoogleFonts.inter(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.inter(fontSize: 12, color: dialogCtx.textMuted, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     SizedBox(
@@ -1917,14 +2071,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: isSelected ? catColor.withOpacity(0.15) : AppTheme.paper2,
+                                color: isSelected ? catColor.withValues(alpha: 0.15) : dialogCtx.surface2,
                                 border: Border.all(
-                                  color: isSelected ? catColor : AppTheme.line,
+                                  color: isSelected ? catColor : dialogCtx.line,
                                   width: isSelected ? 2 : 1,
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: Icon(icon, color: isSelected ? catColor : AppTheme.muted, size: 20),
+                              child: Icon(icon, color: isSelected ? catColor : dialogCtx.textMuted, size: 20),
                             ),
                           );
                         },
@@ -1935,10 +2089,14 @@ class _AddExpensePageState extends State<AddExpensePage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: Text('Cancel', style: GoogleFonts.inter(color: dialogCtx.textMuted)),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: dialogCtx.isDark ? AppTheme.goldSoft : AppTheme.ink,
+                    foregroundColor: dialogCtx.isDark ? const Color(0xFF121C15) : AppTheme.goldSoft,
+                  ),
                   onPressed: nameController.text.trim().isEmpty || selectedIconName == null
                       ? null
                       : () async {
@@ -1963,8 +2121,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
                               _selectedSubCategoryIconName = selectedIconName;
                             });
 
-                            if (context.mounted) {
-                              Navigator.pop(context);
+                            if (dialogCtx.mounted) {
+                              Navigator.pop(dialogCtx);
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -1974,13 +2132,811 @@ class _AddExpensePageState extends State<AddExpensePage> {
                             }
                           }
                         },
-                  child: Text('Save', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildFrequentSuggestions(BuildContext context, ExpenseProvider provider) {
+    final suggestions = provider.getTopFrequentSuggestions(maxResults: 5);
+    if (suggestions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 12, color: context.gold),
+              const SizedBox(width: 4),
+              Text(
+                'FREQUENT QUICK PICKS',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.6,
+                  color: context.gold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: suggestions.map((s) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6.0),
+                  child: ActionChip(
+                    avatar: CircleAvatar(
+                      backgroundColor: s.type == CategoryType.income
+                          ? context.emerald.withValues(alpha: 0.2)
+                          : context.brick.withValues(alpha: 0.2),
+                      radius: 9,
+                      child: Icon(
+                        s.type == CategoryType.income ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                        size: 10,
+                        color: s.type == CategoryType.income ? context.emerald : context.brick,
+                      ),
+                    ),
+                    label: Text(
+                      s.title,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                    backgroundColor: context.surface2,
+                    side: BorderSide(color: context.line),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                    onPressed: () {
+                      HapticsService.selection();
+                      _applySuggestion(s);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTitleAutocompleteField(BuildContext context, ExpenseProvider provider) {
+    return RawAutocomplete<ExpenseSuggestion>(
+      textEditingController: _titleController,
+      focusNode: _titleFocusNode,
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.trim().length < 2) {
+          return const Iterable<ExpenseSuggestion>.empty();
+        }
+        return provider.getFilteredTitleSuggestions(textEditingValue.text.trim());
+      },
+      displayStringForOption: (ExpenseSuggestion option) => option.title,
+      onSelected: (ExpenseSuggestion selection) {
+        HapticsService.selection();
+        _applySuggestion(selection);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          style: GoogleFonts.inter(color: context.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'e.g. Starbucks, Supermarket, Rent',
+            hintStyle: GoogleFonts.inter(color: context.textMuted),
+            suffixIcon: controller.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(Icons.clear, size: 16, color: context.textMuted),
+                    onPressed: () {
+                      controller.clear();
+                      setState(() {});
+                    },
+                  )
+                : null,
+          ),
+          validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(12),
+            color: context.cardBg,
+            child: Container(
+              width: MediaQuery.of(context).size.width - 48,
+              constraints: const BoxConstraints(maxHeight: 180),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.goldLine),
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                shrinkWrap: true,
+                itemCount: options.length,
+                separatorBuilder: (_, __) => Divider(height: 1, color: context.line),
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return ListTile(
+                    dense: true,
+                    title: Text(
+                      option.title,
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${option.type.name.toUpperCase()} • ${option.usageCount} logs • ~${CurrencyFormatter.format(option.typicalAmount)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: context.textMuted,
+                      ),
+                    ),
+                    trailing: Icon(Icons.north_west_rounded, size: 14, color: context.gold),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentMethodSelector(BuildContext context) {
+    final standardMethods = ['Cash', 'Credit Card', 'Debit Card', 'Bank Transfer', 'Custom'];
+    final isCustomSelected = _selectedPaymentMethod != null &&
+        !['Cash', 'Credit Card', 'Debit Card', 'Bank Transfer'].contains(_selectedPaymentMethod);
+    final currentDropdownValue = isCustomSelected ? 'Custom' : _selectedPaymentMethod;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _buildSectionLabel(context, 'Payment Method'),
+            const SizedBox(width: 4),
+            Text('*', style: GoogleFonts.inter(color: context.brick, fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: standardMethods.contains(currentDropdownValue) ? currentDropdownValue : null,
+          dropdownColor: context.cardBg,
+          style: GoogleFonts.inter(color: context.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Select payment method',
+            hintStyle: GoogleFonts.inter(color: context.textMuted, fontSize: 13),
+          ),
+          items: [
+            DropdownMenuItem(
+              value: 'Cash',
+              child: Row(
+                children: [
+                  Icon(Icons.payments_outlined, size: 16, color: context.emerald),
+                  const SizedBox(width: 10),
+                  Text('Cash', style: GoogleFonts.inter(color: context.textPrimary)),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'Credit Card',
+              child: Row(
+                children: [
+                  Icon(Icons.credit_card_rounded, size: 16, color: context.gold),
+                  const SizedBox(width: 10),
+                  Text('Credit Card', style: GoogleFonts.inter(color: context.textPrimary)),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'Debit Card',
+              child: Row(
+                children: [
+                  Icon(Icons.credit_score_rounded, size: 16, color: Colors.blueAccent),
+                  const SizedBox(width: 10),
+                  Text('Debit Card', style: GoogleFonts.inter(color: context.textPrimary)),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'Bank Transfer',
+              child: Row(
+                children: [
+                  Icon(Icons.account_balance_rounded, size: 16, color: Colors.purpleAccent),
+                  const SizedBox(width: 10),
+                  Text('Bank Transfer', style: GoogleFonts.inter(color: context.textPrimary)),
+                ],
+              ),
+            ),
+            DropdownMenuItem(
+              value: 'Custom',
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 16, color: context.gold),
+                  const SizedBox(width: 10),
+                  Text('Custom', style: GoogleFonts.inter(color: context.textPrimary)),
+                ],
+              ),
+            ),
+          ],
+          onChanged: (val) {
+            HapticsService.selection();
+            setState(() {
+              if (val == 'Custom') {
+                _selectedPaymentMethod = _customPaymentMethodController.text.trim().isNotEmpty
+                    ? _customPaymentMethodController.text.trim()
+                    : 'Custom';
+              } else {
+                _selectedPaymentMethod = val;
+              }
+            });
+          },
+          validator: (v) => (v == null || v.isEmpty) ? 'Please select a payment method' : null,
+        ),
+        if (currentDropdownValue == 'Custom' || isCustomSelected) ...[
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _customPaymentMethodController,
+            style: GoogleFonts.inter(color: context.textPrimary, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Enter custom payment method (e.g. bKash, Apple Pay, PayPal)',
+              hintStyle: GoogleFonts.inter(fontSize: 12, color: context.textMuted),
+              prefixIcon: Icon(Icons.edit_note_rounded, size: 18, color: context.gold),
+            ),
+            onChanged: (val) {
+              setState(() {
+                _selectedPaymentMethod = val.trim().isNotEmpty ? val.trim() : 'Custom';
+              });
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSplitBillSection(BuildContext context) {
+    if (_mode != TransactionMode.expense) return const SizedBox.shrink();
+
+    final currencySymbol = context.watch<SettingsProvider>().currentSymbol;
+    final totalBill = double.tryParse(_totalBillAmountController.text.trim()) ?? 0.0;
+    final myAmount = double.tryParse(_amountController.text.trim()) ?? 0.0;
+    final othersCount = _splitPeopleCount > 1 ? _splitPeopleCount - 1 : 1;
+    final remainingForOthers = (totalBill - myAmount).clamp(0.0, totalBill);
+    final eachOtherShare = remainingForOthers / othersCount;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: context.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(
+          color: _isSplit ? context.gold : context.line,
+          width: _isSplit ? 1.4 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _isSplit ? context.gold.withValues(alpha: 0.15) : context.surface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.call_split_rounded,
+                color: _isSplit ? context.gold : context.textMuted,
+                size: 20,
+              ),
+            ),
+            title: Text(
+              'Split Bill with Friends / Group',
+              style: GoogleFonts.fraunces(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: context.textPrimary,
+              ),
+            ),
+            subtitle: Text(
+              _isSplit
+                  ? (_splitType == 'equally' ? 'Split equally across group' : 'Custom partial contribution')
+                  : 'Track counterparties and shares',
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: context.textMuted,
+              ),
+            ),
+            trailing: Switch.adaptive(
+              value: _isSplit,
+              activeColor: context.gold,
+              onChanged: (val) {
+                HapticsService.selection();
+                setState(() {
+                  _isSplit = val;
+                  if (_isSplit) {
+                    if (_totalBillAmountController.text.isEmpty && _amountController.text.isNotEmpty) {
+                      _totalBillAmountController.text = _amountController.text;
+                    }
+                    _updateQuickSplit();
+                  }
+                });
+              },
+            ),
+          ),
+          if (_isSplit) ...[
+            Divider(height: 1, color: context.line),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Split Mode: Equally vs Contribute (Partially)
+                  _buildSectionLabel(context, 'Split Type'),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: context.surface2,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticsService.selection();
+                              setState(() {
+                                _splitType = 'equally';
+                                _updateQuickSplit();
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _splitType == 'equally'
+                                    ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.pie_chart_outline_rounded,
+                                    size: 15,
+                                    color: _splitType == 'equally'
+                                        ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                        : context.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Equally',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _splitType == 'equally'
+                                          ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                          : context.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticsService.selection();
+                              setState(() {
+                                _splitType = 'contribute';
+                                _updateQuickSplit();
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _splitType == 'contribute'
+                                    ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.volunteer_activism_outlined,
+                                    size: 15,
+                                    color: _splitType == 'contribute'
+                                        ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                        : context.textMuted,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Contribute',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: _splitType == 'contribute'
+                                          ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                          : context.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. Who Paid
+                  _buildSectionLabel(context, 'Who Paid the Bill?'),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: context.surface2,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticsService.selection();
+                              setState(() => _splitPaidBy = 'me');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _splitPaidBy == 'me'
+                                    ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'I Paid Full Bill',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _splitPaidBy == 'me'
+                                        ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                        : context.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              HapticsService.selection();
+                              setState(() => _splitPaidBy = 'other');
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _splitPaidBy == 'other'
+                                    ? (context.isDark ? AppTheme.goldSoft : AppTheme.ink)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Someone Else Paid',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _splitPaidBy == 'other'
+                                        ? (context.isDark ? const Color(0xFF131A15) : Colors.white)
+                                        : context.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_splitPaidBy == 'other') ...[
+                    const SizedBox(height: 12),
+                    _buildSectionLabel(context, "Payer's Name / Group"),
+                    TextFormField(
+                      controller: _splitPaidByOtherController,
+                      style: GoogleFonts.inter(color: context.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Alice, Bob, Office Group',
+                        hintStyle: GoogleFonts.inter(color: context.textMuted),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+
+                  // 3. Total Bill Amount
+                  _buildSectionLabel(context, 'Total Bill Amount ($currencySymbol)'),
+                  TextFormField(
+                    controller: _totalBillAmountController,
+                    style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: GoogleFonts.spaceGrotesk(color: context.textMuted),
+                      suffixIcon: _splitType == 'equally'
+                          ? TextButton.icon(
+                              icon: Icon(Icons.refresh_rounded, size: 14, color: context.gold),
+                              label: Text('Recalculate', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: context.gold)),
+                              onPressed: () {
+                                HapticsService.selection();
+                                setState(() => _updateQuickSplit());
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (val) {
+                      setState(() => _updateQuickSplit());
+                    },
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 4. Direct Headcount Stepper & Input
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSectionLabel(context, 'Total People to Split'),
+                          Text(
+                            'Including yourself',
+                            style: GoogleFonts.inter(fontSize: 10, color: context.textMuted),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: context.surface2,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: context.line),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.remove_rounded, size: 18, color: context.gold),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                if (_splitPeopleCount > 2) {
+                                  HapticsService.selection();
+                                  setState(() {
+                                    _splitPeopleCount--;
+                                    _splitPeopleCountController.text = _splitPeopleCount.toString();
+                                    _updateQuickSplit();
+                                  });
+                                }
+                              },
+                            ),
+                            SizedBox(
+                              width: 42,
+                              child: TextFormField(
+                                controller: _splitPeopleCountController,
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: context.textPrimary),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) {
+                                  final count = int.tryParse(val.trim());
+                                  if (count != null && count >= 2) {
+                                    setState(() {
+                                      _splitPeopleCount = count;
+                                      _updateQuickSplit();
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.add_rounded, size: 18, color: context.gold),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              onPressed: () {
+                                HapticsService.selection();
+                                setState(() {
+                                  _splitPeopleCount++;
+                                  _splitPeopleCountController.text = _splitPeopleCount.toString();
+                                  _updateQuickSplit();
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 5. Your Share Display (Non-editable in Equally, Editable in Contribute)
+                  if (_splitType == 'equally') ...[
+                    _buildSectionLabel(context, _splitPaidBy == 'me' ? 'Your Equal Share' : 'You Owe (Equal Share)'),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: context.surface2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: context.line),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.lock_outline_rounded, size: 16, color: context.gold),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Fixed Equal Share:',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: context.textPrimary),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            '$currencySymbol ${_amountController.text}',
+                            style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: context.gold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5.0, left: 4.0),
+                      child: Text(
+                        'Automatically calculated: $currencySymbol${_totalBillAmountController.text} ÷ $_splitPeopleCount = $currencySymbol${_amountController.text} each (Equal mode is non-editable)',
+                        style: GoogleFonts.inter(fontSize: 10, color: context.textMuted),
+                      ),
+                    ),
+                  ] else ...[
+                    // Contribute mode: Editable direct contribution
+                    _buildSectionLabel(context, _splitPaidBy == 'me' ? 'Your Contribution (Editable)' : 'You Owe / Contribute (Editable)'),
+                    TextFormField(
+                      controller: _userShareManualController,
+                      style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.bold, color: context.gold),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: InputDecoration(
+                        prefixText: '$currencySymbol ',
+                        prefixStyle: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: context.gold),
+                        hintText: '0',
+                        hintStyle: GoogleFonts.spaceGrotesk(color: context.textMuted),
+                        helperText: 'Enter your contribution amount • Remaining amount is shared by others',
+                        helperStyle: GoogleFonts.inter(fontSize: 10, color: context.textMuted),
+                      ),
+                      onChanged: (val) {
+                        final amt = double.tryParse(val.trim());
+                        setState(() {
+                          if (amt != null) {
+                            _amountController.text = val.trim();
+                          } else if (val.trim().isEmpty) {
+                            _amountController.text = '0';
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+
+                  // 6. Optional Participant Names Accordion
+                  Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: Row(
+                        children: [
+                          Icon(Icons.people_outline_rounded, size: 16, color: context.gold),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Participant Names (Optional)',
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: context.gold),
+                          ),
+                        ],
+                      ),
+                      children: [
+                        const SizedBox(height: 4),
+                        ...List.generate(othersCount, (index) {
+                          while (_participantNameControllers.length < index + 1) {
+                            _participantNameControllers.add(TextEditingController(text: 'Person ${index + 1}'));
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: TextFormField(
+                              controller: _participantNameControllers[index],
+                              style: GoogleFonts.inter(fontSize: 12, color: context.textPrimary),
+                              decoration: InputDecoration(
+                                labelText: 'Person ${index + 1} Name',
+                                labelStyle: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
+                                hintText: 'e.g. Alice, Bob',
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 6),
+                      ],
+                    ),
+                  ),
+
+                  // 7. Live Summary Pill
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: context.gold.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: context.gold.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _splitPaidBy == 'me'
+                                  ? (_splitType == 'equally' ? 'Your Equal Share:' : 'Your Contribution:')
+                                  : 'You Owe (${_splitPaidByOtherController.text.trim().isNotEmpty ? _splitPaidByOtherController.text.trim() : 'Payer'}):',
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold, color: context.textPrimary),
+                            ),
+                            Text(
+                              '$currencySymbol ${_amountController.text}',
+                              style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.bold, color: context.gold),
+                            ),
+                          ],
+                        ),
+                        if (othersCount > 0) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _splitPaidBy == 'me'
+                                ? 'Remaining $currencySymbol${remainingForOthers.toStringAsFixed(2)} split across $othersCount others (~$currencySymbol${eachOtherShare.toStringAsFixed(2)} each)'
+                                : 'Total bill: $currencySymbol${totalBill.toStringAsFixed(2)} • Your share/owe: $currencySymbol${_amountController.text}',
+                            style: GoogleFonts.inter(fontSize: 10, color: context.textMuted),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -10,6 +10,7 @@ import 'package:expense_tracker/features/category/presentation/pages/category_de
 import 'package:expense_tracker/core/utils/currency_formatter.dart';
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/budget/domain/entities/category_budget_status.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class CategoryManagementPage extends StatelessWidget {
   const CategoryManagementPage({super.key});
@@ -21,9 +22,9 @@ class CategoryManagementPage extends StatelessWidget {
     final categories = categoryProvider.categories;
 
     if (categoryProvider.isLoading && categories.isEmpty) {
-      return const Scaffold(
-        backgroundColor: AppTheme.paper,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.gold)),
+      return Scaffold(
+        backgroundColor: context.bg,
+        body: Center(child: CircularProgressIndicator(color: context.gold)),
       );
     }
 
@@ -32,30 +33,23 @@ class CategoryManagementPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: AppTheme.paper,
+        backgroundColor: context.bg,
         appBar: AppBar(
-          backgroundColor: AppTheme.paper,
+          backgroundColor: context.bg,
           title: Text(
             'Categories',
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark),
+            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline_rounded, color: AppTheme.gold),
-              tooltip: 'Add Category',
-              onPressed: () => _showAddCategorySheet(context, categoryProvider, CategoryType.expense),
-            ),
-          ],
           bottom: TabBar(
             tabs: [
               Tab(child: Text('Expense Categories', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
               Tab(child: Text('Income Categories', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600))),
             ],
-            indicatorColor: AppTheme.ink,
+            indicatorColor: context.gold,
             indicatorWeight: 2.5,
-            labelColor: AppTheme.ink,
-            unselectedLabelColor: AppTheme.muted,
-            dividerColor: AppTheme.line,
+            labelColor: context.gold,
+            unselectedLabelColor: context.textMuted,
+            dividerColor: context.line,
           ),
         ),
         body: TabBarView(
@@ -86,21 +80,24 @@ class CategoryManagementPage extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
-                  color: AppTheme.muted,
+                  color: context.textMuted,
                 ),
               ),
               InkWell(
-                onTap: () => _showAddCategorySheet(context, categoryProvider, type),
+                onTap: () {
+                  HapticsService.selection();
+                  _showAddCategorySheet(context, categoryProvider, type);
+                },
                 child: Row(
                   children: [
-                    const Icon(Icons.add_rounded, size: 14, color: AppTheme.gold),
+                    Icon(Icons.add_rounded, size: 14, color: context.gold),
                     const SizedBox(width: 2),
                     Text(
                       'New Category',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppTheme.gold,
+                        color: context.gold,
                       ),
                     ),
                   ],
@@ -145,16 +142,16 @@ class CategoryManagementPage extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.line),
+        color: context.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+        border: Border.all(color: context.line, width: 0.8),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Parent Category Row
+          // Main Category Row
           InkWell(
             onTap: () {
+              HapticsService.selection();
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -162,27 +159,25 @@ class CategoryManagementPage extends StatelessWidget {
                 ),
               );
             },
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: category.subCategories.isNotEmpty
+                ? const BorderRadius.vertical(top: Radius.circular(AppTheme.cardRadius))
+                : BorderRadius.circular(AppTheme.cardRadius),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
+                  // Icon
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: catColor.withValues(alpha: 0.12),
+                      color: catColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Center(
-                      child: Icon(
-                        IconUtils.getIcon(IconUtils.getIconName(category.icon), categoryName: category.name),
-                        color: catColor,
-                        size: 16,
-                      ),
-                    ),
+                    child: Icon(category.icon, color: catColor, size: 20),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
+                  // Title + Status
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,20 +185,20 @@ class CategoryManagementPage extends StatelessWidget {
                         Text(
                           category.name,
                           style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: AppTheme.textDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: context.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                               decoration: BoxDecoration(
-                                color: isPermanent ? AppTheme.paper2 : AppTheme.goldSoft.withValues(alpha: 0.25),
+                                color: isPermanent ? context.surface2 : context.gold.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -211,12 +206,12 @@ class CategoryManagementPage extends StatelessWidget {
                                 style: GoogleFonts.inter(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
-                                  color: isPermanent ? AppTheme.muted : AppTheme.gold,
+                                  color: isPermanent ? context.textMuted : context.gold,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Expanded(
+                            Flexible(
                               child: Text(
                                 isIncome
                                     ? '${CurrencyFormatter.format(totalSpent)} earned'
@@ -225,7 +220,7 @@ class CategoryManagementPage extends StatelessWidget {
                                         : '${CurrencyFormatter.format(totalSpent)} spent'),
                                 style: GoogleFonts.spaceGrotesk(
                                   fontSize: 11,
-                                  color: isIncome ? AppTheme.emerald : (budgetStatus.isExceeded ? AppTheme.brick : AppTheme.muted),
+                                  color: isIncome ? context.emerald : (budgetStatus.isExceeded ? context.brick : context.textMuted),
                                   fontWeight: FontWeight.w600,
                                 ),
                                 maxLines: 1,
@@ -240,9 +235,10 @@ class CategoryManagementPage extends StatelessWidget {
                   const SizedBox(width: 6),
                   // Category Actions Menu
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, size: 18, color: AppTheme.muted),
-                    color: AppTheme.paperCard,
+                    icon: Icon(Icons.more_vert_rounded, size: 18, color: context.textMuted),
+                    color: context.cardBg,
                     onSelected: (val) {
+                      HapticsService.selection();
                       if (val == 'rename') {
                         _showRenameCategoryDialog(context, categoryProvider, category);
                       } else if (val == 'subcat') {
@@ -254,22 +250,23 @@ class CategoryManagementPage extends StatelessWidget {
                       }
                     },
                     itemBuilder: (ctx) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'rename',
-                        child: Text('Rename'),
+                        child: Text('Rename', style: TextStyle(color: ctx.textPrimary)),
                       ),
-                      const PopupMenuItem(
-                        value: 'subcat',
-                        child: Text('Add Subcategory'),
-                      ),
-                      const PopupMenuItem(
+                      if (!isIncome)
+                        PopupMenuItem(
+                          value: 'subcat',
+                          child: Text('Add Subcategory', style: TextStyle(color: ctx.textPrimary)),
+                        ),
+                      PopupMenuItem(
                         value: 'merge',
-                        child: Text('Merge into...'),
+                        child: Text('Merge into...', style: TextStyle(color: ctx.textPrimary)),
                       ),
                       if (!isPermanent)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                           value: 'delete',
-                          child: Text('Delete', style: TextStyle(color: AppTheme.brick)),
+                          child: Text('Delete', style: TextStyle(color: ctx.brick)),
                         ),
                     ],
                   ),
@@ -281,9 +278,9 @@ class CategoryManagementPage extends StatelessWidget {
           // Subcategories Child Ledger Rows
           if (category.subCategories.isNotEmpty) ...[
             Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppTheme.line, width: 0.8)),
-                color: AppTheme.paper,
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: context.line, width: 0.8)),
+                color: context.surface2,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               child: Wrap(
@@ -293,9 +290,9 @@ class CategoryManagementPage extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: AppTheme.paperCard,
+                      color: context.cardBg,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.line),
+                      border: Border.all(color: context.line),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -314,7 +311,7 @@ class CategoryManagementPage extends StatelessWidget {
                           style: GoogleFonts.inter(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.textDark,
+                            color: context.textPrimary,
                           ),
                         ),
                       ],
@@ -334,27 +331,29 @@ class CategoryManagementPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
+        backgroundColor: context.cardBg,
         title: Text(
           'Add Subcategory to ${category.name}',
-          style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+          style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'e.g. Restaurants, Coffee, Takeout',
+            hintStyle: GoogleFonts.inter(color: context.textMuted),
           ),
-          style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark),
+          style: GoogleFonts.inter(fontSize: 13, color: context.textPrimary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: GoogleFonts.inter(color: AppTheme.muted)),
+            child: Text('Cancel', style: GoogleFonts.inter(color: context.textMuted)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: context.gold, foregroundColor: Colors.white),
             onPressed: () async {
+              HapticsService.lightImpact();
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 final newSub = SubCategory(
@@ -384,19 +383,23 @@ class CategoryManagementPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
-        title: Text('Rename Category', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+        backgroundColor: context.cardBg,
+        title: Text('Rename Category', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: GoogleFonts.inter(color: AppTheme.textDark),
-          decoration: const InputDecoration(labelText: 'Category Name'),
+          style: GoogleFonts.inter(color: context.textPrimary),
+          decoration: InputDecoration(
+            labelText: 'Category Name',
+            labelStyle: TextStyle(color: context.textMuted),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: context.textMuted))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: context.gold, foregroundColor: Colors.white),
             onPressed: () async {
+              HapticsService.lightImpact();
               final newName = controller.text.trim();
               if (newName.isNotEmpty && newName != category.name) {
                 final updated = Category(
@@ -435,21 +438,22 @@ class CategoryManagementPage extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: AppTheme.paperCard,
-          title: Text('Merge "${sourceCategory.name}"', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+          backgroundColor: context.cardBg,
+          title: Text('Merge "${sourceCategory.name}"', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Move all past transactions from ${sourceCategory.name} to target category:',
-                style: GoogleFonts.inter(fontSize: 13, color: AppTheme.muted),
+                style: GoogleFonts.inter(fontSize: 13, color: context.textMuted),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: targetId,
-                dropdownColor: AppTheme.paperCard,
-                items: sameTypeCategories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                dropdownColor: context.cardBg,
+                style: GoogleFonts.inter(color: context.textPrimary),
+                items: sameTypeCategories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, style: TextStyle(color: context.textPrimary)))).toList(),
                 onChanged: (val) {
                   if (val != null) setDialogState(() => targetId = val);
                 },
@@ -457,10 +461,11 @@ class CategoryManagementPage extends StatelessWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: context.textMuted))),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.gold, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: context.gold, foregroundColor: Colors.white),
               onPressed: () async {
+                HapticsService.lightImpact();
                 if (targetId != null) {
                   // Reassign expenses
                   final affected = expenseProvider.expenses.where((e) => e.categoryId == sourceCategory.id).toList();
@@ -489,14 +494,14 @@ class CategoryManagementPage extends StatelessWidget {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: AppTheme.paperCard,
-          title: Text('Category In Use', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+          backgroundColor: context.cardBg,
+          title: Text('Category In Use', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
           content: Text(
             '"${category.name}" cannot be deleted because transactions are recorded under it. Please use "Merge into..." to reassign its entries first.',
-            style: GoogleFonts.inter(fontSize: 13, color: AppTheme.textDark),
+            style: GoogleFonts.inter(fontSize: 13, color: context.textPrimary),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('OK', style: TextStyle(color: context.gold))),
           ],
         ),
       );
@@ -506,14 +511,15 @@ class CategoryManagementPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.paperCard,
-        title: Text('Delete Category?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
-        content: Text('Delete unused custom category "${category.name}"?'),
+        backgroundColor: context.cardBg,
+        title: Text('Delete Category?', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
+        content: Text('Delete unused custom category "${category.name}"?', style: TextStyle(color: context.textPrimary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel', style: TextStyle(color: context.textMuted))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brick, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: context.brick, foregroundColor: Colors.white),
             onPressed: () async {
+              HapticsService.lightImpact();
               await categoryProvider.remove(category.id);
               if (ctx.mounted) Navigator.pop(ctx);
             },
@@ -568,9 +574,10 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
     
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: AppTheme.paper,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: context.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: context.line),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -584,10 +591,10 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                 children: [
                   Text(
                     'Create Custom ${widget.type == CategoryType.expense ? 'Expense' : 'Income'} Category',
-                    style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.muted, size: 20),
+                    icon: Icon(Icons.close, color: context.textMuted, size: 20),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -597,14 +604,19 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
               // Name
               Text(
                 'CATEGORY NAME',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
               ),
               const SizedBox(height: 6),
               TextFormField(
                 controller: _nameController,
-                style: GoogleFonts.inter(color: AppTheme.textDark, fontSize: 14),
-                decoration: const InputDecoration(
+                style: GoogleFonts.inter(color: context.textPrimary, fontSize: 14),
+                decoration: InputDecoration(
                   hintText: 'e.g. Travel, Rent, Investments',
+                  hintStyle: GoogleFonts.inter(color: context.textMuted),
+                  filled: true,
+                  fillColor: context.cardBg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                 ),
                 onChanged: (_) => setState(() {}),
                 validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
@@ -614,7 +626,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
               // Select Icon
               Text(
                 'SELECT ICON',
-                style: GoogleFonts.inter(color: AppTheme.muted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
+                style: GoogleFonts.inter(color: context.textMuted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.0),
               ),
               const SizedBox(height: 8),
               SizedBox(
@@ -631,18 +643,21 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                     final icon = IconUtils.getIcon(name);
                     final isSelected = _selectedIconName == name;
                     return InkWell(
-                      onTap: () => setState(() => _selectedIconName = name),
+                      onTap: () {
+                        HapticsService.selection();
+                        setState(() => _selectedIconName = name);
+                      },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.ink : AppTheme.paperCard,
+                          color: isSelected ? context.gold : context.surface2,
                           border: Border.all(
-                            color: isSelected ? AppTheme.ink : AppTheme.line,
+                            color: isSelected ? context.gold : context.line,
                             width: 1,
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Icon(icon, color: isSelected ? AppTheme.goldSoft : AppTheme.textDark, size: 18),
+                        child: Icon(icon, color: isSelected ? Colors.white : context.textPrimary, size: 18),
                       ),
                     );
                   },
@@ -652,7 +667,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
 
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.gold,
+                  backgroundColor: context.gold,
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
@@ -660,6 +675,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                 onPressed: (_nameController.text.trim().isEmpty || _selectedIconName == null || _isSaving)
                     ? null
                     : () async {
+                        HapticsService.lightImpact();
                         if (!_formKey.currentState!.validate()) return;
                         setState(() => _isSaving = true);
 
@@ -682,7 +698,7 @@ class _CreateCategorySheetState extends State<CreateCategorySheet> {
                           setState(() => _isSaving = false);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.brick),
+                              SnackBar(content: Text('Error: $e'), backgroundColor: context.brick),
                             );
                           }
                         }

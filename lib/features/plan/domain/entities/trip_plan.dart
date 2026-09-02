@@ -19,6 +19,26 @@ class TripPlan extends Equatable {
     required this.createdAt,
   });
 
+  TripPlan copyWith({
+    String? id,
+    String? title,
+    double? budgetAmount,
+    String? categoryId,
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? createdAt,
+  }) {
+    return TripPlan(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      budgetAmount: budgetAmount ?? this.budgetAmount,
+      categoryId: categoryId ?? this.categoryId,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,

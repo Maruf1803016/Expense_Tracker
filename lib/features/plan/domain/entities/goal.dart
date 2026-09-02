@@ -25,6 +25,32 @@ class Goal extends Equatable {
     this.financedAmount,
   });
 
+  Goal copyWith({
+    String? id,
+    String? title,
+    double? totalBudget,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? categoryIds,
+    String? note,
+    DateTime? createdAt,
+    bool? isArchived,
+    double? financedAmount,
+  }) {
+    return Goal(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      totalBudget: totalBudget ?? this.totalBudget,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      categoryIds: categoryIds ?? this.categoryIds,
+      note: note ?? this.note,
+      createdAt: createdAt ?? this.createdAt,
+      isArchived: isArchived ?? this.isArchived,
+      financedAmount: financedAmount ?? this.financedAmount,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,

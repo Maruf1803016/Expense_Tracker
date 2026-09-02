@@ -9,130 +9,18 @@ import 'package:expense_tracker/features/export/presentation/providers/export_pr
 import 'package:expense_tracker/features/expense/presentation/providers/expense_provider.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/income_expense_bar_chart.dart';
 import 'package:expense_tracker/features/expense/presentation/widgets/spending_pie_chart.dart';
+import 'package:expense_tracker/features/expense/presentation/widgets/waterfall_diagram.dart';
 import 'package:expense_tracker/features/category/domain/entities/category.dart';
 import 'package:expense_tracker/features/expense/domain/entities/monthly_summary.dart';
-import 'package:expense_tracker/features/account/presentation/providers/account_provider.dart';
-import 'package:expense_tracker/features/category/presentation/providers/category_provider.dart';
-import 'package:expense_tracker/features/account/domain/entities/account.dart';
 import 'package:expense_tracker/core/utils/icon_utils.dart';
 
 class MonthlySummaryPage extends StatelessWidget {
   const MonthlySummaryPage({super.key});
 
-  void _showExportOptions(BuildContext context, ExpenseProvider expenseProvider, ExportProvider exportProvider) {
-    final selectedDate = expenseProvider.selectedMonth;
-    final categoryProvider = context.read<CategoryProvider>();
-    final accountProvider = context.read<AccountProvider>();
-
-    final categoryNames = {for (var c in categoryProvider.categories) c.id: c.name};
-    final accountNames = {for (var a in accountProvider.accounts) a.id: a.name};
-    final accountBalances = {
-      for (var a in accountProvider.accounts)
-        a.id: Account.calculateBalance(a, expenseProvider.expenses)
-    };
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      backgroundColor: AppTheme.paperCard,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'Export Data',
-                  style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark),
-                ),
-              ),
-              const Divider(),
-              
-              _buildOptionHeader('This Month (${DateFormatter.monthYear(selectedDate)})'),
-              ListTile(
-                leading: const Icon(Icons.table_view_rounded, color: AppTheme.emerald),
-                title: Text('CSV Spreadsheet', style: GoogleFonts.inter(color: AppTheme.textDark)),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await exportProvider.exportMonth(
-                    month: selectedDate.month,
-                    year: selectedDate.year,
-                    format: ExportFormat.csv,
-                    categoryNames: categoryNames,
-                    accountNames: accountNames,
-                    accountBalances: accountBalances,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.brick),
-                title: Text('PDF Professional Report', style: GoogleFonts.inter(color: AppTheme.textDark)),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await exportProvider.exportMonth(
-                    month: selectedDate.month,
-                    year: selectedDate.year,
-                    format: ExportFormat.pdf,
-                    categoryNames: categoryNames,
-                    accountNames: accountNames,
-                    accountBalances: accountBalances,
-                  );
-                },
-              ),
-
-              const Divider(),
-
-              _buildOptionHeader('Bulk Export'),
-              ListTile(
-                leading: const Icon(Icons.history_rounded, color: AppTheme.gold),
-                title: Text('Last 3 Months (CSVs)', style: GoogleFonts.inter(color: AppTheme.textDark)),
-                subtitle: Text('Package of reports for recent history', style: GoogleFonts.inter(color: AppTheme.muted)),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await exportProvider.exportLast3Months(
-                    currentMonth: selectedDate,
-                    format: ExportFormat.csv,
-                    categoryNames: categoryNames,
-                    accountNames: accountNames,
-                  );
-                },
-              ),
-              
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.muted,
-            letterSpacing: 1.1,
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildHeroSavingsCard(BuildContext context, MonthlySummary summary) {
     final double net = summary.netBalance;
     final bool isSaved = net >= 0;
-    final Color accentColor = isSaved ? AppTheme.emerald : AppTheme.brick;
+    final Color accentColor = isSaved ? context.emerald : context.brick;
     final IconData icon = isSaved ? Icons.savings_rounded : Icons.trending_down_rounded;
     final String statusText = isSaved ? 'NET SAVINGS' : 'NET LOSS';
     final String message = isSaved 
@@ -141,9 +29,9 @@ class MonthlySummaryPage extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 28.0, horizontal: 24.0),
@@ -152,7 +40,7 @@ class MonthlySummaryPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.15),
+                color: accentColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: accentColor, size: 36),
@@ -161,7 +49,7 @@ class MonthlySummaryPage extends StatelessWidget {
             Text(
               statusText,
               style: GoogleFonts.inter(
-                color: AppTheme.muted,
+                color: context.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
@@ -181,7 +69,7 @@ class MonthlySummaryPage extends StatelessWidget {
               message,
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                color: AppTheme.textDark,
+                color: context.textPrimary,
                 fontSize: 13,
                 height: 1.4,
               ),
@@ -200,11 +88,11 @@ class MonthlySummaryPage extends StatelessWidget {
     final selectedMonth = provider.selectedMonth;
 
     if (exportProvider.isExporting) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.gold));
+      return Center(child: CircularProgressIndicator(color: context.gold));
     }
 
     if (provider.isLoading && provider.expenses.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.gold));
+      return Center(child: CircularProgressIndicator(color: context.gold));
     }
 
     if (summary.totalIncome == 0 && summary.totalExpense == 0) {
@@ -215,21 +103,21 @@ class MonthlySummaryPage extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.gold.withOpacity(0.05),
+                color: context.gold.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.bar_chart_rounded, size: 64, color: AppTheme.gold),
+              child: Icon(Icons.bar_chart_rounded, size: 64, color: context.gold),
             ),
             const SizedBox(height: 24),
             Text(
               'No Summary Available',
-              style: GoogleFonts.fraunces(color: AppTheme.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+              style: GoogleFonts.fraunces(color: context.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
               'Start adding expenses to see your monthly breakdown and budget progress.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppTheme.muted),
+              style: GoogleFonts.inter(color: context.textMuted),
             ),
           ],
         ),
@@ -241,22 +129,7 @@ class MonthlySummaryPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(child: _buildMonthSelector(context, provider, selectedMonth)),
-              const SizedBox(width: 12),
-              IconButton(
-                style: IconButton.styleFrom(
-                  backgroundColor: AppTheme.paperCard,
-                  side: const BorderSide(color: AppTheme.line),
-                  padding: const EdgeInsets.all(12),
-                ),
-                onPressed: () => _showExportOptions(context, provider, exportProvider),
-                icon: const Icon(Icons.ios_share_rounded, color: AppTheme.ink),
-                tooltip: 'Export Report',
-              ),
-            ],
-          ),
+          _buildMonthSelector(context, provider, selectedMonth),
           const SizedBox(height: 24),
           _buildHeroSavingsCard(context, summary),
           const SizedBox(height: 32),
@@ -265,21 +138,23 @@ class MonthlySummaryPage extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.paperCard,
+              color: context.cardBg,
               borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-              border: Border.all(color: AppTheme.line),
+              border: Border.all(color: context.line),
             ),
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 const SpendingPieChart(),
                 const SizedBox(height: 24),
-                const Divider(),
+                Divider(color: context.line),
                 const SizedBox(height: 16),
                 const IncomeExpenseBarChart(),
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          WaterfallDiagram(summary: summary, provider: provider),
           const SizedBox(height: 32),
 
           _buildSectionHeader(context, 'Financial Totals'),
@@ -289,8 +164,8 @@ class MonthlySummaryPage extends StatelessWidget {
             title: 'Net Balance',
             amount: summary.netBalance,
             color: summary.netBalance >= 0 
-                ? AppTheme.emerald 
-                : AppTheme.brick,
+                ? context.emerald 
+                : context.brick,
             isMain: true,
           ),
           const SizedBox(height: 16),
@@ -302,7 +177,7 @@ class MonthlySummaryPage extends StatelessWidget {
                   context,
                   title: 'Total Income',
                   amount: summary.totalIncome,
-                  color: AppTheme.emerald,
+                  color: context.emerald,
                 ),
               ),
               const SizedBox(width: 16),
@@ -311,7 +186,7 @@ class MonthlySummaryPage extends StatelessWidget {
                   context,
                   title: 'Total Expense',
                   amount: summary.totalExpense,
-                  color: AppTheme.brick,
+                  color: context.brick,
                 ),
               ),
             ],
@@ -325,15 +200,15 @@ class MonthlySummaryPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 32.0),
               child: Center(
-                child: Text('No data for this month', style: GoogleFonts.inter(color: AppTheme.muted)),
+                child: Text('No data for this month', style: GoogleFonts.inter(color: context.textMuted)),
               ),
             )
           else
             Container(
               decoration: BoxDecoration(
-                color: AppTheme.paperCard,
+                color: context.cardBg,
                 borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                border: Border.all(color: AppTheme.line),
+                border: Border.all(color: context.line),
               ),
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -341,8 +216,9 @@ class MonthlySummaryPage extends StatelessWidget {
                   final index = e.key;
                   final entry = e.value;
                   final category = provider.getCategoryById(entry.key);
-                  final total = summary.totalIncome + summary.totalExpense;
-                  final percentage = total > 0 ? (entry.value / total) : 0.0;
+                  final isIncome = category.type == CategoryType.income;
+                  final totalBase = isIncome ? summary.totalIncome : summary.totalExpense;
+                  final percentage = totalBase > 0 ? (entry.value / totalBase) : 0.0;
                   final catColor = AppTheme.getCategoryColor(category.id, category.name);
                   
                   final budgetStatus = provider.rolledUpBudgetStatuses.firstWhere(
@@ -356,10 +232,10 @@ class MonthlySummaryPage extends StatelessWidget {
                       year: selectedMonth.year,
                     ),
                   );
-                  final double? budgetLimit = (category.type == CategoryType.expense && budgetStatus.limit > 0) ? budgetStatus.limit : null;
+                  final double? budgetLimit = (!isIncome && budgetStatus.limit > 0) ? budgetStatus.limit : null;
                   final double progressValue = budgetLimit != null ? (entry.value / budgetLimit).clamp(0.0, 1.0) : percentage;
                   final Color progressBarColor = budgetLimit != null 
-                      ? (entry.value > budgetLimit ? AppTheme.brick : AppTheme.emerald) 
+                      ? (entry.value > budgetLimit ? context.brick : context.emerald) 
                       : catColor;
                   
                   return Column(
@@ -370,7 +246,7 @@ class MonthlySummaryPage extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: catColor.withOpacity(0.15),
+                              color: catColor.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -390,7 +266,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                     Text(
                                       category.name,
                                       style: GoogleFonts.inter(
-                                        color: AppTheme.textDark,
+                                        color: context.textPrimary,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14,
                                       ),
@@ -400,7 +276,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                           ? '${CurrencyFormatter.format(entry.value)} / ${CurrencyFormatter.format(budgetLimit)}'
                                           : CurrencyFormatter.format(entry.value),
                                       style: GoogleFonts.spaceGrotesk(
-                                        color: AppTheme.textDark,
+                                        color: context.textPrimary,
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -413,7 +289,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                   child: LinearProgressIndicator(
                                     value: progressValue,
                                     minHeight: 6,
-                                    backgroundColor: AppTheme.paper2,
+                                    backgroundColor: context.surface2,
                                     color: progressBarColor,
                                   ),
                                 ),
@@ -423,7 +299,7 @@ class MonthlySummaryPage extends StatelessWidget {
                                       ? '${(entry.value / budgetLimit * 100).toStringAsFixed(0)}% of budget · ${(percentage * 100).toStringAsFixed(1)}% of total spending'
                                       : '${(percentage * 100).toStringAsFixed(1)}% of total spending',
                                   style: GoogleFonts.inter(
-                                    color: AppTheme.muted,
+                                    color: context.textMuted,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -448,7 +324,7 @@ class MonthlySummaryPage extends StatelessWidget {
       style: GoogleFonts.fraunces(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: AppTheme.textDark,
+        color: context.textPrimary,
       ),
     );
   }
@@ -456,9 +332,9 @@ class MonthlySummaryPage extends StatelessWidget {
   Widget _buildMonthSelector(BuildContext context, ExpenseProvider provider, DateTime date) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -466,7 +342,7 @@ class MonthlySummaryPage extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
-              icon: const Icon(Icons.chevron_left, color: AppTheme.ink),
+              icon: Icon(Icons.chevron_left, color: context.textPrimary),
               onPressed: () {
                 final newDate = DateTime(date.year, date.month - 1);
                 provider.changeMonth(newDate);
@@ -474,10 +350,10 @@ class MonthlySummaryPage extends StatelessWidget {
             ),
             Text(
               DateFormatter.monthYear(date),
-              style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+              style: GoogleFonts.fraunces(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             IconButton(
-              icon: const Icon(Icons.chevron_right, color: AppTheme.ink),
+              icon: Icon(Icons.chevron_right, color: context.textPrimary),
               onPressed: () {
                 final newDate = DateTime(date.year, date.month + 1);
                 provider.changeMonth(newDate);
@@ -498,9 +374,9 @@ class MonthlySummaryPage extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: Padding(
         padding: EdgeInsets.all(isMain ? 24.0 : 16.0),
@@ -509,7 +385,7 @@ class MonthlySummaryPage extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.inter(
-                color: AppTheme.muted,
+                color: context.textMuted,
                 fontSize: isMain ? 13 : 12,
                 fontWeight: FontWeight.bold,
               ),

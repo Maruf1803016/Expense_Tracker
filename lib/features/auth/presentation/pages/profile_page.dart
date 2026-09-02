@@ -2,9 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:expense_tracker/features/auth/presentation/providers/auth_provider.dart';
 import 'package:expense_tracker/core/theme/app_theme.dart';
 import 'package:expense_tracker/core/utils/messenger_utils.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,12 +19,14 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late TextEditingController _nameController;
   final _formKey = GlobalKey<FormState>();
+  String? _selectedPhotoPath;
 
   @override
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().user;
     _nameController = TextEditingController(text: user?.displayName ?? '');
+    _selectedPhotoPath = user?.photoUrl;
   }
 
   @override
@@ -32,11 +37,25 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50);
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
     
     if (image != null) {
-      if (mounted) {
-        context.read<AuthProvider>().updateProfile(photoUrl: image.path);
+      try {
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = 'profile_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
+        
+        if (mounted) {
+          setState(() {
+            _selectedPhotoPath = savedImage.path;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _selectedPhotoPath = image.path;
+          });
+        }
       }
     }
   }
@@ -54,14 +73,26 @@ class _ProfilePageState extends State<ProfilePage> {
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.user;
 
+    final effectivePhotoUrl = _selectedPhotoPath ?? user?.photoUrl;
+    ImageProvider? avatarImg;
+    if (effectivePhotoUrl != null && effectivePhotoUrl.isNotEmpty) {
+      if (effectivePhotoUrl.startsWith('http')) {
+        avatarImg = NetworkImage(effectivePhotoUrl);
+      } else if (File(effectivePhotoUrl).existsSync()) {
+        avatarImg = FileImage(File(effectivePhotoUrl));
+      }
+    }
+
     return Scaffold(
+      backgroundColor: context.bg,
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        backgroundColor: context.bg,
+        title: Text('Edit Profile', style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, color: context.textPrimary)),
       ),
       body: Column(
         children: [
           if (authProvider.isLoading)
-            const LinearProgressIndicator(color: AppTheme.emeraldGreen, minHeight: 2),
+            LinearProgressIndicator(color: context.emerald, minHeight: 2),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -70,17 +101,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   children: [
                     GestureDetector(
-                      onTap: _pickImage,
+                      onTap: () {
+                        HapticsService.selection();
+                        _pickImage();
+                      },
                       child: Stack(
                         children: [
                           CircleAvatar(
                             radius: 60,
-                            backgroundColor: AppTheme.secondaryBackground,
-                            backgroundImage: user?.photoUrl != null && user!.photoUrl!.isNotEmpty
-                                ? FileImage(File(user.photoUrl!))
-                                : null,
-                            child: user?.photoUrl == null || user!.photoUrl!.isEmpty
-                                ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                            backgroundColor: context.cardBg,
+                            backgroundImage: avatarImg,
+                            child: avatarImg == null
+                                ? Icon(Icons.person, size: 60, color: context.textMuted)
                                 : null,
                           ),
                           Positioned(
@@ -88,11 +120,11 @@ class _ProfilePageState extends State<ProfilePage> {
                             right: 0,
                             child: Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.emeraldGreen,
+                              decoration: BoxDecoration(
+                                color: context.gold,
                                 shape: BoxShape.circle,
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2))
                                 ],
                               ),
                               child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
@@ -104,9 +136,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(
+                      style: GoogleFonts.inter(color: context.textPrimary),
+                      decoration: InputDecoration(
                         labelText: 'Display Name',
-                        prefixIcon: Icon(Icons.person_outline),
+                        labelStyle: GoogleFonts.inter(color: context.textMuted),
+                        prefixIcon: Icon(Icons.person_outline, color: context.textMuted),
+                        filled: true,
+                        fillColor: context.cardBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                       ),
                       validator: (val) => val == null || val.isEmpty ? 'Please enter a name' : null,
                     ),
@@ -114,32 +152,39 @@ class _ProfilePageState extends State<ProfilePage> {
                     TextFormField(
                       initialValue: user?.email,
                       readOnly: true,
-                      decoration: const InputDecoration(
+                      style: GoogleFonts.inter(color: context.textMuted),
+                      decoration: InputDecoration(
                         labelText: 'Email Address',
-                        prefixIcon: Icon(Icons.email_outlined),
+                        labelStyle: GoogleFonts.inter(color: context.textMuted),
+                        prefixIcon: Icon(Icons.email_outlined, color: context.textMuted),
                         filled: true,
+                        fillColor: context.surface2,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: context.line)),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppTheme.paper2,
+                        color: context.cardBg,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.line),
+                        border: Border.all(color: context.line),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(
                             Icons.verified_user_outlined,
                             size: 18,
-                            color: AppTheme.emeraldGreen,
+                            color: context.emerald,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Authenticated via Firebase Email & Password.',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textDark),
+                              (user?.email.toLowerCase().endsWith('@gmail.com') == true)
+                                  ? 'Authenticated via Gmail'
+                                  : 'Authenticated via Email',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.textPrimary),
                             ),
                           ),
                         ],
@@ -147,37 +192,43 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     const SizedBox(height: 32),
                     ListTile(
-                      leading: const Icon(Icons.lock_outline, color: AppTheme.emeraldGreen),
-                      title: const Text('Change Password'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _showChangePasswordDialog,
+                      leading: Icon(Icons.lock_outline, color: context.gold),
+                      title: Text('Change Password', style: TextStyle(color: context.textPrimary)),
+                      trailing: Icon(Icons.chevron_right, color: context.textMuted),
+                      onTap: () {
+                        HapticsService.selection();
+                        _showChangePasswordDialog();
+                      },
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      tileColor: context.cardBg,
                     ),
-                    const Divider(),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emeraldGreen,
+                          backgroundColor: context.gold,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onPressed: () async {
+                          HapticsService.lightImpact();
                           if (_formKey.currentState!.validate()) {
                             final scaffoldMessenger = ScaffoldMessenger.of(context);
                             final navigator = Navigator.of(context);
                             
                             try {
-                              await authProvider.updateProfile(displayName: _nameController.text);
-                              // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
-                              authProvider.notifyListeners();
+                              await authProvider.updateProfile(
+                                displayName: _nameController.text.trim(),
+                                photoUrl: _selectedPhotoPath,
+                              );
                               
                               scaffoldMessenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text('Profile updated successfully'),
-                                  backgroundColor: AppTheme.emeraldGreen,
-                                  duration: Duration(seconds: 2),
+                                SnackBar(
+                                  content: const Text('Profile updated successfully'),
+                                  backgroundColor: context.emerald,
+                                  duration: const Duration(seconds: 2),
                                 ),
                               );
                               navigator.pop();
@@ -185,7 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               scaffoldMessenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Update failed: ${e.toString()}'),
-                                  backgroundColor: AppTheme.expenseColor,
+                                  backgroundColor: context.brick,
                                 ),
                               );
                             }
@@ -232,13 +283,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       _strength = '';
     } else if (value.length < 6) {
       _strength = 'Weak';
-      _strengthColor = Colors.red;
+      _strengthColor = context.brick;
     } else if (value.length < 10) {
       _strength = 'Medium';
-      _strengthColor = Colors.orange;
+      _strengthColor = context.gold;
     } else {
       _strength = 'Strong';
-      _strengthColor = AppTheme.emeraldGreen;
+      _strengthColor = context.emerald;
     }
     setState(() {});
   }
@@ -275,7 +326,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isStep1 ? 'Verify Identity' : 'Set New Password'),
+      backgroundColor: context.cardBg,
+      title: Text(_isStep1 ? 'Verify Identity' : 'Set New Password', style: TextStyle(color: context.textPrimary)),
       content: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _isStep1 ? _buildStep1() : _buildStep2(),
@@ -283,17 +335,19 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       actions: [
         TextButton(
           onPressed: _isVerifying ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: context.textMuted)),
         ),
         if (_isStep1)
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: context.gold, foregroundColor: Colors.white),
             onPressed: _currentPasswordController.text.isEmpty || _isVerifying ? null : _verifyCurrentPassword,
             child: _isVerifying 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text('Verify'),
           )
         else
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: context.gold, foregroundColor: Colors.white),
             onPressed: _isNewValid ? () async {
               try {
                 await context.read<AuthProvider>().changePassword(
@@ -319,15 +373,19 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Enter your current password to continue.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+        Text('Enter your current password to continue.', style: TextStyle(fontSize: 14, color: context.textMuted)),
         const SizedBox(height: 16),
         TextField(
           controller: _currentPasswordController,
+          style: TextStyle(color: context.textPrimary),
           decoration: InputDecoration(
             labelText: 'Current Password',
+            labelStyle: TextStyle(color: context.textMuted),
             errorText: _step1Error,
+            filled: true,
+            fillColor: context.surface2,
             suffixIcon: IconButton(
-              icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility, color: context.textMuted),
               onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
             ),
           ),
@@ -349,10 +407,14 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       children: [
         TextField(
           controller: _newPasswordController,
+          style: TextStyle(color: context.textPrimary),
           decoration: InputDecoration(
             labelText: 'New Password',
+            labelStyle: TextStyle(color: context.textMuted),
+            filled: true,
+            fillColor: context.surface2,
             suffixIcon: IconButton(
-              icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility, color: context.textMuted),
               onPressed: () => setState(() => _obscureNew = !_obscureNew),
             ),
           ),
@@ -365,7 +427,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
             padding: const EdgeInsets.only(top: 8.0),
             child: Row(
               children: [
-                Text('Strength: ', style: const TextStyle(fontSize: 12)),
+                Text('Strength: ', style: TextStyle(fontSize: 12, color: context.textMuted)),
                 Text(_strength, style: TextStyle(color: _strengthColor, fontSize: 12, fontWeight: FontWeight.bold)),
               ],
             ),
@@ -373,12 +435,16 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         const SizedBox(height: 16),
         TextField(
           controller: _confirmPasswordController,
+          style: TextStyle(color: context.textPrimary),
           decoration: InputDecoration(
             labelText: 'Confirm New Password',
+            labelStyle: TextStyle(color: context.textMuted),
+            filled: true,
+            fillColor: context.surface2,
             suffixIcon: matches
-                ? const Icon(Icons.check_circle, color: AppTheme.emeraldGreen)
+                ? Icon(Icons.check_circle, color: context.emerald)
                 : IconButton(
-                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility, color: context.textMuted),
                     onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
           ),
@@ -386,9 +452,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
           onChanged: (_) => setState(() {}),
         ),
         if (!matches && _confirmPasswordController.text.isNotEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8.0),
-            child: Text('Passwords do not match', style: TextStyle(color: Colors.red, fontSize: 12)),
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Text('Passwords do not match', style: TextStyle(color: context.brick, fontSize: 12)),
           ),
       ],
     );

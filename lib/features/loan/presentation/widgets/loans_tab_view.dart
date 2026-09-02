@@ -8,6 +8,8 @@ import 'package:expense_tracker/core/utils/date_formatter.dart';
 import 'package:expense_tracker/features/loan/domain/entities/loan.dart';
 import 'package:expense_tracker/features/loan/presentation/providers/loan_provider.dart';
 import 'package:expense_tracker/features/loan/presentation/pages/loan_detail_page.dart';
+import 'package:expense_tracker/shared/presentation/widgets/ink_ledger_add_card.dart';
+import 'package:expense_tracker/core/utils/haptics_service.dart';
 
 class LoansTabView extends StatefulWidget {
   const LoansTabView({super.key});
@@ -47,27 +49,27 @@ class _LoansTabViewState extends State<LoansTabView> {
             _buildMetricsHero(loanProvider),
             const SizedBox(height: 20),
 
-            // Header and Add Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'DEBT & LOANS',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                    color: AppTheme.muted,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => _showAddLoanSheet(context),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add Loan/Debt'),
-                ),
-              ],
+            // Dedicated Add a Loan Card
+            InkLedgerAddCard(
+              title: 'Add a loan',
+              subtitle: 'Record money lent to or borrowed from someone',
+              icon: Icons.handshake_outlined,
+              buttonText: 'Add',
+              onTap: () => _showAddLoanSheet(context),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+
+            // Section Header
+            Text(
+              'DEBT & LOANS LEDGER',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: AppTheme.muted,
+              ),
+            ),
+            const SizedBox(height: 10),
 
             // Filter Pills
             SingleChildScrollView(
@@ -89,18 +91,18 @@ class _LoansTabViewState extends State<LoansTabView> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(32.0),
                 decoration: BoxDecoration(
-                  color: AppTheme.paperCard,
+                  color: context.cardBg,
                   borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                  border: Border.all(color: AppTheme.line),
+                  border: Border.all(color: context.line),
                 ),
                 alignment: Alignment.center,
                 child: Column(
                   children: [
-                    Icon(Icons.handshake_outlined, size: 40, color: AppTheme.muted.withOpacity(0.5)),
+                    Icon(Icons.handshake_outlined, size: 40, color: context.textMuted.withValues(alpha: 0.5)),
                     const SizedBox(height: 12),
                     Text(
                       _filter == 'settled' ? 'No settled loans yet' : 'No active loans or debts',
-                      style: GoogleFonts.inter(color: AppTheme.muted, fontWeight: FontWeight.w500),
+                      style: GoogleFonts.inter(color: context.textMuted, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -127,9 +129,9 @@ class _LoansTabViewState extends State<LoansTabView> {
       width: double.infinity,
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: AppTheme.ink,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.goldLine),
+        border: Border.all(color: context.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,10 +145,10 @@ class _LoansTabViewState extends State<LoansTabView> {
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
-                  color: AppTheme.goldSoft.withOpacity(0.7),
+                  color: context.textMuted,
                 ),
               ),
-              Icon(Icons.account_balance_wallet_outlined, size: 16, color: AppTheme.goldSoft),
+              Icon(Icons.account_balance_wallet_outlined, size: 16, color: context.gold),
             ],
           ),
           const SizedBox(height: 8),
@@ -155,11 +157,11 @@ class _LoansTabViewState extends State<LoansTabView> {
             style: GoogleFonts.spaceGrotesk(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: provider.netLoanBalance >= 0 ? AppTheme.goldSoft : AppTheme.brick,
+              color: provider.netLoanBalance >= 0 ? context.emerald : context.brick,
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(height: 1, color: AppTheme.goldLine),
+          Divider(height: 1, color: context.line),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -169,17 +171,17 @@ class _LoansTabViewState extends State<LoansTabView> {
                   children: [
                     Text(
                       'Owed to You (Lent)',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.goldSoft.withOpacity(0.7)),
+                      style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       CurrencyFormatter.format(provider.totalLent),
-                      style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: context.textPrimary),
                     ),
                   ],
                 ),
               ),
-              Container(width: 1, height: 30, color: AppTheme.goldLine),
+              Container(width: 1, height: 30, color: context.line),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -187,12 +189,12 @@ class _LoansTabViewState extends State<LoansTabView> {
                   children: [
                     Text(
                       'You Owe (Borrowed)',
-                      style: GoogleFonts.inter(fontSize: 11, color: AppTheme.goldSoft.withOpacity(0.7)),
+                      style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       CurrencyFormatter.format(provider.totalBorrowed),
-                      style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: context.textPrimary),
                     ),
                   ],
                 ),
@@ -207,14 +209,17 @@ class _LoansTabViewState extends State<LoansTabView> {
   Widget _buildFilterPill(String label, String value, {int? count}) {
     final isSelected = _filter == value;
     return GestureDetector(
-      onTap: () => setState(() => _filter = value),
+      onTap: () {
+        HapticsService.selection();
+        setState(() => _filter = value);
+      },
       child: Container(
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.ink : AppTheme.paperCard,
+          color: isSelected ? context.gold : context.cardBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isSelected ? AppTheme.ink : AppTheme.line),
+          border: Border.all(color: isSelected ? context.gold : context.line),
         ),
         child: Row(
           children: [
@@ -223,7 +228,7 @@ class _LoansTabViewState extends State<LoansTabView> {
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppTheme.goldSoft : AppTheme.muted,
+                color: isSelected ? Colors.white : context.textMuted,
               ),
             ),
             if (count != null && count > 0) ...[
@@ -231,7 +236,7 @@ class _LoansTabViewState extends State<LoansTabView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.gold : AppTheme.paper2,
+                  color: isSelected ? Colors.white.withValues(alpha: 0.2) : context.surface2,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -239,7 +244,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : AppTheme.muted,
+                    color: isSelected ? Colors.white : context.textMuted,
                   ),
                 ),
               ),
@@ -252,13 +257,13 @@ class _LoansTabViewState extends State<LoansTabView> {
 
   Widget _buildLoanCard(BuildContext context, Loan loan) {
     final isLent = loan.type == LoanType.lent;
-    final primaryColor = isLent ? AppTheme.emerald : AppTheme.brick;
+    final primaryColor = isLent ? context.emerald : context.brick;
 
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.paperCard,
+        color: context.cardBg,
         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-        border: Border.all(color: AppTheme.line),
+        border: Border.all(color: context.line),
       ),
       child: Material(
         color: Colors.transparent,
@@ -266,6 +271,7 @@ class _LoansTabViewState extends State<LoansTabView> {
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.cardRadius),
           onTap: () {
+            HapticsService.selection();
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => LoanDetailPage(loanId: loan.id),
@@ -283,7 +289,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.12),
+                        color: primaryColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -299,11 +305,11 @@ class _LoansTabViewState extends State<LoansTabView> {
                     if (loan.dueDate != null)
                       Row(
                         children: [
-                          Icon(Icons.event_outlined, size: 12, color: AppTheme.muted),
+                          Icon(Icons.event_outlined, size: 12, color: context.textMuted),
                           const SizedBox(width: 4),
                           Text(
                             'Due ${DateFormatter.format(loan.dueDate!)}',
-                            style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                            style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                           ),
                         ],
                       ),
@@ -325,7 +331,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                             style: GoogleFonts.fraunces(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textDark,
+                              color: context.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -333,7 +339,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                             'With ${loan.counterparty}',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: AppTheme.muted,
+                              color: context.textMuted,
                             ),
                           ),
                         ],
@@ -352,7 +358,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                         ),
                         Text(
                           'of ${CurrencyFormatter.format(loan.originalAmount)}',
-                          style: GoogleFonts.inter(fontSize: 11, color: AppTheme.muted),
+                          style: GoogleFonts.inter(fontSize: 11, color: context.textMuted),
                         ),
                       ],
                     ),
@@ -366,7 +372,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                   child: LinearProgressIndicator(
                     value: loan.progress,
                     minHeight: 6,
-                    backgroundColor: AppTheme.paper2,
+                    backgroundColor: context.surface2,
                     valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                   ),
                 ),
@@ -389,13 +395,15 @@ class _LoansTabViewState extends State<LoansTabView> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.paper,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          return Padding(
+          return Container(
+            decoration: BoxDecoration(
+              color: ctx.bg,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border.all(color: ctx.line),
+            ),
             padding: EdgeInsets.only(
               left: 24,
               right: 24,
@@ -409,25 +417,29 @@ class _LoansTabViewState extends State<LoansTabView> {
                 children: [
                   Text(
                     'New Debt / Loan',
-                    style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    style: GoogleFonts.fraunces(fontSize: 20, fontWeight: FontWeight.bold, color: ctx.textPrimary),
                   ),
                   const SizedBox(height: 16),
 
                   // Mode Selector
                   Container(
                     decoration: BoxDecoration(
-                      color: AppTheme.paper2,
+                      color: ctx.cardBg,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: ctx.line),
                     ),
                     child: Row(
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setModalState(() => type = LoanType.lent),
+                            onTap: () {
+                              HapticsService.selection();
+                              setModalState(() => type = LoanType.lent);
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: type == LoanType.lent ? AppTheme.emerald : Colors.transparent,
+                                color: type == LoanType.lent ? ctx.emerald : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               alignment: Alignment.center,
@@ -436,7 +448,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: type == LoanType.lent ? Colors.white : AppTheme.muted,
+                                  color: type == LoanType.lent ? Colors.white : ctx.textMuted,
                                 ),
                               ),
                             ),
@@ -444,11 +456,14 @@ class _LoansTabViewState extends State<LoansTabView> {
                         ),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setModalState(() => type = LoanType.borrowed),
+                            onTap: () {
+                              HapticsService.selection();
+                              setModalState(() => type = LoanType.borrowed);
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: type == LoanType.borrowed ? AppTheme.brick : Colors.transparent,
+                                color: type == LoanType.borrowed ? ctx.brick : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               alignment: Alignment.center,
@@ -457,7 +472,7 @@ class _LoansTabViewState extends State<LoansTabView> {
                                 style: GoogleFonts.inter(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: type == LoanType.borrowed ? Colors.white : AppTheme.muted,
+                                  color: type == LoanType.borrowed ? Colors.white : ctx.textMuted,
                                 ),
                               ),
                             ),
@@ -468,32 +483,56 @@ class _LoansTabViewState extends State<LoansTabView> {
                   ),
                   const SizedBox(height: 16),
 
-                  Text('Title', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                  Text('Title', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: ctx.textMuted)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: titleController,
-                    decoration: const InputDecoration(hintText: 'e.g. Personal Loan, Office Lunch Share'),
+                    style: GoogleFonts.inter(color: ctx.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Personal Loan, Office Lunch Share',
+                      hintStyle: GoogleFonts.inter(color: ctx.textMuted),
+                      filled: true,
+                      fillColor: ctx.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
-                  Text('Counterparty / Person', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                  Text('Counterparty / Person', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: ctx.textMuted)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: counterpartyController,
-                    decoration: const InputDecoration(hintText: 'e.g. John Doe, Alex'),
+                    style: GoogleFonts.inter(color: ctx.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. John Doe, Alex',
+                      hintStyle: GoogleFonts.inter(color: ctx.textMuted),
+                      filled: true,
+                      fillColor: ctx.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
-                  Text('Total Amount', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                  Text('Total Amount', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: ctx.textMuted)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(hintText: '0.00'),
+                    style: GoogleFonts.spaceGrotesk(color: ctx.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: GoogleFonts.spaceGrotesk(color: ctx.textMuted),
+                      filled: true,
+                      fillColor: ctx.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
-                  Text('Due Date (Optional)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                  Text('Due Date (Optional)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: ctx.textMuted)),
                   const SizedBox(height: 6),
                   GestureDetector(
                     onTap: () async {
@@ -510,9 +549,9 @@ class _LoansTabViewState extends State<LoansTabView> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: AppTheme.paper2,
+                        color: ctx.cardBg,
                         borderRadius: BorderRadius.circular(AppTheme.cardRadius),
-                        border: Border.all(color: AppTheme.line),
+                        border: Border.all(color: ctx.line),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -520,58 +559,76 @@ class _LoansTabViewState extends State<LoansTabView> {
                           Text(
                             dueDate != null ? DateFormatter.format(dueDate!) : 'No due date set',
                             style: GoogleFonts.inter(
-                              color: dueDate != null ? AppTheme.textDark : AppTheme.muted,
+                              color: dueDate != null ? ctx.textPrimary : ctx.textMuted,
                               fontSize: 14,
                             ),
                           ),
-                          Icon(Icons.calendar_today_rounded, size: 16, color: AppTheme.muted),
+                          Icon(Icons.calendar_today_rounded, size: 16, color: ctx.gold),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  Text('Notes (Optional)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.muted)),
+                  Text('Notes (Optional)', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: ctx.textMuted)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: notesController,
-                    decoration: const InputDecoration(hintText: 'Add repayment terms or details...'),
+                    style: GoogleFonts.inter(color: ctx.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Add repayment terms or details...',
+                      hintStyle: GoogleFonts.inter(color: ctx.textMuted),
+                      filled: true,
+                      fillColor: ctx.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: ctx.line)),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
-                  ElevatedButton(
-                    onPressed: () async {
-                      final title = titleController.text.trim();
-                      final counterparty = counterpartyController.text.trim();
-                      final amt = double.tryParse(amountController.text.trim());
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ctx.gold,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () async {
+                        HapticsService.lightImpact();
+                        final title = titleController.text.trim();
+                        final counterparty = counterpartyController.text.trim();
+                        final amt = double.tryParse(amountController.text.trim());
 
-                      if (title.isEmpty || counterparty.isEmpty || amt == null || amt <= 0) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text('Please fill out title, person name, and valid amount')),
+                        if (title.isEmpty || counterparty.isEmpty || amt == null || amt <= 0) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Please fill out title, person name, and valid amount')),
+                          );
+                          return;
+                        }
+
+                        final loan = Loan(
+                          id: const Uuid().v4(),
+                          title: title,
+                          counterparty: counterparty,
+                          type: type,
+                          originalAmount: amt,
+                          dueDate: dueDate,
+                          notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
+                          createdAt: DateTime.now(),
                         );
-                        return;
-                      }
 
-                      final loan = Loan(
-                        id: const Uuid().v4(),
-                        title: title,
-                        counterparty: counterparty,
-                        type: type,
-                        originalAmount: amt,
-                        dueDate: dueDate,
-                        notes: notesController.text.trim().isNotEmpty ? notesController.text.trim() : null,
-                        createdAt: DateTime.now(),
-                      );
-
-                      await context.read<LoanProvider>().add(loan);
-                      if (ctx.mounted) {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Loan record created'), backgroundColor: AppTheme.emerald),
-                        );
-                      }
-                    },
-                    child: const Text('Create Record'),
+                        await context.read<LoanProvider>().add(loan);
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: const Text('Loan record created'), backgroundColor: context.emerald),
+                          );
+                        }
+                      },
+                      child: const Text('Create Record'),
+                    ),
                   ),
                 ],
               ),

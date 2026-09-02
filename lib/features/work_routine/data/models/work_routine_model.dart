@@ -65,6 +65,9 @@ class WorkRoutineModel extends WorkRoutine {
     super.monthlySalary,
     super.hourlyRate,
     super.expectedDaysPerWeek,
+    super.workingDays,
+    super.shiftStartTime,
+    super.shiftEndTime,
     super.color,
     super.icon,
     super.isAttendanceOnly,
@@ -77,6 +80,11 @@ class WorkRoutineModel extends WorkRoutine {
         .map((e) => AttendanceEntryModel.fromMap(e as Map<String, dynamic>))
         .toList();
 
+    final workingDaysList = (map['workingDays'] as List<dynamic>?)
+            ?.map((e) => (e as num).toInt())
+            .toList() ??
+        [1, 2, 3, 4, 5];
+
     return WorkRoutineModel(
       id: documentId,
       title: map['title'] ?? '',
@@ -84,6 +92,9 @@ class WorkRoutineModel extends WorkRoutine {
       monthlySalary: (map['monthlySalary'] as num?)?.toDouble(),
       hourlyRate: (map['hourlyRate'] as num?)?.toDouble(),
       expectedDaysPerWeek: (map['expectedDaysPerWeek'] as num?)?.toInt() ?? 5,
+      workingDays: workingDaysList,
+      shiftStartTime: map['shiftStartTime'] as String?,
+      shiftEndTime: map['shiftEndTime'] as String?,
       color: map['color'] != null ? Color(map['color'] as int) : const Color(0xFFB08D3F),
       icon: map['icon'] != null ? IconUtils.getIcon(map['icon'] as String) : Icons.work_outline_rounded,
       isAttendanceOnly: map['isAttendanceOnly'] ?? false,
@@ -101,6 +112,9 @@ class WorkRoutineModel extends WorkRoutine {
       'monthlySalary': monthlySalary,
       'hourlyRate': hourlyRate,
       'expectedDaysPerWeek': expectedDaysPerWeek,
+      'workingDays': workingDays,
+      if (shiftStartTime != null) 'shiftStartTime': shiftStartTime,
+      if (shiftEndTime != null) 'shiftEndTime': shiftEndTime,
       'color': color.value,
       'icon': IconUtils.getIconName(icon),
       'isAttendanceOnly': isAttendanceOnly,
@@ -117,6 +131,9 @@ class WorkRoutineModel extends WorkRoutine {
       monthlySalary: entity.monthlySalary,
       hourlyRate: entity.hourlyRate,
       expectedDaysPerWeek: entity.expectedDaysPerWeek,
+      workingDays: entity.workingDays,
+      shiftStartTime: entity.shiftStartTime,
+      shiftEndTime: entity.shiftEndTime,
       color: entity.color,
       icon: entity.icon,
       isAttendanceOnly: entity.isAttendanceOnly,
